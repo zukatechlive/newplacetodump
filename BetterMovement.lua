@@ -1,45 +1,18 @@
---                                               
---  ##  ##  ####  #####   #####   
---  ###### ##  ## ##  ## ##       
---  ###### ##  ## ##  ## ####      
---  ##  ## ###### ##  ## ##         
---  ##  ## ##  ## ##  ## ##       
---  ##  ## ##  ## #####   #####   
---                                               
+--[[ 
 
+Better movement + 
 
+# This is more for PC players, but it also supports mobile.
 
---                 
---  #####  ##  ##  
---  ##  ## ##  ##  
---  #####  ##  ##  
---  ##  ##  ####   
---  ##  ##   ##    
---  #####    ##    
---                 
+]]
 
-
-
---                               
---  ###### ##  ## ##  ##  ####   
---     ##  ##  ## ## ##  ##  ##  
---    ##   ##  ## ####   ##  ##  
---   ##     ####  ####   ######  
---  ##       ##   ## ##  ##  ##  
---  ######   ##   ##  ## ##  ##  
---                               
-
-
-
-local Players         = game:GetService("Players")
-local TweenService       = game:GetService("TweenService")
-local UserInputService     = game:GetService("UserInputService")
-local RunService       = game:GetService("RunService")
-local CoreGui         = game:GetService("CoreGui")
-local StarterGui      = game:GetService("StarterGui")
-local LocalPlayer      = Players.LocalPlayer
-
-
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local StarterGui = game:GetService("StarterGui")
+local LocalPlayer = Players.LocalPlayer
 
 
 local function DoNotif(msg, duration)
@@ -7545,6 +7518,7 @@ function _PlayerModule()
 	return PlayerModule.new()
 end
 _PlayerModule()
+
 UserInputService.InputBegan:Connect(function(input, gpe)
 	if gpe then
 		return
@@ -7553,11 +7527,12 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 		Strengthen:Toggle()
 	end
 end)
+
 local Dash = {
 	Config = {
 		Key = Enum.KeyCode.Q,
-		SpeedMultiplier = 3.5,
-		DecaySteps = 8,
+		SpeedMultiplier = 5.5,
+		DecaySteps = 10,
 		DecayInterval = 0.1,
 		DecayFactor = 0.7,
 		AnimationId = "rbxassetid://119132734924846",
@@ -7567,6 +7542,7 @@ local Dash = {
 		Track = nil,
 	},
 }
+
 do
 	local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 	local hum = char:WaitForChild("Humanoid")
@@ -7577,6 +7553,7 @@ do
 	local anim = Instance.new("Animation")
 	anim.AnimationId = Dash.Config.AnimationId
 	Dash.State.Track = animator:LoadAnimation(anim)
+
 	LocalPlayer.CharacterAdded:Connect(function(newChar)
 		local newHum = newChar:WaitForChild("Humanoid")
 		local newAnimator = newHum:FindFirstChildOfClass("Animator")
@@ -7589,29 +7566,29 @@ do
 		Dash.State.CanDash = true
 	end)
 end
+
 function Dash:Do()
-	if not self.State.CanDash then
-		return
-	end
+	if not self.State.CanDash then return end
 	local char = LocalPlayer.Character
-	if not char then
-		return
-	end
+	if not char then return end
 	local hum = char:FindFirstChildOfClass("Humanoid")
 	local hrp = char:FindFirstChild("HumanoidRootPart")
-	if not hum or not hrp or hum.Health <= 0 then
-		return
-	end
+	if not hum or not hrp or hum.Health <= 0 then return end
+
 	self.State.CanDash = false
+
 	task.spawn(function()
 		local ok, err = pcall(function()
 			if self.State.Track then
 				self.State.Track:Play()
 			end
+
 			local speed = hum.WalkSpeed * self.Config.SpeedMultiplier
 			local dir = hum.MoveDirection.Magnitude > 0.05 and hum.MoveDirection or hrp.CFrame.LookVector
+
 			local attachment = Instance.new("Attachment")
 			attachment.Parent = hrp
+
 			local lv = Instance.new("LinearVelocity")
 			lv.Attachment0 = attachment
 			lv.MaxForce = math.huge
@@ -7619,30 +7596,33 @@ function Dash:Do()
 			lv.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
 			lv.VectorVelocity = dir * speed
 			lv.Parent = hrp
+
 			for _ = 1, self.Config.DecaySteps do
 				task.wait(self.Config.DecayInterval)
 				lv.VectorVelocity = lv.VectorVelocity * self.Config.DecayFactor
 			end
+
 			if self.State.Track then
 				self.State.Track:Stop()
 			end
 			lv:Destroy()
 			attachment:Destroy()
 		end)
+
 		if not ok then
 			warn("[Dash] Error during dash:", err)
 		end
 		self.State.CanDash = true
 	end)
 end
+
 UserInputService.InputBegan:Connect(function(input, gpe)
-	if gpe then
-		return
-	end
+	if gpe then return end
 	if input.KeyCode == Dash.Config.Key then
 		Dash:Do()
 	end
 end)
+
 if UserInputService.TouchEnabled then
 	local Camera = workspace.CurrentCamera
 	local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -7651,6 +7631,7 @@ if UserInputService.TouchEnabled then
 	DashGui.DisplayOrder = 10
 	DashGui.ResetOnSpawn = false
 	DashGui.Parent = PlayerGui
+
 	local DashButton = Instance.new("TextButton")
 	DashButton.Name = "DashButton"
 	DashButton.BackgroundColor3 = Color3.new(0, 0, 0)
@@ -7662,6 +7643,7 @@ if UserInputService.TouchEnabled then
 	DashButton.AutoLocalize = false
 	Instance.new("UICorner", DashButton).CornerRadius = UDim.new(0, 24)
 	DashButton.Parent = DashGui
+
 	local function updateDashButtonLayout()
 		local vp = Camera and Camera.ViewportSize or Vector2.new(800, 600)
 		local minDim = math.min(vp.X, vp.Y)
@@ -7673,8 +7655,41 @@ if UserInputService.TouchEnabled then
 	if Camera then
 		Camera:GetPropertyChangedSignal("ViewportSize"):Connect(updateDashButtonLayout)
 	end
+
 	DashButton.MouseButton1Click:Connect(function()
 		Dash:Do()
 	end)
 end
-DoNotif("Use Q to dash.")
+
+DoNotif("Dash ready! Press Q to dash.", 3)
+
+--                          #          
+--                          #          
+--                          #          
+--  ### ##    ######   ######   #####  
+--  #  #  #  #     #  #     #  #     # 
+--  #  #  #  #     #  #     #  ####### 
+--  #  #  #  #    ##  #     #  #       
+--  #     #   #### #   ######   #####  
+--                                     
+--                                     
+--              #       #      #       
+--              #       #      #       
+--                      #      #       
+--  #     #   ###     ######   ######  
+--  #  #  #     #       #      #     # 
+--  #  #  #     #       #      #     # 
+--  #  #  #     #       #      #     # 
+--   ## ##    #####      ###   #     # 
+--                                     
+--                                     
+--    ##                               
+--     #                               
+--     #                               
+--     #      #####   ##   ##   #####  
+--     #     #     #   #   #   #     # 
+--     #     #     #    # #    ####### 
+--     #     #     #    # #    #       
+--    ###     #####      #      #####  
+--                                     
+--  by zyka
