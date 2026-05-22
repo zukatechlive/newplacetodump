@@ -7597,6 +7597,130 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 	end
 end)
 
+-- ══════════════════════════════════════════
+-- DASH SYSTEM
+-- ══════════════════════════════════════════
+
+local Dash = {
+	Config = {
+		Key = Enum.KeyCode.Q,
+		SpeedMultiplier = 3.5,
+		DecaySteps = 8,
+		DecayInterval = 0.1,
+		DecayFactor = 0.7,
+		MaxForce = Vector3.new(30000, 0, 30000),
+		AnimationId = "rbxassetid://119132734924846",
+	},
+	State = {
+		CanDash = true,
+		Track = nil,
+	},
+}
+
+do
+	local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+	local hum = char:WaitForChild("Humanoid")
+	local animator = hum:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = Instance.new("Animator", hum)
+	end
+	local anim = Instance.new("Animation")
+	anim.AnimationId = Dash.Config.AnimationId
+	Dash.State.Track = animator:LoadAnimation(anim)
+
+	LocalPlayer.CharacterAdded:Connect(function(newChar)
+		local newHum = newChar:WaitForChild("Humanoid")
+		local newAnimator = newHum:FindFirstChildOfClass("Animator")
+		if not newAnimator then
+			newAnimator = Instance.new("Animator", newHum)
+		end
+		local newAnim = Instance.new("Animation")
+		newAnim.AnimationId = Dash.Config.AnimationId
+		Dash.State.Track = newAnimator:LoadAnimation(newAnim)
+		Dash.State.CanDash = true
+	end)
+end
+
+function Dash:Do()
+	if not self.State.CanDash then return end
+	local char = LocalPlayer.Character
+	if not char then return end
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if not hum or not hrp or hum.Health <= 0 then return end
+
+	self.State.CanDash = false
+	if self.State.Track then
+		self.State.Track:Play()
+	end
+
+	local speed = hum.WalkSpeed * self.Config.SpeedMultiplier
+	local dir = hum.MoveDirection.Magnitude > 0.05 and hum.MoveDirection or hrp.CFrame.LookVector
+
+	local bv = Instance.new("BodyVelocity")
+	bv.MaxForce = self.Config.MaxForce
+	bv.Velocity = dir * speed
+	bv.Parent = hrp
+
+	for _ = 1, self.Config.DecaySteps do
+		task.wait(self.Config.DecayInterval)
+		bv.Velocity = bv.Velocity * self.Config.DecayFactor
+	end
+
+	if self.State.Track then
+		self.State.Track:Stop()
+	end
+	bv:Destroy()
+	self.State.CanDash = true
+end
+
+UserInputService.InputBegan:Connect(function(input, gpe)
+	if gpe then return end
+	if input.KeyCode == Dash.Config.Key then
+		Dash:Do()
+	end
+end)
+
+if UserInputService.TouchEnabled then
+	local Camera = workspace.CurrentCamera
+	local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+	local DashGui = Instance.new("ScreenGui")
+	DashGui.Name = "DashButtonGui"
+	DashGui.DisplayOrder = 10
+	DashGui.ResetOnSpawn = false
+	DashGui.Parent = PlayerGui
+
+	local DashButton = Instance.new("TextButton")
+	DashButton.Name = "DashButton"
+	DashButton.BackgroundColor3 = Color3.new(0, 0, 0)
+	DashButton.BackgroundTransparency = 0.4
+	DashButton.Text = "Dash"
+	DashButton.TextColor3 = Color3.new(1, 1, 1)
+	DashButton.Font = Enum.Font.FredokaOne
+	DashButton.TextScaled = true
+	DashButton.AutoLocalize = false
+	Instance.new("UICorner", DashButton).CornerRadius = UDim.new(0, 24)
+	DashButton.Parent = DashGui
+
+	local function updateDashButtonLayout()
+		local vp = Camera and Camera.ViewportSize or Vector2.new(800, 600)
+		local minDim = math.min(vp.X, vp.Y)
+		DashButton.Size = UDim2.new(0, math.max(100, minDim * 0.18), 0, math.max(40, minDim * 0.08))
+		DashButton.Position = UDim2.new(0.8, 0, 0.85, 0)
+		DashButton.AnchorPoint = Vector2.new(0.5, 0.5)
+	end
+	updateDashButtonLayout()
+	if Camera then
+		Camera:GetPropertyChangedSignal("ViewportSize"):Connect(updateDashButtonLayout)
+	end
+
+	DashButton.MouseButton1Click:Connect(function()
+		Dash:Do()
+	end)
+end
+
+DoNotif("Dash ready! Press Q to dash.", 3)
+
 --                          #          
 --                          #          
 --                          #          
