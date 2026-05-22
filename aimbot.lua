@@ -17,11 +17,11 @@
 --  #  #  # ##  #     # #    #   
 --  ###    # #   ###  #  #   #   
 --                               
-]]                           
+]]
 
 local function loadAimbotGUI(args)
 	local CoreGui = game:GetService("CoreGui")
-	if CoreGui:FindFirstChild("UTS_CGE_Suite") and not args then
+	if CoreGui:FindFirstChild("aim_addon") and not args then
 		if DoNotif then
 			DoNotif("Aimbot GUI is already open.", 2)
 		else
@@ -29,7 +29,7 @@ local function loadAimbotGUI(args)
 		end
 		return
 	end
-	if CoreGui:FindFirstChild("UTS_CGE_Suite") then
+	if CoreGui:FindFirstChild("aim_addon") then
 	end
 	local success, err = pcall(function()
 		local UserInputService = game:GetService("UserInputService")
@@ -45,8 +45,8 @@ local function loadAimbotGUI(args)
 			corner.CornerRadius = UDim.new(0, cornerRadius or 6)
 			corner.Parent = element
 		end
-		local MainScreenGui = CoreGui:FindFirstChild("UTS_CGE_Suite") or Instance.new("ScreenGui")
-		MainScreenGui.Name = "UTS_CGE_Suite"
+		local MainScreenGui = CoreGui:FindFirstChild("aim_addon") or Instance.new("ScreenGui")
+		MainScreenGui.Name = "aim_addon"
 		MainScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 		MainScreenGui.ResetOnSpawn = false
 		if not MainScreenGui.Parent then
@@ -579,7 +579,7 @@ local function loadAimbotGUI(args)
 			statusLabel.TextColor3 = Color3.fromRGB(180, 220, 180)
 			statusLabel.Font = Enum.Font.Code
 			statusLabel.TextSize = 14
-			statusLabel.Text = "Aimbot ready. Hold toggle key to aim."
+			statusLabel.Text = "Aimbot on.."
 			statusLabel.TextXAlignment = Enum.TextXAlignment.Left
 			selectLabel = Instance.new("TextLabel", StatusBar)
 			selectLabel.Size = UDim2.new(1, 0, 0, 18)
@@ -678,7 +678,7 @@ local function loadAimbotGUI(args)
 				end)
 			)
 			local fovRadius = 75
-			local smoothingEnabled = false
+			local smoothingEnabled = true
 			local smoothingFactor = 0.2
 			local PROJECTILE_SPEED = 4500
 			local gravityEnabled = false
@@ -718,7 +718,6 @@ local function loadAimbotGUI(args)
 				FovCircle.Transparency = 0.7
 				FovCircle.Filled = false
 			else
-				warn("Zuka's Log: 'Drawing' library not found. FOV circle visualization will be disabled.")
 			end
 			local minFov, maxFov = 50, 500
 			local function updateFovFromHandlePosition()
@@ -1249,18 +1248,23 @@ local function loadAimbotGUI(args)
 		if DoNotif then
 			DoNotif("Error loading Aimbot: " .. tostring(err), 5)
 		end
-		local gui = CoreGui:FindFirstChild("UTS_CGE_Suite")
+		local gui = CoreGui:FindFirstChild("aim_addon")
 		if gui then
 			gui:Destroy()
 		end
 	end
 end
+
+
+-- this is for the panel.lua
+
+
 RegisterCommand({
 	Name = "aimbot",
 	Aliases = {},
 	Description = "Loads the aimbot GUI. Optional: [player name] to lock target.",
 }, function(args)
-	if not game:GetService("CoreGui"):FindFirstChild("UTS_CGE_Suite") then
+	if not game:GetService("CoreGui"):FindFirstChild("aim_addon") then
 		loadAimbotGUI(args)
 	else
 		if args and args[1] then
