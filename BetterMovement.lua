@@ -1,20 +1,45 @@
---[[ 
+--                                               
+--  ##  ##  ####  #####   #####   
+--  ###### ##  ## ##  ## ##       
+--  ###### ##  ## ##  ## ####      
+--  ##  ## ###### ##  ## ##         
+--  ##  ## ##  ## ##  ## ##       
+--  ##  ## ##  ## #####   #####   
+--                                               
 
-Better movement + 
 
-# This is more for PC players, but it also supports mobile.
 
-]]
+--                 
+--  #####  ##  ##  
+--  ##  ## ##  ##  
+--  #####  ##  ##  
+--  ##  ##  ####   
+--  ##  ##   ##    
+--  #####    ##    
+--                 
 
-local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
-local CoreGui = game:GetService("CoreGui")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local StarterGui = game:GetService("StarterGui")
-local LocalPlayer = Players.LocalPlayer
+
+
+--                               
+--  ###### ##  ## ##  ##  ####   
+--     ##  ##  ## ## ##  ##  ##  
+--    ##   ##  ## ####   ##  ##  
+--   ##     ####  ####   ######  
+--  ##       ##   ## ##  ##  ##  
+--  ######   ##   ##  ## ##  ##  
+--                               
+
+
+
+local Players         = game:GetService("Players")
+local TweenService       = game:GetService("TweenService")
+local UserInputService     = game:GetService("UserInputService")
+local RunService       = game:GetService("RunService")
+local CoreGui         = game:GetService("CoreGui")
+local StarterGui      = game:GetService("StarterGui")
+local LocalPlayer      = Players.LocalPlayer
+
+
 
 
 local function DoNotif(msg, duration)
@@ -64,7 +89,7 @@ function ShiftLock:_makeDraggable(guiObject, dragHandle)
 			end)
 		end
 	end)
-	UserInputService.InputChanged:Connect(function(input)
+	local moveConn = UserInputService.InputChanged:Connect(function(input)
 		if
 			dragging
 			and (
@@ -77,18 +102,15 @@ function ShiftLock:_makeDraggable(guiObject, dragHandle)
 				UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 		end
 	end)
+	return moveConn
 end
 function ShiftLock:_updateLogic(deltaTime)
 	local char = LocalPlayer.Character
 	local hum = char and char:FindFirstChildOfClass("Humanoid")
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
-	local camera = Workspace.CurrentCamera
+	local camera = workspace.CurrentCamera
 	if not (hum and hrp and camera and hum.Health > 0) then
 		return
-	end
-	-- Lock FOV to 90 every frame so nothing can override it
-	if camera.FieldOfView ~= 90 then
-		camera.FieldOfView = 90
 	end
 	if self.State.IsLocked then
 		local lookVector = camera.CFrame.LookVector
@@ -97,8 +119,6 @@ function ShiftLock:_updateLogic(deltaTime)
 			hrp.CFrame = hrp.CFrame:Lerp(CFrame.lookAt(hrp.Position, hrp.Position + flatVector.Unit), 0.65)
 		end
 		hum.CameraOffset = hum.CameraOffset:Lerp(self.Config.CameraOffset, self.Config.Smoothing)
-		-- Only set MouseBehavior if it isn't already LockCenter.
-		-- Setting it every frame blocks scroll wheel zoom input.
 		if UserInputService.MouseBehavior ~= Enum.MouseBehavior.LockCenter then
 			UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
 		end
@@ -158,7 +178,7 @@ function ShiftLock:Enable()
 	ui.Icon.Position = UDim2.fromScale(0.2, 0.2)
 	ui.Icon.BackgroundTransparency = 1
 	ui.Icon.Image = self.Config.Icons.Off
-	self:_makeDraggable(ui.Button, ui.Button)
+	self.State.Connections.Drag = self:_makeDraggable(ui.Button, ui.Button)
 	self.State.Connections.Main = RunService.RenderStepped:Connect(function(dt)
 		self:_updateLogic(dt)
 	end)
@@ -255,7 +275,10 @@ local function applyMovementStats(character)
 	end
 	hum.WalkSpeed = WALK_SPEED
 	hum.JumpPower = JUMP_POWER
-	hum.HipHeight = hum.HipHeight + HIP_HEIGHT_BONUS
+	if not hum:GetAttribute("_OriginalHipHeight") then
+		hum:SetAttribute("_OriginalHipHeight", hum.HipHeight)
+	end
+	hum.HipHeight = hum:GetAttribute("_OriginalHipHeight") + HIP_HEIGHT_BONUS
 	if Strengthen.State.Enabled then
 		Strengthen:ApplyToCharacter(character)
 	end
@@ -269,14 +292,6 @@ if LocalPlayer.Character then
 	applyMovementStats(LocalPlayer.Character)
 end
 LocalPlayer.CharacterAdded:Connect(applyMovementStats)
-UserInputService.InputBegan:Connect(function(input, gpe)
-	if gpe then
-		return
-	end
-	if input.KeyCode == Enum.KeyCode.RightControl then
-		Strengthen:Toggle()
-	end
-end)
 local function ClonedService(name)
 	local Service = game.GetService
 	local Reference = cloneref or function(reference)
@@ -325,23 +340,13 @@ local IsOnMobile = (function()
 	end
 	return false
 end)()
-repeat
-	wait()
-	local a = pcall(function()
-		((ClonedService("Players")).LocalPlayer:WaitForChild("PlayerScripts")).ChildAdded:Connect(function(c)
-			if c.Name == "PlayerScriptsLoader" then
-				c.Disabled = true
-			end
-		end)
+pcall(function()
+	local playerScripts = LocalPlayer:WaitForChild("PlayerScripts")
+	playerScripts.ChildAdded:Connect(function(c)
+		if c.Name == "PlayerScriptsLoader" then
+			c.Disabled = true
+		end
 	end)
-	if a == true then
-		break
-	end
-until true == false
-((ClonedService("Players")).LocalPlayer:WaitForChild("PlayerScripts")).ChildAdded:Connect(function(c)
-	if c.Name == "PlayerScriptsLoader" then
-		c.Disabled = true
-	end
 end)
 function _CameraUI()
 	local Players = ClonedService("Players")
@@ -7540,54 +7545,6 @@ function _PlayerModule()
 	return PlayerModule.new()
 end
 _PlayerModule()
-local Strengthen = {
-	State = {
-		Enabled = false,
-		Density = 40,
-		OriginalProperties = {},
-	},
-}
-function Strengthen:ApplyToCharacter(character)
-	table.clear(self.State.OriginalProperties)
-	for _, part in ipairs(character:GetDescendants()) do
-		if part:IsA("BasePart") then
-			self.State.OriginalProperties[part] = part.CustomPhysicalProperties
-			part.CustomPhysicalProperties = PhysicalProperties.new(self.State.Density, 0.3, 0.5)
-		end
-	end
-end
-function Strengthen:RevertForCharacter()
-	local character = LocalPlayer.Character
-	if not character then
-		return
-	end
-	for part, originalProperties in pairs(self.State.OriginalProperties) do
-		if part and part.Parent and part:IsDescendantOf(character) then
-			part.CustomPhysicalProperties = originalProperties
-		end
-	end
-	table.clear(self.State.OriginalProperties)
-end
-function Strengthen:Toggle(args)
-	local character = LocalPlayer.Character
-	if not character then
-		return DoNotif("Character not found.", 3)
-	end
-	local newDensity = args and tonumber(args[1])
-	if newDensity and newDensity > 0 then
-		self.State.Density = newDensity
-		DoNotif("Strengthen density set to " .. self.State.Density, 2)
-	end
-	if self.State.Enabled then
-		self:RevertForCharacter()
-		self.State.Enabled = false
-		DoNotif("Strengthen disabled. Character physics restored.", 2)
-	else
-		self:ApplyToCharacter(character)
-		self.State.Enabled = true
-		DoNotif("Strengthen enabled at density " .. self.State.Density, 2)
-	end
-end
 UserInputService.InputBegan:Connect(function(input, gpe)
 	if gpe then
 		return
@@ -7596,11 +7553,6 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 		Strengthen:Toggle()
 	end
 end)
-
--- ══════════════════════════════════════════
--- DASH SYSTEM
--- ══════════════════════════════════════════
-
 local Dash = {
 	Config = {
 		Key = Enum.KeyCode.Q,
@@ -7608,7 +7560,6 @@ local Dash = {
 		DecaySteps = 8,
 		DecayInterval = 0.1,
 		DecayFactor = 0.7,
-		MaxForce = Vector3.new(30000, 0, 30000),
 		AnimationId = "rbxassetid://119132734924846",
 	},
 	State = {
@@ -7616,7 +7567,6 @@ local Dash = {
 		Track = nil,
 	},
 }
-
 do
 	local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 	local hum = char:WaitForChild("Humanoid")
@@ -7627,7 +7577,6 @@ do
 	local anim = Instance.new("Animation")
 	anim.AnimationId = Dash.Config.AnimationId
 	Dash.State.Track = animator:LoadAnimation(anim)
-
 	LocalPlayer.CharacterAdded:Connect(function(newChar)
 		local newHum = newChar:WaitForChild("Humanoid")
 		local newAnimator = newHum:FindFirstChildOfClass("Animator")
@@ -7640,47 +7589,60 @@ do
 		Dash.State.CanDash = true
 	end)
 end
-
 function Dash:Do()
-	if not self.State.CanDash then return end
+	if not self.State.CanDash then
+		return
+	end
 	local char = LocalPlayer.Character
-	if not char then return end
+	if not char then
+		return
+	end
 	local hum = char:FindFirstChildOfClass("Humanoid")
 	local hrp = char:FindFirstChild("HumanoidRootPart")
-	if not hum or not hrp or hum.Health <= 0 then return end
-
+	if not hum or not hrp or hum.Health <= 0 then
+		return
+	end
 	self.State.CanDash = false
-	if self.State.Track then
-		self.State.Track:Play()
-	end
-
-	local speed = hum.WalkSpeed * self.Config.SpeedMultiplier
-	local dir = hum.MoveDirection.Magnitude > 0.05 and hum.MoveDirection or hrp.CFrame.LookVector
-
-	local bv = Instance.new("BodyVelocity")
-	bv.MaxForce = self.Config.MaxForce
-	bv.Velocity = dir * speed
-	bv.Parent = hrp
-
-	for _ = 1, self.Config.DecaySteps do
-		task.wait(self.Config.DecayInterval)
-		bv.Velocity = bv.Velocity * self.Config.DecayFactor
-	end
-
-	if self.State.Track then
-		self.State.Track:Stop()
-	end
-	bv:Destroy()
-	self.State.CanDash = true
+	task.spawn(function()
+		local ok, err = pcall(function()
+			if self.State.Track then
+				self.State.Track:Play()
+			end
+			local speed = hum.WalkSpeed * self.Config.SpeedMultiplier
+			local dir = hum.MoveDirection.Magnitude > 0.05 and hum.MoveDirection or hrp.CFrame.LookVector
+			local attachment = Instance.new("Attachment")
+			attachment.Parent = hrp
+			local lv = Instance.new("LinearVelocity")
+			lv.Attachment0 = attachment
+			lv.MaxForce = math.huge
+			lv.RelativeTo = Enum.ActuatorRelativeTo.World
+			lv.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
+			lv.VectorVelocity = dir * speed
+			lv.Parent = hrp
+			for _ = 1, self.Config.DecaySteps do
+				task.wait(self.Config.DecayInterval)
+				lv.VectorVelocity = lv.VectorVelocity * self.Config.DecayFactor
+			end
+			if self.State.Track then
+				self.State.Track:Stop()
+			end
+			lv:Destroy()
+			attachment:Destroy()
+		end)
+		if not ok then
+			warn("[Dash] Error during dash:", err)
+		end
+		self.State.CanDash = true
+	end)
 end
-
 UserInputService.InputBegan:Connect(function(input, gpe)
-	if gpe then return end
+	if gpe then
+		return
+	end
 	if input.KeyCode == Dash.Config.Key then
 		Dash:Do()
 	end
 end)
-
 if UserInputService.TouchEnabled then
 	local Camera = workspace.CurrentCamera
 	local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -7689,7 +7651,6 @@ if UserInputService.TouchEnabled then
 	DashGui.DisplayOrder = 10
 	DashGui.ResetOnSpawn = false
 	DashGui.Parent = PlayerGui
-
 	local DashButton = Instance.new("TextButton")
 	DashButton.Name = "DashButton"
 	DashButton.BackgroundColor3 = Color3.new(0, 0, 0)
@@ -7701,7 +7662,6 @@ if UserInputService.TouchEnabled then
 	DashButton.AutoLocalize = false
 	Instance.new("UICorner", DashButton).CornerRadius = UDim.new(0, 24)
 	DashButton.Parent = DashGui
-
 	local function updateDashButtonLayout()
 		local vp = Camera and Camera.ViewportSize or Vector2.new(800, 600)
 		local minDim = math.min(vp.X, vp.Y)
@@ -7713,41 +7673,8 @@ if UserInputService.TouchEnabled then
 	if Camera then
 		Camera:GetPropertyChangedSignal("ViewportSize"):Connect(updateDashButtonLayout)
 	end
-
 	DashButton.MouseButton1Click:Connect(function()
 		Dash:Do()
 	end)
 end
-
-DoNotif("Dash ready! Press Q to dash.", 3)
-
---                          #          
---                          #          
---                          #          
---  ### ##    ######   ######   #####  
---  #  #  #  #     #  #     #  #     # 
---  #  #  #  #     #  #     #  ####### 
---  #  #  #  #    ##  #     #  #       
---  #     #   #### #   ######   #####  
---                                     
---                                     
---              #       #      #       
---              #       #      #       
---                      #      #       
---  #     #   ###     ######   ######  
---  #  #  #     #       #      #     # 
---  #  #  #     #       #      #     # 
---  #  #  #     #       #      #     # 
---   ## ##    #####      ###   #     # 
---                                     
---                                     
---    ##                               
---     #                               
---     #                               
---     #      #####   ##   ##   #####  
---     #     #     #   #   #   #     # 
---     #     #     #    # #    ####### 
---     #     #     #    # #    #       
---    ###     #####      #      #####  
---                                     
---  by zyka
+DoNotif("Use Q to dash.")
