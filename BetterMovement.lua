@@ -1,601 +1,332 @@
-local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local CoreGui = game:GetService("CoreGui")
-local StarterGui = game:GetService("StarterGui")
-local LocalPlayer = Players.LocalPlayer
-local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
-local root = character:WaitForChild("HumanoidRootPart")
+local Players         = game:GetService("Players")
+local TweenService    = game:GetService("TweenService")
+local UserInputService= game:GetService("UserInputService")
+local RunService      = game:GetService("RunService")
+local CoreGui         = game:GetService("CoreGui")
+local StarterGui      = game:GetService("StarterGui")
+local LocalPlayer     = Players.LocalPlayer
 local function DoNotif(msg, duration)
-	pcall(function()
-		StarterGui:SetCore("SendNotification", {
-			Title = "BetterMovement",
-			Text = msg,
-			Duration = duration or 3,
-		})
-	end)
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title    = "BetterMovement",
+            Text     = msg,
+            Duration = duration or 3,
+        })
+    end)
 end
 local ShiftLock = {
-	State = {
-		IsEnabled = false,
-		IsLocked = false,
-		UI = {},
-		Connections = {},
-		Originals = {},
-	},
-	Config = {
-		Icons = {
-			On = "rbxasset://textures/ui/mouseLock_on.png",
-			Off = "rbxasset://textures/ui/mouseLock_off.png",
-		},
-		CameraOffset = Vector3.new(2.2, 0, 0),
-		Smoothing = 0.1,
-		ToggleKey = Enum.KeyCode.LeftAlt,
-	},
+    State = {
+        IsEnabled   = false,
+        IsLocked    = false,
+        UI          = {},
+        Connections = {},
+        Originals   = {},
+    },
+    Config = {
+        Icons = {
+            On  = "rbxasset://textures/ui/mouseLock_on.png",
+            Off = "rbxasset://textures/ui/mouseLock_off.png",
+        },
+        CameraOffset = Vector3.new(2.2, 0, 0),
+        Smoothing    = 0.1,
+        ToggleKey    = Enum.KeyCode.LeftAlt,
+    },
 }
 function ShiftLock:_makeDraggable(guiObject, dragHandle)
-	local dragging = false
-	local dragStart, startPos
-	dragHandle.InputBegan:Connect(function(input)
-		if
-			input.UserInputType == Enum.UserInputType.MouseButton1
-			or input.UserInputType == Enum.UserInputType.Touch
-		then
-			dragging = true
-			dragStart = input.Position
-			startPos = guiObject.Position
-			local changedConn
-			changedConn = input.Changed:Connect(function()
-				if input.UserInputState == Enum.UserInputState.End then
-					dragging = false
-					changedConn:Disconnect()
-				end
-			end)
-		end
-	end)
-	local moveConn = UserInputService.InputChanged:Connect(function(input)
-		if
-			dragging
-			and (
-				input.UserInputType == Enum.UserInputType.MouseMovement
-				or input.UserInputType == Enum.UserInputType.Touch
-			)
-		then
-			local delta = input.Position - dragStart
-			guiObject.Position =
-				UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-		end
-	end)
-	return moveConn
+    local dragging = false
+    local dragStart, startPos
+    dragHandle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging  = true
+            dragStart = input.Position
+            startPos  = guiObject.Position
+            local changedConn
+            changedConn = input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                    changedConn:Disconnect()
+                end
+            end)
+        end
+    end)
+    local moveConn = UserInputService.InputChanged:Connect(function(input)
+        if dragging and (
+            input.UserInputType == Enum.UserInputType.MouseMovement or
+            input.UserInputType == Enum.UserInputType.Touch
+        ) then
+            local delta = input.Position - dragStart
+            guiObject.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+    return moveConn
 end
-function ShiftLock:_updateLogic(deltaTime)
-	local char = LocalPlayer.Character
-	local hum = char and char:FindFirstChildOfClass("Humanoid")
-	local hrp = char and char:FindFirstChild("HumanoidRootPart")
-	local camera = workspace.CurrentCamera
-	if not (hum and hrp and camera and hum.Health > 0) then
-		return
-	end
-	if self.State.IsLocked then
-		hum.CameraOffset = hum.CameraOffset:Lerp(self.Config.CameraOffset, self.Config.Smoothing)
-		if UserInputService.MouseBehavior ~= Enum.MouseBehavior.LockCenter then
-			UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-		end
-	else
-		if hum.CameraOffset.Magnitude > 0.01 then
-			hum.CameraOffset = hum.CameraOffset:Lerp(Vector3.zero, self.Config.Smoothing)
-		end
-	end
+function ShiftLock:_updateLogic()
+    local char   = LocalPlayer.Character
+    local hum    = char and char:FindFirstChildOfClass("Humanoid")
+    local hrp    = char and char:FindFirstChild("HumanoidRootPart")
+    local camera = workspace.CurrentCamera
+    if not (hum and hrp and camera and hum.Health > 0) then return end
+    if self.State.IsLocked then
+        local lookVector = camera.CFrame.LookVector
+        local flatVector = Vector3.new(lookVector.X, 0, lookVector.Z)
+        if flatVector.Magnitude > 1e-4 then
+            hrp.CFrame = hrp.CFrame:Lerp(CFrame.lookAt(hrp.Position, hrp.Position + flatVector.Unit), 0.65)
+        end
+        hum.CameraOffset = hum.CameraOffset:Lerp(self.Config.CameraOffset, self.Config.Smoothing)
+        if UserInputService.MouseBehavior ~= Enum.MouseBehavior.LockCenter then
+            UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+        end
+    else
+        if hum.CameraOffset.Magnitude > 0.01 then
+            hum.CameraOffset = hum.CameraOffset:Lerp(Vector3.zero, self.Config.Smoothing)
+        end
+    end
 end
 function ShiftLock:_setLockState(newState)
-	local char = LocalPlayer.Character
-	local hum = char and char:FindFirstChildOfClass("Humanoid")
-	if newState and hum and hum.Sit then
-		return
-	end
-	self.State.IsLocked = newState
-	if newState then
-		if hum then
-			self.State.Originals.AutoRotate = hum.AutoRotate
-			hum.AutoRotate = false
-		end
-	else
-		if hum and self.State.Originals.AutoRotate ~= nil then
-			hum.AutoRotate = self.State.Originals.AutoRotate
-		end
-		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-	end
-	local ui = self.State.UI
-	if ui.Button then
-		local targetColor = newState and Color3.fromRGB(0, 255, 200) or Color3.fromRGB(0, 140, 255)
-		local targetBg = newState and Color3.fromRGB(20, 35, 30) or Color3.fromRGB(25, 25, 30)
-		TweenService:Create(ui.Stroke, TweenInfo.new(0.2), { Color = targetColor, Thickness = newState and 3 or 2 })
-			:Play()
-		TweenService:Create(ui.Button, TweenInfo.new(0.2), { BackgroundColor3 = targetBg }):Play()
-		ui.Icon.Image = newState and self.Config.Icons.On or self.Config.Icons.Off
-	end
+    local char = LocalPlayer.Character
+    local hum  = char and char:FindFirstChildOfClass("Humanoid")
+    if newState and hum and hum.Sit then return end
+    self.State.IsLocked = newState
+    if newState then
+        if hum then
+            self.State.Originals.AutoRotate = hum.AutoRotate
+            hum.AutoRotate = false
+        end
+    else
+        if hum and self.State.Originals.AutoRotate ~= nil then
+            hum.AutoRotate = self.State.Originals.AutoRotate
+        end
+        UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+    end
+    local ui = self.State.UI
+    if ui.Button then
+        local targetColor = newState and Color3.fromRGB(0, 255, 200) or Color3.fromRGB(0, 140, 255)
+        local targetBg    = newState and Color3.fromRGB(20, 35, 30)  or Color3.fromRGB(25, 25, 30)
+        TweenService:Create(ui.Stroke, TweenInfo.new(0.2), {Color = targetColor, Thickness = newState and 3 or 2}):Play()
+        TweenService:Create(ui.Button, TweenInfo.new(0.2), {BackgroundColor3 = targetBg}):Play()
+        ui.Icon.Image = newState and self.Config.Icons.On or self.Config.Icons.Off
+    end
 end
 function ShiftLock:Enable()
-	if self.State.IsEnabled then
-		return
-	end
-	self.State.IsEnabled = true
-	local ui = self.State.UI
-	ui.ScreenGui = Instance.new("ScreenGui", CoreGui)
-	ui.ScreenGui.Name = "ForensicShiftLock_V2"
-	ui.ScreenGui.ResetOnSpawn = false
-	ui.Button = Instance.new("ImageButton", ui.ScreenGui)
-	ui.Button.Size = UDim2.fromOffset(55, 55)
-	ui.Button.Position = UDim2.new(1, -75, 1, -150)
-	ui.Button.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-	Instance.new("UICorner", ui.Button).CornerRadius = UDim.new(1, 0)
-	ui.Stroke = Instance.new("UIStroke", ui.Button)
-	ui.Stroke.Color = Color3.fromRGB(0, 140, 255)
-	ui.Stroke.Thickness = 2
-	ui.Icon = Instance.new("ImageLabel", ui.Button)
-	ui.Icon.Size = UDim2.fromScale(0.6, 0.6)
-	ui.Icon.Position = UDim2.fromScale(0.2, 0.2)
-	ui.Icon.BackgroundTransparency = 1
-	ui.Icon.Image = self.Config.Icons.Off
-	self.State.Connections.Drag = self:_makeDraggable(ui.Button, ui.Button)
-	self.State.Connections.Main = RunService.RenderStepped:Connect(function(dt)
-		self:_updateLogic(dt)
-	end)
-	self.State.Connections.Input = UserInputService.InputBegan:Connect(function(input, gpe)
-		if not gpe and input.KeyCode == self.Config.ToggleKey then
-			self:_setLockState(not self.State.IsLocked)
-		end
-	end)
-	ui.Button.Activated:Connect(function()
-		self:_setLockState(not self.State.IsLocked)
-	end)
-	self:_setLockState(true)
-	DoNotif("Shift Lock ON. Press Alt to toggle.", 3)
+    if self.State.IsEnabled then return end
+    self.State.IsEnabled = true
+    local ui = self.State.UI
+    ui.ScreenGui              = Instance.new("ScreenGui", CoreGui)
+    ui.ScreenGui.Name         = "ForensicShiftLock_V2"
+    ui.ScreenGui.ResetOnSpawn = false
+    ui.Button                 = Instance.new("ImageButton", ui.ScreenGui)
+    ui.Button.Size            = UDim2.fromOffset(55, 55)
+    ui.Button.Position        = UDim2.new(1, -75, 1, -150)
+    ui.Button.BackgroundColor3= Color3.fromRGB(25, 25, 30)
+    Instance.new("UICorner", ui.Button).CornerRadius = UDim.new(1, 0)
+    ui.Stroke                 = Instance.new("UIStroke", ui.Button)
+    ui.Stroke.Color           = Color3.fromRGB(0, 140, 255)
+    ui.Stroke.Thickness       = 2
+    ui.Icon                   = Instance.new("ImageLabel", ui.Button)
+    ui.Icon.Size              = UDim2.fromScale(0.6, 0.6)
+    ui.Icon.Position          = UDim2.fromScale(0.2, 0.2)
+    ui.Icon.BackgroundTransparency = 1
+    ui.Icon.Image             = self.Config.Icons.Off
+    self.State.Connections.Drag  = self:_makeDraggable(ui.Button, ui.Button)
+    self.State.Connections.Main  = RunService.RenderStepped:Connect(function()
+        self:_updateLogic()
+    end)
+    self.State.Connections.Input = UserInputService.InputBegan:Connect(function(input, gpe)
+        if not gpe and input.KeyCode == self.Config.ToggleKey then
+            self:_setLockState(not self.State.IsLocked)
+        end
+    end)
+    ui.Button.Activated:Connect(function()
+        self:_setLockState(not self.State.IsLocked)
+    end)
+    self:_setLockState(true)
+    DoNotif("Shift Lock ON. Press Alt to toggle.", 3)
 end
 function ShiftLock:Disable()
-	if not self.State.IsEnabled then
-		return
-	end
-	self:_setLockState(false)
-	for _, conn in pairs(self.State.Connections) do
-		conn:Disconnect()
-	end
-	if self.State.UI.ScreenGui then
-		self.State.UI.ScreenGui:Destroy()
-	end
-	self.State.IsEnabled = false
-	table.clear(self.State.Connections)
-	self.State.UI = {}
-	DoNotif("Shift Lock disabled.", 2)
+    if not self.State.IsEnabled then return end
+    self:_setLockState(false)
+    for _, conn in pairs(self.State.Connections) do conn:Disconnect() end
+    if self.State.UI.ScreenGui then self.State.UI.ScreenGui:Destroy() end
+    self.State.IsEnabled = false
+    table.clear(self.State.Connections)
+    self.State.UI = {}
+    DoNotif("Shift Lock disabled.", 2)
 end
 function ShiftLock:Toggle()
-	if self.State.IsEnabled then
-		self:Disable()
-	else
-		self:Enable()
-	end
+    if self.State.IsEnabled then self:Disable() else self:Enable() end
 end
 ShiftLock:Enable()
 local Strengthen = {
-	State = {
-		Enabled = true,
-		Density = 100,
-		OriginalProperties = {},
-	},
+    State = {
+        Enabled            = true,
+        Density            = 50,
+        OriginalProperties = {},
+    },
 }
 function Strengthen:ApplyToCharacter(char)
-	table.clear(self.State.OriginalProperties)
-	for _, part in ipairs(char:GetDescendants()) do
-		if part:IsA("BasePart") then
-			self.State.OriginalProperties[part] = part.CustomPhysicalProperties
-			part.CustomPhysicalProperties = PhysicalProperties.new(self.State.Density, 0.3, 0.5, 0, 0)
-		end
-	end
+    table.clear(self.State.OriginalProperties)
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            self.State.OriginalProperties[part] = part.CustomPhysicalProperties
+            part.CustomPhysicalProperties = PhysicalProperties.new(self.State.Density, 0.3, 0.5, 0, 0)
+        end
+    end
 end
 function Strengthen:RevertForCharacter()
-	local char = LocalPlayer.Character
-	if not char then
-		return
-	end
-	for part, originalProps in pairs(self.State.OriginalProperties) do
-		if part and part.Parent and part:IsDescendantOf(char) then
-			part.CustomPhysicalProperties = originalProps
-		end
-	end
-	table.clear(self.State.OriginalProperties)
+    local char = LocalPlayer.Character
+    if not char then return end
+    for part, originalProps in pairs(self.State.OriginalProperties) do
+        if part and part.Parent and part:IsDescendantOf(char) then
+            part.CustomPhysicalProperties = originalProps
+        end
+    end
+    table.clear(self.State.OriginalProperties)
 end
 function Strengthen:Toggle(args)
-	local char = LocalPlayer.Character
-	if not char then
-		return DoNotif("Character not found.", 3)
-	end
-	local newDensity = args and tonumber(args[1])
-	if newDensity and newDensity > 0 then
-		self.State.Density = newDensity
-		DoNotif("Strengthen density set to " .. self.State.Density, 2)
-	end
-	if self.State.Enabled then
-		self:RevertForCharacter()
-		self.State.Enabled = false
-		DoNotif("Strengthen OFF. Physics restored.", 2)
-	else
-		self:ApplyToCharacter(char)
-		self.State.Enabled = true
-		DoNotif("Strengthen ON at density " .. self.State.Density, 2)
-	end
+    local char = LocalPlayer.Character
+    if not char then return DoNotif("Character not found.", 3) end
+    local newDensity = args and tonumber(args[1])
+    if newDensity and newDensity > 0 then
+        self.State.Density = newDensity
+        DoNotif("Strengthen density set to " .. self.State.Density, 2)
+    end
+    if self.State.Enabled then
+        self:RevertForCharacter()
+        self.State.Enabled = false
+        DoNotif("Strengthen OFF. Physics restored.", 2)
+    else
+        self:ApplyToCharacter(char)
+        self.State.Enabled = true
+        DoNotif("Strengthen ON at density " .. self.State.Density, 2)
+    end
 end
-local bhopEnabled = true
-local spaceHeld = false
-local velocity = Vector3.new()
-local isGrounded = false
-local wasGrounded = false
-local footstepTimer = 0
-local footstepInterval = 0.35
-local lastFootstepIdx = 0
-local cfg = {
-	groundAccel = 50,
-	airAccel = 3200,
-	maxAirSpeed = 30,
-	runSpeed = 23,
-	jumpPower = 26,
-	gravity = 90,
-	friction = 6,
-	stopSpeed = 5,
-}
-local footstepSounds = {
-	"rbxassetid://81623756670923",
-	"rbxassetid://78754179999047",
-	"rbxassetid://79418255155423",
-	"rbxassetid://112240321395589",
-}
-local jumpSound = Instance.new("Sound", root)
-jumpSound.SoundId = "rbxassetid://78754179999047"
-jumpSound.Volume = 0.5
-jumpSound.PlaybackSpeed = 1
-local landSound = Instance.new("Sound", root)
-landSound.SoundId = "rbxassetid://78754179999047"
-landSound.Volume = 0.6
-landSound.PlaybackSpeed = 1
-local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-local function playFootstep()
-	local snd = Instance.new("Sound", workspace)
-	lastFootstepIdx = lastFootstepIdx + 1
-	if lastFootstepIdx > #footstepSounds then
-		lastFootstepIdx = 1
-	end
-	snd.SoundId = footstepSounds[lastFootstepIdx]
-	snd.Volume = 0.6
-	snd.PlaybackSpeed = 1.0 + math.random(-10, 10) / 100
-	snd:Play()
-	game:GetService("Debris"):AddItem(snd, 2)
+local WALK_SPEED      = 24
+local JUMP_POWER      = 60
+local HIP_HEIGHT_BONUS= 0.15
+local function applyMovementStats(char)
+    local hum = char:WaitForChild("Humanoid", 10)
+    if not hum then return end
+    hum.WalkSpeed = WALK_SPEED
+    hum.JumpPower = JUMP_POWER
+    if not hum:GetAttribute("_OriginalHipHeight") then
+        hum:SetAttribute("_OriginalHipHeight", hum.HipHeight)
+    end
+    hum.HipHeight = hum:GetAttribute("_OriginalHipHeight") + HIP_HEIGHT_BONUS
+    if Strengthen.State.Enabled then
+        Strengthen:ApplyToCharacter(char)
+    end
+    if ShiftLock.State.IsEnabled then
+        task.delay(0.1, function()
+            ShiftLock:_setLockState(true)
+        end)
+    end
 end
-local function playJump()
-	if jumpSound then
-		jumpSound:Stop()
-		jumpSound:Play()
-	end
-end
-local function playLand()
-	if landSound then
-		landSound:Stop()
-		landSound:Play()
-	end
-end
-local function grounded()
-	local rayParams = RaycastParams.new()
-	rayParams.FilterDescendantsInstances = { character }
-	rayParams.FilterType = Enum.RaycastFilterType.Exclude
-	local result = workspace:Raycast(root.Position, Vector3.new(0, -3.8, 0), rayParams)
-	return result and result.Instance and result.Instance.CanCollide or false
-end
-local function applyFriction(dt)
-	local speed = velocity.Magnitude
-	if speed < 0.1 then
-		velocity = Vector3.new()
-		return
-	end
-	local drop = 0
-	if isGrounded then
-		local control = math.max(speed, cfg.stopSpeed)
-		drop = control * cfg.friction * dt
-	end
-	local newSpeed = math.max(speed - drop, 0)
-	if newSpeed ~= speed then
-		velocity = velocity * (newSpeed / speed)
-	end
-end
-local function accel(wishDir, wishSpeed, accelAmt, dt)
-	local cur = velocity:Dot(wishDir)
-	local add = wishSpeed - cur
-	if add <= 0 then
-		return
-	end
-	local accelSpeed = math.min(accelAmt * dt * wishSpeed, add)
-	velocity = velocity + wishDir * accelSpeed
-end
-local function bhopProcess(dt)
-	if not bhopEnabled then
-		return
-	end
-	humanoid.WalkSpeed = 0
-	humanoid.JumpPower = 0
-	wasGrounded = isGrounded
-	isGrounded = grounded()
-	if isGrounded and not wasGrounded and velocity.Y < -5 then
-		playLand()
-		footstepTimer = 0
-	end
-	local camLook = workspace.CurrentCamera.CFrame.LookVector
-	local flat = Vector3.new(camLook.X, 0, camLook.Z)
-	if flat.Magnitude > 0.01 then
-		root.CFrame = CFrame.new(root.Position, root.Position + flat)
-	end
-	local cam = workspace.CurrentCamera
-	local fwd = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z).Unit
-	local right = Vector3.new(cam.CFrame.RightVector.X, 0, cam.CFrame.RightVector.Z).Unit
-	local input = Vector3.new()
-	if isMobile then
-		local mv = humanoid.MoveDirection
-		if mv.Magnitude > 0 then
-			input = mv
-		end
-	else
-		if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-			input += fwd
-		end
-		if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-			input -= fwd
-		end
-		if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-			input -= right
-		end
-		if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-			input += right
-		end
-	end
-	if input.Magnitude > 0 then
-		input = input.Unit
-	end
-	local currentMaxAirSpeed = cfg.maxAirSpeed * 0.3
-	if isGrounded then
-		applyFriction(dt)
-		accel(input, cfg.runSpeed, cfg.groundAccel, dt)
-		if input.Magnitude > 0.1 then
-			footstepTimer += dt
-			if footstepTimer >= footstepInterval then
-				playFootstep()
-				footstepTimer = 0
-			end
-		else
-			footstepTimer = 0
-		end
-		if spaceHeld then
-			velocity = Vector3.new(velocity.X, cfg.jumpPower, velocity.Z)
-			playJump()
-		else
-			velocity = Vector3.new(velocity.X, 0, velocity.Z)
-		end
-	else
-		accel(input, currentMaxAirSpeed, cfg.airAccel, dt)
-		velocity += Vector3.new(0, -cfg.gravity * dt, 0)
-	end
-	root.AssemblyLinearVelocity = velocity
-end
+if LocalPlayer.Character then applyMovementStats(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(applyMovementStats)
 local Dash = {
-	Config = {
-		Key = Enum.KeyCode.Q,
-		SpeedMultiplier = 5.5,
-		AnimationId = "rbxassetid://119132734924846",
-	},
-	State = {
-		CanDash = true,
-		Track = nil,
-	},
+    Config = {
+        Key             = Enum.KeyCode.Q,
+        SpeedMultiplier = 5.5,
+        DecaySteps      = 10,
+        DecayInterval   = 0.1,
+        DecayFactor     = 0.7,
+        AnimationId     = "rbxassetid://119132734924846",
+    },
+    State = {
+        CanDash = true,
+        Track   = nil,
+    },
 }
 do
-	local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-	local hum = char:WaitForChild("Humanoid")
-	local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)
-	local anim = Instance.new("Animation")
-	anim.AnimationId = Dash.Config.AnimationId
-	Dash.State.Track = animator:LoadAnimation(anim)
-	LocalPlayer.CharacterAdded:Connect(function(newChar)
-		local newHum = newChar:WaitForChild("Humanoid")
-		local newAnimator = newHum:FindFirstChildOfClass("Animator") or Instance.new("Animator", newHum)
-		local newAnim = Instance.new("Animation")
-		newAnim.AnimationId = Dash.Config.AnimationId
-		Dash.State.Track = newAnimator:LoadAnimation(newAnim)
-		Dash.State.CanDash = true
-	end)
+    local char     = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local hum      = char:WaitForChild("Humanoid")
+    local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)
+    local anim     = Instance.new("Animation")
+    anim.AnimationId = Dash.Config.AnimationId
+    Dash.State.Track = animator:LoadAnimation(anim)
+    LocalPlayer.CharacterAdded:Connect(function(newChar)
+        local newHum      = newChar:WaitForChild("Humanoid")
+        local newAnimator = newHum:FindFirstChildOfClass("Animator") or Instance.new("Animator", newHum)
+        local newAnim     = Instance.new("Animation")
+        newAnim.AnimationId  = Dash.Config.AnimationId
+        Dash.State.Track     = newAnimator:LoadAnimation(newAnim)
+        Dash.State.CanDash   = true
+    end)
 end
 function Dash:Do()
-	if not self.State.CanDash then
-		return
-	end
-	local char = LocalPlayer.Character
-	if not char then
-		return
-	end
-	local hum = char:FindFirstChildOfClass("Humanoid")
-	local hrp = char:FindFirstChild("HumanoidRootPart")
-	if not hum or not hrp or hum.Health <= 0 then
-		return
-	end
-	self.State.CanDash = false
-	task.spawn(function()
-		local ok, err = pcall(function()
-			if self.State.Track then
-				self.State.Track:Play()
-			end
-			local dir = hum.MoveDirection.Magnitude > 0.05 and hum.MoveDirection or hrp.CFrame.LookVector
-			dir = Vector3.new(dir.X, 0, dir.Z)
-			if dir.Magnitude > 0 then
-				dir = dir.Unit
-			end
-			local burstSpeed = cfg.runSpeed * self.Config.SpeedMultiplier
-			velocity = velocity + dir * burstSpeed
-			task.wait(0.3)
-			if self.State.Track then
-				self.State.Track:Stop()
-			end
-		end)
-		if not ok then
-			warn("[Dash]", err)
-		end
-		self.State.CanDash = true
-	end)
+    if not self.State.CanDash then return end
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hum or not hrp or hum.Health <= 0 then return end
+    self.State.CanDash = false
+    task.spawn(function()
+        local ok, err = pcall(function()
+            if self.State.Track then self.State.Track:Play() end
+            local speed = hum.WalkSpeed * self.Config.SpeedMultiplier
+            local dir   = hum.MoveDirection.Magnitude > 0.05 and hum.MoveDirection or hrp.CFrame.LookVector
+            local attachment = Instance.new("Attachment")
+            attachment.Parent = hrp
+            local lv = Instance.new("LinearVelocity")
+            lv.Attachment0            = attachment
+            lv.MaxForce               = math.huge
+            lv.RelativeTo             = Enum.ActuatorRelativeTo.World
+            lv.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
+            lv.VectorVelocity         = dir * speed
+            lv.Parent                 = hrp
+            for _ = 1, self.Config.DecaySteps do
+                task.wait(self.Config.DecayInterval)
+                lv.VectorVelocity = lv.VectorVelocity * self.Config.DecayFactor
+            end
+            if self.State.Track then self.State.Track:Stop() end
+            lv:Destroy()
+            attachment:Destroy()
+        end)
+        if not ok then warn("[Dash]", err) end
+        self.State.CanDash = true
+    end)
 end
-UserInputService.InputBegan:Connect(function(i, gpe)
-	if gpe then
-		return
-	end
-	if i.KeyCode == Enum.KeyCode.Space then
-		spaceHeld = true
-	end
-end)
-UserInputService.InputEnded:Connect(function(i)
-	if i.KeyCode == Enum.KeyCode.Space then
-		spaceHeld = false
-	end
-end)
 UserInputService.InputBegan:Connect(function(input, gpe)
-	if gpe then
-		return
-	end
-	if input.KeyCode == Dash.Config.Key then
-		Dash:Do()
-	end
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.RightControl then Strengthen:Toggle() end
+    if input.KeyCode == Dash.Config.Key then Dash:Do() end
 end)
-UserInputService.InputBegan:Connect(function(input, gpe)
-	if gpe then
-		return
-	end
-	if input.KeyCode == Enum.KeyCode.RightControl then
-		Strengthen:Toggle()
-	end
-end)
-if isMobile then
-	local Camera = workspace.CurrentCamera
-	local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-	local MobileGui = Instance.new("ScreenGui")
-	MobileGui.Name = "BetterMovementMobile"
-	MobileGui.DisplayOrder = 10
-	MobileGui.ResetOnSpawn = false
-	MobileGui.Parent = PlayerGui
-	local DashButton = Instance.new("TextButton")
-	DashButton.Name = "DashButton"
-	DashButton.BackgroundColor3 = Color3.new(0, 0, 0)
-	DashButton.BackgroundTransparency = 0.4
-	DashButton.Text = "Dash"
-	DashButton.TextColor3 = Color3.new(1, 1, 1)
-	DashButton.Font = Enum.Font.FredokaOne
-	DashButton.TextScaled = true
-	DashButton.AutoLocalize = false
-	Instance.new("UICorner", DashButton).CornerRadius = UDim.new(0, 24)
-	DashButton.Parent = MobileGui
-	local JumpButton = Instance.new("TextButton")
-	JumpButton.Name = "JumpButton"
-	JumpButton.BackgroundColor3 = Color3.new(0, 0, 0)
-	JumpButton.BackgroundTransparency = 0.4
-	JumpButton.Text = "Jump"
-	JumpButton.TextColor3 = Color3.new(1, 1, 1)
-	JumpButton.Font = Enum.Font.FredokaOne
-	JumpButton.TextScaled = true
-	JumpButton.AutoLocalize = false
-	Instance.new("UICorner", JumpButton).CornerRadius = UDim.new(0, 24)
-	JumpButton.Parent = MobileGui
-	local function updateMobileLayout()
-		local vp = Camera and Camera.ViewportSize or Vector2.new(800, 600)
-		local minDim = math.min(vp.X, vp.Y)
-		local bSize = UDim2.new(0, math.max(100, minDim * 0.18), 0, math.max(40, minDim * 0.08))
-		DashButton.Size = bSize
-		DashButton.Position = UDim2.new(0.8, 0, 0.85, 0)
-		DashButton.AnchorPoint = Vector2.new(0.5, 0.5)
-		JumpButton.Size = bSize
-		JumpButton.Position = UDim2.new(0.65, 0, 0.85, 0)
-		JumpButton.AnchorPoint = Vector2.new(0.5, 0.5)
-	end
-	updateMobileLayout()
-	if Camera then
-		Camera:GetPropertyChangedSignal("ViewportSize"):Connect(updateMobileLayout)
-	end
-	DashButton.MouseButton1Click:Connect(function()
-		Dash:Do()
-	end)
-	JumpButton.MouseButton1Down:Connect(function()
-		spaceHeld = true
-	end)
-	JumpButton.MouseButton1Up:Connect(function()
-		spaceHeld = false
-	end)
+if UserInputService.TouchEnabled then
+    local Camera    = workspace.CurrentCamera
+    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+    local DashGui   = Instance.new("ScreenGui")
+    DashGui.Name         = "DashButtonGui"
+    DashGui.DisplayOrder = 10
+    DashGui.ResetOnSpawn = false
+    DashGui.Parent       = PlayerGui
+    local DashButton                  = Instance.new("TextButton")
+    DashButton.Name                   = "DashButton"
+    DashButton.BackgroundColor3       = Color3.new(0, 0, 0)
+    DashButton.BackgroundTransparency = 0.4
+    DashButton.Text                   = "Dash"
+    DashButton.TextColor3             = Color3.new(1, 1, 1)
+    DashButton.Font                   = Enum.Font.FredokaOne
+    DashButton.TextScaled             = true
+    DashButton.AutoLocalize           = false
+    Instance.new("UICorner", DashButton).CornerRadius = UDim.new(0, 24)
+    DashButton.Parent = DashGui
+    local function updateDashButtonLayout()
+        local vp     = Camera and Camera.ViewportSize or Vector2.new(800, 600)
+        local minDim = math.min(vp.X, vp.Y)
+        DashButton.Size        = UDim2.new(0, math.max(100, minDim * 0.18), 0, math.max(40, minDim * 0.08))
+        DashButton.Position    = UDim2.new(0.8, 0, 0.85, 0)
+        DashButton.AnchorPoint = Vector2.new(0.5, 0.5)
+    end
+    updateDashButtonLayout()
+    if Camera then Camera:GetPropertyChangedSignal("ViewportSize"):Connect(updateDashButtonLayout) end
+    DashButton.MouseButton1Click:Connect(function() Dash:Do() end)
 end
-local function onCharacterAdded(newChar)
-	character = newChar
-	humanoid = newChar:WaitForChild("Humanoid")
-	root = newChar:WaitForChild("HumanoidRootPart")
-	velocity = Vector3.new()
-	jumpSound = Instance.new("Sound", root)
-	jumpSound.SoundId = "rbxassetid://78754179999047"
-	jumpSound.Volume = 0.5
-	jumpSound.PlaybackSpeed = 1.2
-	landSound = Instance.new("Sound", root)
-	landSound.SoundId = "rbxassetid://78754179999047"
-	landSound.Volume = 0.6
-	landSound.PlaybackSpeed = 0.8
-	task.spawn(function()
-		while character and character.Parent do
-			for _, snd in pairs(root:GetChildren()) do
-				if snd:IsA("Sound") and snd ~= jumpSound and snd ~= landSound then
-					snd.Volume = 0
-				end
-			end
-			for _, snd in pairs(humanoid:GetChildren()) do
-				if snd:IsA("Sound") then
-					snd.Volume = 0
-				end
-			end
-			task.wait(0.5)
-		end
-	end)
-	if Strengthen.State.Enabled then
-		Strengthen:ApplyToCharacter(newChar)
-	end
-	if ShiftLock.State.IsEnabled then
-		task.delay(0.1, function()
-			ShiftLock:_setLockState(true)
-		end)
-	end
-end
-LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
-task.spawn(function()
-	while true do
-		task.wait(0.5)
-		if root and root.Parent then
-			for _, snd in pairs(root:GetChildren()) do
-				if snd:IsA("Sound") and snd ~= jumpSound and snd ~= landSound then
-					snd.Volume = 0
-				end
-			end
-		end
-		if humanoid and humanoid.Parent then
-			for _, snd in pairs(humanoid:GetChildren()) do
-				if snd:IsA("Sound") then
-					snd.Volume = 0
-				end
-			end
-		end
-	end
-end)
-if Strengthen.State.Enabled then
-	Strengthen:ApplyToCharacter(character)
-end
-RunService.Heartbeat:Connect(function(dt)
-	if humanoid and humanoid.Health > 0 then
-		bhopProcess(dt)
-	end
-end)
+DoNotif("Dash ready! Press Q to dash.", 3)
 local function ClonedService(name)
 	local Service = game.GetService
 	local Reference = cloneref or function(reference)
