@@ -1,3 +1,11 @@
+--[[ 
+
+Better movement + 
+
+# This is more for PC players, but it also supports mobile.
+
+]]
+
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -7,6 +15,8 @@ local CoreGui = game:GetService("CoreGui")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
 local LocalPlayer = Players.LocalPlayer
+
+
 local function DoNotif(msg, duration)
 	pcall(function()
 		StarterGui:SetCore("SendNotification", {
@@ -161,7 +171,7 @@ function ShiftLock:Enable()
 		self:_setLockState(not self.State.IsLocked)
 	end)
 	self:_setLockState(true)
-	DoNotif("Shift Lock ON (locked). Press B to toggle.", 3)
+	DoNotif("Shift Lock ON (locked). Press Alt to toggle.", 3)
 end
 function ShiftLock:Disable()
 	if not self.State.IsEnabled then
@@ -235,7 +245,7 @@ function Strengthen:Toggle(args)
 		DoNotif("Strengthen ON at density " .. self.State.Density, 2)
 	end
 end
-local WALK_SPEED = 24
+local WALK_SPEED = 18
 local JUMP_POWER = 60
 local HIP_HEIGHT_BONUS = 0.15
 local function applyMovementStats(character)
@@ -7586,3 +7596,34 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 		Strengthen:Toggle()
 	end
 end)
+
+--                          #          
+--                          #          
+--                          #          
+--  ### ##    ######   ######   #####  
+--  #  #  #  #     #  #     #  #     # 
+--  #  #  #  #     #  #     #  ####### 
+--  #  #  #  #    ##  #     #  #       
+--  #     #   #### #   ######   #####  
+--                                     
+--                                     
+--              #       #      #       
+--              #       #      #       
+--                      #      #       
+--  #     #   ###     ######   ######  
+--  #  #  #     #       #      #     # 
+--  #  #  #     #       #      #     # 
+--  #  #  #     #       #      #     # 
+--   ## ##    #####      ###   #     # 
+--                                     
+--                                     
+--    ##                               
+--     #                               
+--     #                               
+--     #      #####   ##   ##   #####  
+--     #     #     #   #   #   #     # 
+--     #     #     #    # #    ####### 
+--     #     #     #    # #    #       
+--    ###     #####      #      #####  
+--                                     
+--  by zyka
