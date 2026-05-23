@@ -1324,192 +1324,169 @@ local function GlowOutline(frame, color, thickness)
 end
 Modules.CommandBar = {
 	State = {
-		UI = nil,
-		Container = nil,
-		TextBox = nil,
-		LogFrame = nil,
-		SuggestionLabel = nil,
-		PrefixKey = Enum.KeyCode.Semicolon,
-		IsAnimating = false,
-		IsEnabled = false,
-		MaxLogs = 900,
-		CurrentSuggestion = "",
-		MinSize = Vector2.new(400, 250),
-		SelectionStart = nil,
-		SelectionEnd = nil,
-		IsSelecting = false,
-		IsMinimized = false,
-		IsMaximized = false,
-		PreMaximizeSize = nil,
+		UI                 = nil,
+		Container          = nil,
+		TextBox            = nil,
+		LogFrame           = nil,
+		SuggestionLabel    = nil,
+		PrefixKey          = Enum.KeyCode.Semicolon,
+		IsAnimating        = false,
+		IsEnabled          = false,
+		MaxLogs            = 900,
+		CurrentSuggestion  = "",
+		MinSize            = Vector2.new(400, 250),
+		SelectionStart     = nil,
+		SelectionEnd       = nil,
+		IsSelecting        = false,
+		IsMinimized        = false,
+		IsMaximized        = false,
+		PreMaximizeSize    = nil,
 		PreMaximizePosition = nil,
 	},
 	Theme = {
-		Background = Color3.fromRGB(0, 0, 0),
-		WindowGray = Color3.fromRGB(192, 192, 192),
-		DarkGray = Color3.fromRGB(128, 128, 128),
-		LightGray = Color3.fromRGB(223, 223, 223),
-		White = Color3.fromRGB(255, 255, 255),
-		Blue = Color3.fromRGB(0, 0, 128),
-		Accent = Color3.fromRGB(0, 255, 0),
-		Text = Color3.fromRGB(192, 192, 192),
-		Suggestion = Color3.fromRGB(0, 128, 0),
-		Font = Enum.Font.Code,
+		Background  = Color3.fromRGB(0,   0,   0),
+		Surface     = Color3.fromRGB(18,  18,  18),
+		Surface2    = Color3.fromRGB(24,  24,  24),
+		Surface3    = Color3.fromRGB(32,  32,  32),
+		Accent      = Color3.fromRGB(23,  147, 209),
+		AccentDark  = Color3.fromRGB(8,   109, 156),
+		Border      = Color3.fromRGB(23,  147, 209),
+		White       = Color3.fromRGB(255, 255, 255),
+		Text        = Color3.fromRGB(180, 180, 180),
+		TextMuted   = Color3.fromRGB(100, 100, 100),
+		Suggestion  = Color3.fromRGB(0,   180, 80),
+		Close       = Color3.fromRGB(255, 90,  70),
+		Minimize    = Color3.fromRGB(255, 200, 50),
+		Maximize    = Color3.fromRGB(50,  215, 100),
+		ScrollBar   = Color3.fromRGB(23,  147, 209),
+		Font        = Enum.Font.Code,
 	},
 	Dependencies = { "UserInputService", "TweenService", "SoundService" },
 	Scanner = {
-		FoundModules = {},
+		FoundModules   = {},
 		ScanInProgress = false,
 		PoisonedModules = {},
 		Poisons = {
 			inventory = {
-				Name = "Inventory Poison",
+				Name        = "Inventory Poison",
 				Description = "Item duplication, unlimited stacks, stat modification",
-				Target = { "inventory", "backpack", "storage", "container", "bag" },
-				Applied = false,
+				Target      = { "inventory", "backpack", "storage", "container", "bag" },
+				Applied     = false,
 			},
 			damage = {
-				Name = "Damage Poison",
+				Name        = "Damage Poison",
 				Description = "Damage multipliers, invincibility, one-shot kills",
-				Target = { "damage", "combat", "attack", "health" },
-				Applied = false,
+				Target      = { "damage", "combat", "attack", "health" },
+				Applied     = false,
 			},
 			movement = {
-				Name = "Movement Poison",
+				Name        = "Movement Poison",
 				Description = "Speed hacks, flight, teleportation, no-clip",
-				Target = { "movement", "walkspeed", "character", "humanoid" },
-				Applied = false,
+				Target      = { "movement", "walkspeed", "character", "humanoid" },
+				Applied     = false,
 			},
 			currency = {
-				Name = "Economy Poison",
+				Name        = "Economy Poison",
 				Description = "Money multipliers, free purchases, XP boosts",
-				Target = { "currency", "money", "cash", "coins", "shop", "store" },
-				Applied = false,
+				Target      = { "currency", "money", "cash", "coins", "shop", "store" },
+				Applied     = false,
 			},
 			weapon = {
-				Name = "Weapon Poison",
+				Name        = "Weapon Poison",
 				Description = "Infinite ammo, no recoil, auto-aim, damage boost",
-				Target = { "weapon", "gun", "tool", "equipment" },
-				Applied = false,
+				Target      = { "weapon", "gun", "tool", "equipment" },
+				Applied     = false,
 			},
 		},
 	},
 }
 function SafeRequire(module)
 	local success, result = pcall(require, module)
-	if success then
-		return result
-	end
+	if success then return result end
 	return nil
 end
-function Modules.CommandBar:PlayBeep(): ()
+function Modules.CommandBar:PlayBeep()
 	local beep = Instance.new("Sound")
 	beep.SoundId = "rbxasset://sounds/electronicpingshort.wav"
-	beep.Volume = 0.5
-	beep.Parent = game:GetService("SoundService")
+	beep.Volume  = 0.5
+	beep.Parent  = game:GetService("SoundService")
 	beep:Play()
-	beep.Ended:Connect(function()
-		beep:Destroy()
-	end)
+	beep.Ended:Connect(function() beep:Destroy() end)
 end
-function Modules.CommandBar:CopyOutputToClipboard(): ()
-	if not self.State.LogFrame then
-		return
-	end
-	local allText: string = ""
-	local children: { Instance } = self.State.LogFrame:GetChildren()
-	for _, child in ipairs(children) do
-		if child:IsA("TextLabel") then
-			allText = allText .. child.Text .. "\n"
-		end
+function Modules.CommandBar:CopyOutputToClipboard()
+	if not self.State.LogFrame then return end
+	local allText = ""
+	for _, child in ipairs(self.State.LogFrame:GetChildren()) do
+		if child:IsA("TextLabel") then allText = allText .. child.Text .. "\n" end
 	end
 	setclipboard(allText)
 end
-function Modules.CommandBar:CopySelectedText(): ()
-	if not self.State.LogFrame then
-		return
-	end
+function Modules.CommandBar:CopySelectedText()
+	if not self.State.LogFrame then return end
 	if self.State.TextBox.Text ~= "" then
 		setclipboard(self.State.TextBox.Text)
 		return
 	end
 	if self.State.SelectionStart and self.State.SelectionEnd then
-		local children: { Instance } = self.State.LogFrame:GetChildren()
-		local selectedText: string = ""
+		local children    = self.State.LogFrame:GetChildren()
+		local selectedText = ""
 		local startIdx = math.min(self.State.SelectionStart, self.State.SelectionEnd)
-		local endIdx = math.max(self.State.SelectionStart, self.State.SelectionEnd)
+		local endIdx   = math.max(self.State.SelectionStart, self.State.SelectionEnd)
 		for i = startIdx, endIdx do
 			if children[i] and children[i]:IsA("TextLabel") then
 				selectedText = selectedText .. children[i].Text .. "\n"
 			end
 		end
-		if selectedText ~= "" then
-			setclipboard(selectedText)
-			return
-		end
+		if selectedText ~= "" then setclipboard(selectedText); return end
 	end
 	self:CopyOutputToClipboard()
 end
-function Modules.CommandBar:Minimize(): ()
-	if self.State.IsMinimized then
-		return
-	end
+function Modules.CommandBar:Minimize()
+	if self.State.IsMinimized then return end
 	self.State.IsMinimized = true
 	local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	local tween = TweenService:Create(self.State.Container, tweenInfo, {
+	TweenService:Create(self.State.Container, tweenInfo, {
 		Position = UDim2.new(0.5, -self.State.Container.Size.X.Offset / 2, 1, 50),
-		Size = UDim2.new(0, self.State.Container.Size.X.Offset, 0, 30),
-	})
-	tween:Play()
+		Size     = UDim2.new(0, self.State.Container.Size.X.Offset, 0, 38),
+	}):Play()
 end
-function Modules.CommandBar:Restore(): ()
-	if not self.State.IsMinimized then
-		return
-	end
+function Modules.CommandBar:Restore()
+	if not self.State.IsMinimized then return end
 	self.State.IsMinimized = false
-	local targetSize = self.State.PreMaximizeSize or UDim2.new(0, 600, 0, 400)
-	local targetPos = self.State.PreMaximizePosition or UDim2.new(0.5, -300, 0.5, -200)
-	local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	local tween = TweenService:Create(self.State.Container, tweenInfo, {
-		Position = targetPos,
-		Size = targetSize,
-	})
-	tween:Play()
+	local targetSize = self.State.PreMaximizeSize     or UDim2.new(0, 640, 0, 420)
+	local targetPos  = self.State.PreMaximizePosition or UDim2.new(0.5, -320, 0.5, -210)
+	TweenService:Create(self.State.Container,
+		TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{ Position = targetPos, Size = targetSize }):Play()
 end
-function Modules.CommandBar:Maximize(): ()
+function Modules.CommandBar:Maximize()
 	if self.State.IsMaximized then
 		self.State.IsMaximized = false
-		local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-		local tween = TweenService:Create(self.State.Container, tweenInfo, {
-			Position = self.State.PreMaximizePosition,
-			Size = self.State.PreMaximizeSize,
-		})
-		tween:Play()
+		TweenService:Create(self.State.Container,
+			TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{ Position = self.State.PreMaximizePosition, Size = self.State.PreMaximizeSize }):Play()
 	else
-		self.State.PreMaximizeSize = self.State.Container.Size
+		self.State.PreMaximizeSize     = self.State.Container.Size
 		self.State.PreMaximizePosition = self.State.Container.Position
-		self.State.IsMaximized = true
-		local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-		local tween = TweenService:Create(self.State.Container, tweenInfo, {
-			Position = UDim2.new(0, 0, 0, 0),
-			Size = UDim2.new(1, 0, 1, 0),
-		})
-		tween:Play()
+		self.State.IsMaximized         = true
+		TweenService:Create(self.State.Container,
+			TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{ Position = UDim2.new(0, 0, 0, 0), Size = UDim2.new(1, 0, 1, 0) }):Play()
 	end
 end
-function Modules.CommandBar:Toggle(): ()
-	if self.State.IsAnimating then
-		return
-	end
+function Modules.CommandBar:Toggle()
+	if self.State.IsAnimating then return end
 	self.State.IsAnimating = true
-	self.State.IsEnabled = not self.State.IsEnabled
-	local isOpening: boolean = self.State.IsEnabled
-	local tweenInfo: TweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+	self.State.IsEnabled   = not self.State.IsEnabled
+	local isOpening  = self.State.IsEnabled
+	local tweenInfo  = TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 	if isOpening then
 		self.State.UI.Enabled = true
-		local goalPosition: UDim2 =
-			UDim2.new(0.5, -self.State.Container.Size.X.Offset / 2, 0.5, -self.State.Container.Size.Y.Offset / 2)
+		local goalPos = UDim2.new(
+			0.5, -self.State.Container.Size.X.Offset / 2,
+			0.5, -self.State.Container.Size.Y.Offset / 2)
 		local anim = TweenService:Create(self.State.Container, tweenInfo, {
-			Position = goalPosition,
+			Position            = goalPos,
 			BackgroundTransparency = 0,
 		})
 		anim:Play()
@@ -1517,809 +1494,684 @@ function Modules.CommandBar:Toggle(): ()
 		task.spawn(function()
 			task.wait()
 			if self.State.IsEnabled then
-				self.State.TextBox.Text = ""
+				self.State.TextBox.Text        = ""
 				self.State.SuggestionLabel.Text = ""
-				self.State.CurrentSuggestion = ""
+				self.State.CurrentSuggestion    = ""
 			end
 		end)
-		anim.Completed:Connect(function()
-			self.State.IsAnimating = false
-		end)
+		anim.Completed:Connect(function() self.State.IsAnimating = false end)
 	else
 		self.State.TextBox:ReleaseFocus()
 		local anim = TweenService:Create(self.State.Container, tweenInfo, {
-			Position = UDim2.new(0.5, -self.State.Container.Size.X.Offset / 2, 1, 50),
+			Position            = UDim2.new(0.5, -self.State.Container.Size.X.Offset / 2, 1, 60),
 			BackgroundTransparency = 1,
 		})
 		anim:Play()
 		anim.Completed:Connect(function()
-			self.State.UI.Enabled = false
+			self.State.UI.Enabled  = false
 			self.State.IsAnimating = false
 		end)
 	end
 end
-function Modules.CommandBar:AddOutput(text: string, color: Color3?): ()
-	if not self.State.LogFrame then
-		return
-	end
-	local line: TextLabel = Instance.new("TextLabel")
-	line.Name = "TerminalLine"
-	line.Parent = self.State.LogFrame
+function Modules.CommandBar:AddOutput(text: string, color: Color3?)
+	if not self.State.LogFrame then return end
+	local line = Instance.new("TextLabel")
+	line.Name               = "TerminalLine"
+	line.Parent             = self.State.LogFrame
 	line.BackgroundTransparency = 1
-	line.Size = UDim2.new(1, -15, 0, 0)
-	line.AutomaticSize = Enum.AutomaticSize.Y
-	line.Font = self.Theme.Font
-	line.Text = text
-	line.TextColor3 = color or self.Theme.Accent
-	line.TextSize = 14
-	line.TextXAlignment = Enum.TextXAlignment.Left
-	line.RichText = true
-	line.TextWrapped = true
-	local children: { Instance } = self.State.LogFrame:GetChildren()
+	line.Size               = UDim2.new(1, -12, 0, 0)
+	line.AutomaticSize      = Enum.AutomaticSize.Y
+	line.Font               = self.Theme.Font
+	line.Text               = text
+	line.TextColor3         = color or self.Theme.Accent
+	line.TextSize           = 14
+	line.TextXAlignment     = Enum.TextXAlignment.Left
+	line.RichText           = true
+	line.TextWrapped        = true
+	local children = self.State.LogFrame:GetChildren()
 	if #children > self.State.MaxLogs then
 		for i = 1, (#children - self.State.MaxLogs) do
-			if children[i]:IsA("TextLabel") then
-				children[i]:Destroy()
-			end
+			if children[i]:IsA("TextLabel") then children[i]:Destroy() end
 		end
 	end
 	task.defer(function()
 		if self.State.LogFrame then
-			self.State.LogFrame.CanvasPosition = Vector2.new(0, self.State.LogFrame.AbsoluteCanvasSize.Y)
+			self.State.LogFrame.CanvasPosition =
+				Vector2.new(0, self.State.LogFrame.AbsoluteCanvasSize.Y)
 		end
 	end)
 end
-function Modules.CommandBar:ListCommands(): ()
-	self:AddOutput(
-		"════════════════════════════════════════════",
-		self.Theme.Accent
-	)
-	self:AddOutput("Zuka-Tech Version 13.77 (C)Copyright Microslop Corp 1981-1994.", self.Theme.Text)
-	self:AddOutput(
-		"════════════════════════════════════════════",
-		self.Theme.Accent
-	)
+function Modules.CommandBar:ListCommands()
+	self:AddOutput("╔══════════════════════════════════════════════╗", self.Theme.Accent)
+	self:AddOutput("║     Zuka-Tech Version 13.77  —  ArchBLOX     ║", self.Theme.Accent)
+	self:AddOutput("╚══════════════════════════════════════════════╝", self.Theme.Accent)
 	self:AddOutput("")
-	local sorted: { any } = {}
-	for _, info in ipairs(CommandInfo) do
-		table.insert(sorted, info)
-	end
-	table.sort(sorted, function(a, b)
-		return a.Name < b.Name
-	end)
+	local sorted = {}
+	for _, info in ipairs(CommandInfo) do table.insert(sorted, info) end
+	table.sort(sorted, function(a, b) return a.Name < b.Name end)
 	for _, info in ipairs(sorted) do
-		local aliasStr: string = ""
+		local aliasStr = ""
 		if info.Aliases and #info.Aliases > 0 then
-			aliasStr = " [" .. table.concat(info.Aliases, ", ") .. "]"
+			aliasStr = "  [" .. table.concat(info.Aliases, ", ") .. "]"
 		end
-		local desc: string = info.Description or "No description"
 		self:AddOutput(string.format("%s%s", info.Name:upper(), aliasStr), self.Theme.Accent)
-		self:AddOutput("  " .. desc, self.Theme.Text)
+		self:AddOutput("  " .. (info.Description or "No description"), self.Theme.Text)
 	end
 	self:AddOutput("")
-	self:AddOutput(
-		"════════════════════════════════════════════",
-		self.Theme.Accent
-	)
+	self:AddOutput("─────────────────────────────────────────────", self.Theme.AccentDark)
 	self:AddOutput(#sorted .. " command(s) available.", self.Theme.Text)
 end
-function Modules.CommandBar:UpdateSuggestions(): ()
-	local input: string = self.State.TextBox.Text:lower()
+function Modules.CommandBar:UpdateSuggestions()
+	local input = self.State.TextBox.Text:lower()
 	if input == "" then
 		self.State.SuggestionLabel.Text = ""
-		self.State.CurrentSuggestion = ""
+		self.State.CurrentSuggestion    = ""
 		return
 	end
-	local match: string = ""
+	local match = ""
 	for cmdName, _ in pairs(Commands) do
 		if cmdName:lower():sub(1, #input) == input then
-			match = cmdName:lower()
-			break
+			match = cmdName:lower(); break
 		end
 	end
 	if match ~= "" then
-		self.State.CurrentSuggestion = match
+		self.State.CurrentSuggestion    = match
 		self.State.SuggestionLabel.Text = match
 	else
-		self.State.CurrentSuggestion = ""
+		self.State.CurrentSuggestion    = ""
 		self.State.SuggestionLabel.Text = ""
 	end
 end
-function Modules.CommandBar:StartScan(): ()
+function Modules.CommandBar:StartScan()
 	if self.Scanner.ScanInProgress then
 		self:AddOutput("WARNING: Scan already in progress!", Color3.fromRGB(255, 255, 0))
-		self:PlayBeep()
-		return
+		self:PlayBeep(); return
 	end
 	self.Scanner.ScanInProgress = true
-	self.Scanner.FoundModules = {}
-	self:AddOutput(
-		"════════════════════════════════════════════",
-		self.Theme.Accent
-	)
-	self:AddOutput("INITIATING MODULE SCAN...", self.Theme.Text)
-	self:AddOutput(
-		"════════════════════════════════════════════",
-		self.Theme.Accent
-	)
+	self.Scanner.FoundModules   = {}
+	self:AddOutput("╔══════════════════════════════════════════════╗", self.Theme.Accent)
+	self:AddOutput("║           INITIATING MODULE SCAN…            ║", self.Theme.Text)
+	self:AddOutput("╚══════════════════════════════════════════════╝", self.Theme.Accent)
 	self:AddOutput("")
 	task.spawn(function()
 		self:ScanForModules()
 		self.Scanner.ScanInProgress = false
 		self:AddOutput("")
+		self:AddOutput("─────────────────────────────────────────────", self.Theme.Accent)
 		self:AddOutput(
-			"════════════════════════════════════════════",
-			self.Theme.Accent
-		)
-		self:AddOutput(string.format("SCAN COMPLETE - Found %d modules", #self.Scanner.FoundModules), self.Theme.Accent)
-		self:AddOutput(
-			"════════════════════════════════════════════",
-			self.Theme.Accent
-		)
+			string.format("SCAN COMPLETE — %d modules found", #self.Scanner.FoundModules),
+			self.Theme.Accent)
+		self:AddOutput("─────────────────────────────────────────────", self.Theme.Accent)
 		self:AddOutput("")
 	end)
 end
-function Modules.CommandBar:ScanForModules(): ()
+function Modules.CommandBar:ScanForModules()
 	local locations = {
 		{ game:GetService("ReplicatedStorage"), "ReplicatedStorage" },
-		{ game:GetService("ReplicatedFirst"), "ReplicatedFirst" },
+		{ game:GetService("ReplicatedFirst"),   "ReplicatedFirst"   },
 	}
-	local success, starterPlayer = pcall(function()
+	local ok, sp = pcall(function()
 		return game:GetService("StarterPlayer"):WaitForChild("StarterPlayerScripts", 2)
 	end)
-	if success and starterPlayer then
-		table.insert(locations, { starterPlayer, "StarterPlayerScripts" })
-	end
+	if ok and sp then table.insert(locations, { sp, "StarterPlayerScripts" }) end
 	local foundCount = 0
 	for _, locationData in pairs(locations) do
 		local location, name = locationData[1], locationData[2]
-		self:AddOutput(string.format("Scanning: %s", name), self.Theme.Text)
+		self:AddOutput(string.format("→ Scanning: %s", name), self.Theme.Text)
 		local modules = {}
 		for _, obj in pairs(location:GetDescendants()) do
-			if obj:IsA("ModuleScript") then
-				table.insert(modules, obj)
-			end
+			if obj:IsA("ModuleScript") then table.insert(modules, obj) end
 		end
-		self:AddOutput(string.format("  Found %d ModuleScripts", #modules), self.Theme.Text)
+		self:AddOutput(string.format("  %d ModuleScript(s) found", #modules), self.Theme.TextMuted)
 		for _, module in pairs(modules) do
-			foundCount = foundCount + 1
+			foundCount += 1
 			local moduleName = module.Name:lower()
-			local path = module:GetFullName()
-			local category = "unknown"
+			local path       = module:GetFullName()
+			local category   = "unknown"
 			local poisonType = nil
 			for pType, pData in pairs(self.Scanner.Poisons) do
 				for _, keyword in pairs(pData.Target) do
 					if moduleName:match(keyword) then
-						category = pType
-						poisonType = pData
-						break
+						category = pType; poisonType = pData; break
 					end
 				end
-				if poisonType then
-					break
-				end
+				if poisonType then break end
 			end
 			local moduleData = {
-				Module = module,
-				Name = module.Name,
-				Path = path,
+				Module   = module,
+				Name     = module.Name,
+				Path     = path,
 				Category = category,
-				Poison = poisonType,
-				Index = foundCount,
+				Poison   = poisonType,
+				Index    = foundCount,
 			}
 			table.insert(self.Scanner.FoundModules, moduleData)
 			if category ~= "unknown" then
 				self:AddOutput(
 					string.format("  [%d] [%s] %s", foundCount, category:upper(), module.Name),
-					self.Theme.Accent
-				)
+					self.Theme.Accent)
 			else
-				self:AddOutput(string.format("  [%d] [UNKNOWN] %s", foundCount, module.Name), self.Theme.Text)
+				self:AddOutput(
+					string.format("  [%d] [UNKNOWN] %s", foundCount, module.Name),
+					self.Theme.Text)
 			end
 			task.wait(0.01)
 		end
 		self:AddOutput("")
 	end
 end
-function Modules.CommandBar:ListModules(): ()
+function Modules.CommandBar:ListModules()
 	if #self.Scanner.FoundModules == 0 then
-		self:AddOutput("No modules found. Run 'scan' first.", Color3.fromRGB(255, 255, 0))
-		return
+		self:AddOutput("No modules found. Run 'scan' first.", Color3.fromRGB(255, 255, 0)); return
 	end
-	self:AddOutput(
-		"════════════════════════════════════════════",
-		self.Theme.Accent
-	)
+	self:AddOutput("─────────────────────────────────────────────", self.Theme.Accent)
 	self:AddOutput(string.format("FOUND %d MODULES:", #self.Scanner.FoundModules), self.Theme.Text)
-	self:AddOutput(
-		"════════════════════════════════════════════",
-		self.Theme.Accent
-	)
+	self:AddOutput("─────────────────────────────────────────────", self.Theme.Accent)
 	self:AddOutput("")
 	for i, mod in pairs(self.Scanner.FoundModules) do
-		local status = self.Scanner.PoisonedModules[mod.Name] and "[POISONED]" or ""
-		self:AddOutput(string.format("[%d] %s (%s) %s", i, mod.Name, mod.Category, status), self.Theme.Text)
+		local status = self.Scanner.PoisonedModules[mod.Name] and " [POISONED]" or ""
+		self:AddOutput(
+			string.format("[%d] %s (%s)%s", i, mod.Name, mod.Category, status),
+			self.Theme.Text)
 	end
 	self:AddOutput("")
 end
-function Modules.CommandBar:InjectPoison(moduleData): ()
+function Modules.CommandBar:InjectPoison(moduleData)
 	self:AddOutput("")
-	self:AddOutput(
-		"════════════════════════════════════════════",
-		self.Theme.Accent
-	)
+	self:AddOutput("─────────────────────────────────────────────", self.Theme.Accent)
 	self:AddOutput(string.format("INJECTING POISON: %s", moduleData.Poison.Name), self.Theme.Accent)
-	self:AddOutput(
-		"════════════════════════════════════════════",
-		self.Theme.Accent
-	)
+	self:AddOutput("─────────────────────────────────────────────", self.Theme.Accent)
 	self:AddOutput("")
-	local success, err = pcall(function()
-		self:ApplyPoison(moduleData)
-	end)
+	local success, err = pcall(function() self:ApplyPoison(moduleData) end)
 	if success then
-		self:AddOutput(string.format("Successfully injected into: %s", moduleData.Name), self.Theme.Accent)
-		self:AddOutput(string.format("  Description: %s", moduleData.Poison.Description), self.Theme.Text)
+		self:AddOutput(string.format("✓ Injected into: %s",        moduleData.Name),            self.Theme.Accent)
+		self:AddOutput(string.format("  %s",                        moduleData.Poison.Description), self.Theme.Text)
 		self:AddOutput("")
 		self.Scanner.PoisonedModules[moduleData.Name] = true
 		moduleData.Poison.Applied = true
 	else
-		self:AddOutput(string.format("Injection failed: %s", tostring(err)), Color3.fromRGB(255, 0, 0))
-		self:AddOutput("")
-		self:PlayBeep()
+		self:AddOutput(string.format("✗ Injection failed: %s", tostring(err)), Color3.fromRGB(255, 80, 80))
+		self:AddOutput(""); self:PlayBeep()
 	end
 end
-function Modules.CommandBar:ApplyPoison(moduleData): ()
+function Modules.CommandBar:ApplyPoison(moduleData)
 	local module = SafeRequire(moduleData.Module)
-	if not module then
-		error("Failed to require module")
-	end
-	self:AddOutput("  Analyzing module structure...", self.Theme.Text)
+	if not module then error("Failed to require module") end
+	self:AddOutput("  Analysing module structure…", self.Theme.Text)
 	local category = moduleData.Category
-	local hooked = 0
-	if category == "inventory" then
-		hooked = self:PoisonInventory(module)
-	elseif category == "damage" then
-		hooked = self:PoisonDamage(module)
-	elseif category == "movement" then
-		hooked = self:PoisonMovement(module)
-	elseif category == "currency" then
-		hooked = self:PoisonCurrency(module)
-	elseif category == "weapon" then
-		hooked = self:PoisonWeapon(module)
+	local hooked   = 0
+	if     category == "inventory" then hooked = self:PoisonInventory(module)
+	elseif category == "damage"    then hooked = self:PoisonDamage(module)
+	elseif category == "movement"  then hooked = self:PoisonMovement(module)
+	elseif category == "currency"  then hooked = self:PoisonCurrency(module)
+	elseif category == "weapon"    then hooked = self:PoisonWeapon(module)
 	end
-	self:AddOutput(string.format("  Hooked %d functions", hooked), self.Theme.Accent)
+	self:AddOutput(string.format("  Hooked %d function(s)", hooked), self.Theme.Accent)
 end
 function Modules.CommandBar:PoisonInventory(module): number
-	local hooked = 0
-	local originalFuncs = {}
-	for funcName, func in pairs(module) do
-		if type(func) == "function" then
-			local name = funcName:lower()
-			if name:match("add") or name:match("give") or name:match("insert") then
-				originalFuncs[funcName] = func
-				module[funcName] = function(...)
-					local args = { ... }
-					if type(args[2]) == "table" then
-						args[2].Amount = 999999
-						args[2].Quantity = 999999
-						args[2].Stack = 999999
+	local hooked = 0; local orig = {}
+	for fn, f in pairs(module) do
+		if type(f) == "function" then
+			local n = fn:lower()
+			if n:match("add") or n:match("give") or n:match("insert") then
+				orig[fn] = f
+				module[fn] = function(...)
+					local a = {...}
+					if type(a[2]) == "table" then
+						a[2].Amount = 999999; a[2].Quantity = 999999; a[2].Stack = 999999
 					end
-					return originalFuncs[funcName](...)
+					return orig[fn](...)
 				end
-				hooked = hooked + 1
-				self:AddOutput(string.format("    Hooked: %s (unlimited stacks)", funcName), self.Theme.Accent)
+				hooked += 1
+				self:AddOutput(string.format("    ↳ %s (unlimited stacks)", fn), self.Theme.Accent)
 			end
-			if name:match("remove") or name:match("consume") then
-				originalFuncs[funcName] = func
-				module[funcName] = function(...)
-					return true
-				end
-				hooked = hooked + 1
-				self:AddOutput(string.format("    Hooked: %s (prevent consumption)", funcName), self.Theme.Accent)
+			if n:match("remove") or n:match("consume") then
+				orig[fn] = f
+				module[fn] = function(...) return true end
+				hooked += 1
+				self:AddOutput(string.format("    ↳ %s (prevent consumption)", fn), self.Theme.Accent)
 			end
-			if name:match("damage") or name:match("power") then
-				originalFuncs[funcName] = func
-				module[funcName] = function(...)
-					local result = originalFuncs[funcName](...)
-					if type(result) == "number" then
-						return result * 3.0
-					end
-					return result
+			if n:match("damage") or n:match("power") then
+				orig[fn] = f
+				module[fn] = function(...)
+					local r = orig[fn](...)
+					return type(r) == "number" and r * 3.0 or r
 				end
-				hooked = hooked + 1
-				self:AddOutput(string.format("    Hooked: %s (3x multiplier)", funcName), self.Theme.Accent)
+				hooked += 1
+				self:AddOutput(string.format("    ↳ %s (3× multiplier)", fn), self.Theme.Accent)
 			end
 		end
 	end
 	return hooked
 end
 function Modules.CommandBar:PoisonDamage(module): number
-	local hooked = 0
-	local originalFuncs = {}
-	for funcName, func in pairs(module) do
-		if type(func) == "function" then
-			local name = funcName:lower()
-			if name:match("damage") or name:match("takedamage") or name:match("hurt") then
-				originalFuncs[funcName] = func
-				module[funcName] = function(amount, ...)
-					if type(amount) == "number" then
-						return originalFuncs[funcName](amount * 0.1, ...)
-					end
-					return originalFuncs[funcName](amount, ...)
+	local hooked = 0; local orig = {}
+	for fn, f in pairs(module) do
+		if type(f) == "function" then
+			local n = fn:lower()
+			if n:match("damage") or n:match("takedamage") or n:match("hurt") then
+				orig[fn] = f
+				module[fn] = function(amount, ...)
+					return orig[fn](type(amount) == "number" and amount * 0.1 or amount, ...)
 				end
-				hooked = hooked + 1
-				self:AddOutput(string.format("    Hooked: %s (90%% damage reduction)", funcName), self.Theme.Accent)
+				hooked += 1
+				self:AddOutput(string.format("    ↳ %s (90%% dmg reduction)", fn), self.Theme.Accent)
 			end
-			if name:match("deal") or name:match("attack") or name:match("hit") then
-				originalFuncs[funcName] = func
-				module[funcName] = function(amount, ...)
-					if type(amount) == "number" then
-						return originalFuncs[funcName](amount * 5.0, ...)
-					end
-					return originalFuncs[funcName](amount, ...)
+			if n:match("deal") or n:match("attack") or n:match("hit") then
+				orig[fn] = f
+				module[fn] = function(amount, ...)
+					return orig[fn](type(amount) == "number" and amount * 5.0 or amount, ...)
 				end
-				hooked = hooked + 1
-				self:AddOutput(string.format("    Hooked: %s (5x damage output)", funcName), self.Theme.Accent)
+				hooked += 1
+				self:AddOutput(string.format("    ↳ %s (5× dmg output)", fn), self.Theme.Accent)
 			end
 		end
 	end
 	return hooked
 end
 function Modules.CommandBar:PoisonMovement(module): number
-	local hooked = 0
-	local originalFuncs = {}
-	for funcName, func in pairs(module) do
-		if type(func) == "function" then
-			local name = funcName:lower()
-			if name:match("speed") or name:match("walkspeed") then
-				originalFuncs[funcName] = func
-				module[funcName] = function(...)
-					local result = originalFuncs[funcName](...)
-					if type(result) == "number" then
-						return result * 3.0
-					end
-					return result
+	local hooked = 0; local orig = {}
+	for fn, f in pairs(module) do
+		if type(f) == "function" then
+			local n = fn:lower()
+			if n:match("speed") or n:match("walkspeed") then
+				orig[fn] = f
+				module[fn] = function(...)
+					local r = orig[fn](...)
+					return type(r) == "number" and r * 3.0 or r
 				end
-				hooked = hooked + 1
-				self:AddOutput(string.format("    Hooked: %s (3x speed)", funcName), self.Theme.Accent)
+				hooked += 1
+				self:AddOutput(string.format("    ↳ %s (3× speed)", fn), self.Theme.Accent)
 			end
 		end
 	end
 	return hooked
 end
 function Modules.CommandBar:PoisonCurrency(module): number
-	local hooked = 0
-	local originalFuncs = {}
-	for funcName, func in pairs(module) do
-		if type(func) == "function" then
-			local name = funcName:lower()
-			if name:match("add") or name:match("give") or name:match("earn") then
-				originalFuncs[funcName] = func
-				module[funcName] = function(amount, ...)
-					if type(amount) == "number" then
-						return originalFuncs[funcName](amount * 10.0, ...)
-					end
-					return originalFuncs[funcName](amount, ...)
+	local hooked = 0; local orig = {}
+	for fn, f in pairs(module) do
+		if type(f) == "function" then
+			local n = fn:lower()
+			if n:match("add") or n:match("give") or n:match("earn") then
+				orig[fn] = f
+				module[fn] = function(amount, ...)
+					return orig[fn](type(amount) == "number" and amount * 10.0 or amount, ...)
 				end
-				hooked = hooked + 1
-				self:AddOutput(string.format("    Hooked: %s (10x multiplier)", funcName), self.Theme.Accent)
+				hooked += 1
+				self:AddOutput(string.format("    ↳ %s (10× multiplier)", fn), self.Theme.Accent)
 			end
-			if name:match("cost") or name:match("price") then
-				originalFuncs[funcName] = func
-				module[funcName] = function(...)
-					return 0
-				end
-				hooked = hooked + 1
-				self:AddOutput(string.format("    Hooked: %s (free purchases)", funcName), self.Theme.Accent)
+			if n:match("cost") or n:match("price") then
+				orig[fn] = f
+				module[fn] = function(...) return 0 end
+				hooked += 1
+				self:AddOutput(string.format("    ↳ %s (free purchases)", fn), self.Theme.Accent)
 			end
 		end
 	end
 	return hooked
 end
 function Modules.CommandBar:PoisonWeapon(module): number
-	local hooked = 0
-	local originalFuncs = {}
-	for funcName, func in pairs(module) do
-		if type(func) == "function" then
-			local name = funcName:lower()
-			if name:match("ammo") or name:match("clip") then
-				originalFuncs[funcName] = func
-				module[funcName] = function(...)
-					return 999999
-				end
-				hooked = hooked + 1
-				self:AddOutput(string.format("    Hooked: %s (infinite ammo)", funcName), self.Theme.Accent)
+	local hooked = 0; local orig = {}
+	for fn, f in pairs(module) do
+		if type(f) == "function" then
+			local n = fn:lower()
+			if n:match("ammo") or n:match("clip") then
+				orig[fn] = f
+				module[fn] = function(...) return 999999 end
+				hooked += 1
+				self:AddOutput(string.format("    ↳ %s (infinite ammo)", fn), self.Theme.Accent)
 			end
-			if name:match("fire") or name:match("shoot") then
-				originalFuncs[funcName] = func
-				module[funcName] = function(...)
-					return originalFuncs[funcName](...)
-				end
-				hooked = hooked + 1
-				self:AddOutput(string.format("    Hooked: %s (no cooldown)", funcName), self.Theme.Accent)
+			if n:match("fire") or n:match("shoot") then
+				orig[fn] = f
+				module[fn] = function(...) return orig[fn](...) end
+				hooked += 1
+				self:AddOutput(string.format("    ↳ %s (no cooldown)", fn), self.Theme.Accent)
 			end
 		end
 	end
 	return hooked
 end
-function Modules.CommandBar:ShowStatus(): ()
-	self:AddOutput(
-		"════════════════════════════════════════════",
-		self.Theme.Accent
-	)
+function Modules.CommandBar:ShowStatus()
+	self:AddOutput("─────────────────────────────────────────────", self.Theme.Accent)
 	self:AddOutput("SCANNER STATUS", self.Theme.Text)
-	self:AddOutput(
-		"════════════════════════════════════════════",
-		self.Theme.Accent
-	)
-	self:AddOutput(string.format("Modules Found: %d", #self.Scanner.FoundModules), self.Theme.Text)
+	self:AddOutput("─────────────────────────────────────────────", self.Theme.Accent)
+	self:AddOutput(string.format("Modules Found:   %d", #self.Scanner.FoundModules), self.Theme.Text)
 	local poisonedCount = 0
-	for _ in pairs(self.Scanner.PoisonedModules) do
-		poisonedCount = poisonedCount + 1
-	end
-	self:AddOutput(string.format("Poisons Applied: %d", poisonedCount), self.Theme.Text)
-	self:AddOutput(string.format("Scan Active: %s", self.Scanner.ScanInProgress and "Yes" or "No"), self.Theme.Text)
+	for _ in pairs(self.Scanner.PoisonedModules) do poisonedCount += 1 end
+	self:AddOutput(string.format("Poisons Applied: %d", poisonedCount),                  self.Theme.Text)
+	self:AddOutput(string.format("Scan Active:     %s", self.Scanner.ScanInProgress and "Yes" or "No"), self.Theme.Text)
 	self:AddOutput("")
 end
-function Modules.CommandBar:Initialize(): ()
-	local CommandBarUI: ScreenGui = Instance.new("ScreenGui")
-	CommandBarUI.Name = "CommandPrompt"
-	CommandBarUI.Parent = CoreGui
-	CommandBarUI.ResetOnSpawn = false
-	CommandBarUI.Enabled = false
-	local MainContainer: Frame = Instance.new("Frame")
-	MainContainer.Name = "WindowFrame"
-	MainContainer.Parent = CommandBarUI
-	MainContainer.Size = UDim2.new(0, 600, 0, 400)
-	MainContainer.Position = UDim2.new(0.5, -300, 1, 50)
-	MainContainer.BackgroundColor3 = self.Theme.WindowGray
-	MainContainer.BackgroundTransparency = 0
-	MainContainer.BorderSizePixel = 0
-	MainContainer.Active = true
-	MainContainer.ClipsDescendants = false
-	local function CreateWin95Border(parent: Frame, isInset: boolean): ()
-		local topColor = isInset and self.Theme.DarkGray or self.Theme.White
-		local bottomColor = isInset and self.Theme.White or self.Theme.DarkGray
-		local topBorder = Instance.new("Frame", parent)
-		topBorder.Name = "TopBorder"
-		topBorder.Size = UDim2.new(1, 0, 0, 2)
-		topBorder.Position = UDim2.new(0, 0, 0, 0)
-		topBorder.BackgroundColor3 = topColor
-		topBorder.BorderSizePixel = 0
-		topBorder.ZIndex = parent.ZIndex + 1
-		local leftBorder = Instance.new("Frame", parent)
-		leftBorder.Name = "LeftBorder"
-		leftBorder.Size = UDim2.new(0, 2, 1, 0)
-		leftBorder.Position = UDim2.new(0, 0, 0, 0)
-		leftBorder.BackgroundColor3 = topColor
-		leftBorder.BorderSizePixel = 0
-		leftBorder.ZIndex = parent.ZIndex + 1
-		local bottomBorder = Instance.new("Frame", parent)
-		bottomBorder.Name = "BottomBorder"
-		bottomBorder.Size = UDim2.new(1, 0, 0, 2)
-		bottomBorder.Position = UDim2.new(0, 0, 1, -2)
-		bottomBorder.BackgroundColor3 = bottomColor
-		bottomBorder.BorderSizePixel = 0
-		bottomBorder.ZIndex = parent.ZIndex + 1
-		local rightBorder = Instance.new("Frame", parent)
-		rightBorder.Name = "RightBorder"
-		rightBorder.Size = UDim2.new(0, 2, 1, 0)
-		rightBorder.Position = UDim2.new(1, -2, 0, 0)
-		rightBorder.BackgroundColor3 = bottomColor
-		rightBorder.BorderSizePixel = 0
-		rightBorder.ZIndex = parent.ZIndex + 1
+function Modules.CommandBar:Initialize()
+	local T = self.Theme
+	local function mk(cls, props, parent)
+		local o = Instance.new(cls)
+		for k, v in pairs(props) do pcall(function() o[k] = v end) end
+		if parent then o.Parent = parent end
+		return o
 	end
-	CreateWin95Border(MainContainer, false)
-	local TitleBar: Frame = Instance.new("Frame", MainContainer)
-	TitleBar.Name = "TitleBar"
-	TitleBar.Position = UDim2.new(0, 3, 0, 3)
-	TitleBar.Size = UDim2.new(1, -6, 0, 22)
-	TitleBar.BackgroundColor3 = self.Theme.Blue
-	TitleBar.BorderSizePixel = 0
-	TitleBar.ZIndex = 2
-	local TitleGradient = Instance.new("UIGradient", TitleBar)
-	TitleGradient.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 168)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(16, 132, 208)),
-	})
-	TitleGradient.Rotation = 90
-	local TitleLabel: TextLabel = Instance.new("TextLabel", TitleBar)
-	TitleLabel.Name = "Title"
-	TitleLabel.Position = UDim2.new(0, 4, 0, 0)
-	TitleLabel.Size = UDim2.new(1, -70, 1, 0)
-	TitleLabel.BackgroundTransparency = 1
-	TitleLabel.Font = Enum.Font.SourceSansBold
-	TitleLabel.Text = "C:\\ROBLOX\\system32\\cmd.exe"
-	TitleLabel.TextColor3 = self.Theme.White
-	TitleLabel.TextSize = 13
-	TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-	TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
-	TitleLabel.ZIndex = 3
-	local MinimizeButton: TextButton = Instance.new("TextButton", TitleBar)
-	MinimizeButton.Name = "MinimizeButton"
-	MinimizeButton.Position = UDim2.new(1, -54, 0, 2)
-	MinimizeButton.Size = UDim2.new(0, 16, 0, 16)
-	MinimizeButton.BackgroundColor3 = self.Theme.WindowGray
-	MinimizeButton.BorderSizePixel = 0
-	MinimizeButton.Font = Enum.Font.SourceSansBold
-	MinimizeButton.Text = "_"
-	MinimizeButton.TextColor3 = Color3.fromRGB(0, 0, 0)
-	MinimizeButton.TextSize = 14
-	MinimizeButton.TextYAlignment = Enum.TextYAlignment.Top
-	MinimizeButton.ZIndex = 4
-	CreateWin95Border(MinimizeButton, false)
-	MinimizeButton.MouseButton1Click:Connect(function()
-		if self.State.IsMinimized then
-			self:Restore()
-		else
-			self:Minimize()
-		end
-	end)
-	local MaximizeButton: TextButton = Instance.new("TextButton", TitleBar)
-	MaximizeButton.Name = "MaximizeButton"
-	MaximizeButton.Position = UDim2.new(1, -36, 0, 2)
-	MaximizeButton.Size = UDim2.new(0, 16, 0, 16)
-	MaximizeButton.BackgroundColor3 = self.Theme.WindowGray
-	MaximizeButton.BorderSizePixel = 0
-	MaximizeButton.Font = Enum.Font.SourceSansBold
-	MaximizeButton.Text = "□"
-	MaximizeButton.TextColor3 = Color3.fromRGB(0, 0, 0)
-	MaximizeButton.TextSize = 14
-	MaximizeButton.ZIndex = 4
-	CreateWin95Border(MaximizeButton, false)
-	MaximizeButton.MouseButton1Click:Connect(function()
-		self:Maximize()
-	end)
-	local CloseButton: TextButton = Instance.new("TextButton", TitleBar)
-	CloseButton.Name = "CloseButton"
-	CloseButton.Position = UDim2.new(1, -18, 0, 2)
-	CloseButton.Size = UDim2.new(0, 16, 0, 16)
-	CloseButton.BackgroundColor3 = self.Theme.WindowGray
-	CloseButton.BorderSizePixel = 0
-	CloseButton.Font = Enum.Font.SourceSansBold
-	CloseButton.Text = "×"
-	CloseButton.TextColor3 = Color3.fromRGB(0, 0, 0)
-	CloseButton.TextSize = 16
-	CloseButton.ZIndex = 4
-	CreateWin95Border(CloseButton, false)
-	CloseButton.MouseButton1Click:Connect(function()
-		self:Toggle()
-	end)
-	local TerminalContainer: Frame = Instance.new("Frame", MainContainer)
-	TerminalContainer.Name = "TerminalContainer"
-	TerminalContainer.Position = UDim2.new(0, 6, 0, 28)
-	TerminalContainer.Size = UDim2.new(1, -12, 1, -34)
-	TerminalContainer.BackgroundColor3 = self.Theme.Background
-	TerminalContainer.BorderSizePixel = 0
-	TerminalContainer.ZIndex = 1
-	CreateWin95Border(TerminalContainer, true)
-	local ScanlineOverlay = Instance.new("Frame", TerminalContainer)
-	ScanlineOverlay.Name = "Scanlines"
-	ScanlineOverlay.Size = UDim2.new(1, 0, 1, 0)
-	ScanlineOverlay.BackgroundTransparency = 0.95
-	ScanlineOverlay.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-	ScanlineOverlay.BorderSizePixel = 0
-	ScanlineOverlay.ZIndex = 10
-	for i = 0, 50 do
-		local line = Instance.new("Frame", ScanlineOverlay)
-		line.Size = UDim2.new(1, 0, 0, 1)
-		line.Position = UDim2.new(0, 0, i / 50, 0)
-		line.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-		line.BackgroundTransparency = 0.8
-		line.BorderSizePixel = 0
+	local function corner(p, r)
+		return mk("UICorner", { CornerRadius = UDim.new(0, r or 8) }, p)
 	end
-	local AnimatedScanline = Instance.new("Frame", ScanlineOverlay)
-	AnimatedScanline.Name = "AnimatedScan"
-	AnimatedScanline.Size = UDim2.new(1, 0, 0, 3)
-	AnimatedScanline.Position = UDim2.new(0, 0, 0, 0)
-	AnimatedScanline.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-	AnimatedScanline.BackgroundTransparency = 0.9
-	AnimatedScanline.BorderSizePixel = 0
-	task.spawn(function()
-		while task.wait(0.05) do
-			if not AnimatedScanline or not AnimatedScanline.Parent then
-				break
-			end
-			AnimatedScanline.Position = UDim2.new(0, 0, (AnimatedScanline.Position.Y.Scale + 0.02) % 1, 0)
-		end
+	local function stroke(p, col, thick, trans)
+		return mk("UIStroke", { Color = col, Thickness = thick or 1, Transparency = trans or 0.4 }, p)
+	end
+	local function pad(p, px)
+		local u = Instance.new("UIPadding")
+		u.PaddingLeft   = UDim.new(0, px)
+		u.PaddingRight  = UDim.new(0, px)
+		u.PaddingTop    = UDim.new(0, px)
+		u.PaddingBottom = UDim.new(0, px)
+		u.Parent = p
+	end
+	local function tween(obj, props, t)
+		TweenService:Create(obj,
+			TweenInfo.new(t or 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			props):Play()
+	end
+	local function hover(btn, norm, hov)
+		btn.MouseEnter:Connect(function()  tween(btn, { BackgroundColor3 = hov  }) end)
+		btn.MouseLeave:Connect(function()  tween(btn, { BackgroundColor3 = norm }) end)
+	end
+	local CommandBarUI = mk("ScreenGui", {
+		Name           = "CommandPrompt",
+		ResetOnSpawn   = false,
+		ZIndexBehavior = Enum.ZIndexBehavior.Global,
+		IgnoreGuiInset = true,
+		Enabled        = false,
+	}, CoreGui)
+	local MainContainer = mk("Frame", {
+		Name                   = "WindowFrame",
+		Size                   = UDim2.new(0, 640, 0, 420),
+		Position               = UDim2.new(0.5, -320, 1, 60),
+		BackgroundColor3       = T.Surface,
+		BackgroundTransparency = 1,
+		BorderSizePixel        = 0,
+		Active                 = true,
+		ClipsDescendants       = false,
+	}, CommandBarUI)
+	corner(MainContainer, 10)
+	stroke(MainContainer, T.Border, 1, 0.45)
+	local shadow = mk("Frame", {
+		Size                   = UDim2.new(1, 24, 1, 24),
+		Position               = UDim2.new(0, -12, 0, -12),
+		BackgroundColor3       = Color3.new(0, 0, 0),
+		BackgroundTransparency = 0.65,
+		BorderSizePixel        = 0,
+		ZIndex                 = MainContainer.ZIndex - 1,
+	}, MainContainer)
+	corner(shadow, 14)
+	local TitleBar = mk("Frame", {
+		Name             = "TitleBar",
+		Size             = UDim2.new(1, 0, 0, 38),
+		BackgroundColor3 = T.Surface2,
+		BorderSizePixel  = 0,
+		ZIndex           = 2,
+	}, MainContainer)
+	corner(TitleBar, 10)
+	mk("Frame", {
+		Size             = UDim2.new(1, 0, 0.5, 0),
+		Position         = UDim2.new(0, 0, 0.5, 0),
+		BackgroundColor3 = T.Surface2,
+		BorderSizePixel  = 0,
+		ZIndex           = 2,
+	}, TitleBar)
+	mk("Frame", {
+		Size             = UDim2.new(1, 0, 0, 1),
+		Position         = UDim2.new(0, 0, 1, -1),
+		BackgroundColor3 = T.Accent,
+		BackgroundTransparency = 0.6,
+		BorderSizePixel  = 0,
+		ZIndex           = 3,
+	}, TitleBar)
+	local function trafficBtn(col, xOff, sym, cb)
+		local b = mk("TextButton", {
+			Size             = UDim2.new(0, 14, 0, 14),
+			Position         = UDim2.new(1, xOff, 0.5, -7),
+			BackgroundColor3 = col,
+			Text             = "",
+			BorderSizePixel  = 0,
+			ZIndex           = 4,
+		}, TitleBar)
+		corner(b, 7)
+		local lbl = mk("TextLabel", {
+			Size                   = UDim2.new(1, 0, 1, 0),
+			BackgroundTransparency = 1,
+			Text                   = sym,
+			TextColor3             = Color3.new(0, 0, 0),
+			Font                   = Enum.Font.GothamBold,
+			TextSize               = 8,
+			Visible                = false,
+			ZIndex                 = 5,
+		}, b)
+		b.MouseEnter:Connect(function() lbl.Visible = true  end)
+		b.MouseLeave:Connect(function() lbl.Visible = false end)
+		b.MouseButton1Click:Connect(cb)
+		return b
+	end
+	trafficBtn(T.Close, -22, "✕", function() self:Toggle() end)
+	trafficBtn(T.Minimize, -40, "─", function()
+		if self.State.IsMinimized then self:Restore() else self:Minimize() end
 	end)
-	local OutputLog: ScrollingFrame = Instance.new("ScrollingFrame")
-	OutputLog.Name = "Buffer"
-	OutputLog.Parent = TerminalContainer
-	OutputLog.Position = UDim2.new(0, 4, 0, 4)
-	OutputLog.Size = UDim2.new(1, -8, 1, -32)
-	OutputLog.BackgroundTransparency = 1
-	OutputLog.BorderSizePixel = 0
-	OutputLog.ScrollBarThickness = 16
-	OutputLog.ScrollBarImageColor3 = self.Theme.WindowGray
-	OutputLog.CanvasSize = UDim2.new(0, 0, 0, 0)
-	OutputLog.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	OutputLog.ScrollingDirection = Enum.ScrollingDirection.Y
-	OutputLog.ZIndex = 2
-	local LogLayout: UIListLayout = Instance.new("UIListLayout", OutputLog)
-	LogLayout.Padding = UDim.new(0, 0)
-	LogLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	local InputArea: Frame = Instance.new("Frame", TerminalContainer)
-	InputArea.Position = UDim2.new(0, 4, 1, -24)
-	InputArea.Size = UDim2.new(1, -8, 0, 20)
-	InputArea.BackgroundTransparency = 1
-	InputArea.ZIndex = 2
-	local Prompt: TextLabel = Instance.new("TextLabel", InputArea)
-	Prompt.Size = UDim2.new(0, 40, 1, 0)
-	Prompt.BackgroundTransparency = 1
-	Prompt.Font = self.Theme.Font
-	Prompt.Text = "C:\\>"
-	Prompt.TextColor3 = self.Theme.Accent
-	Prompt.TextSize = 14
-	Prompt.TextXAlignment = Enum.TextXAlignment.Left
-	Prompt.ZIndex = 3
-	local SuggestionLabel: TextLabel = Instance.new("TextLabel", InputArea)
-	SuggestionLabel.Name = "Suggestion"
-	SuggestionLabel.Position = UDim2.new(0, 40, 0, 0)
-	SuggestionLabel.Size = UDim2.new(1, -40, 1, 0)
-	SuggestionLabel.BackgroundTransparency = 1
-	SuggestionLabel.Font = self.Theme.Font
-	SuggestionLabel.Text = ""
-	SuggestionLabel.TextColor3 = self.Theme.Suggestion
-	SuggestionLabel.TextSize = 14
-	SuggestionLabel.TextXAlignment = Enum.TextXAlignment.Left
-	SuggestionLabel.ZIndex = 3
-	local InputField: TextBox = Instance.new("TextBox", InputArea)
-	InputField.Name = "Prompt"
-	InputField.Position = UDim2.new(0, 40, 0, 0)
-	InputField.Size = UDim2.new(1, -40, 1, 0)
-	InputField.BackgroundTransparency = 1
-	InputField.Font = self.Theme.Font
-	InputField.Text = ""
-	InputField.TextColor3 = self.Theme.Accent
-	InputField.TextSize = 14
-	InputField.TextXAlignment = Enum.TextXAlignment.Left
-	InputField.ClearTextOnFocus = false
-	InputField.ZIndex = 4
-	local Cursor: Frame = Instance.new("Frame", InputArea)
-	Cursor.Name = "Cursor"
-	Cursor.Size = UDim2.new(0, 8, 0, 16)
-	Cursor.Position = UDim2.new(0, 40, 0, 2)
-	Cursor.BackgroundColor3 = self.Theme.Accent
-	Cursor.BorderSizePixel = 0
-	Cursor.ZIndex = 5
+	trafficBtn(T.Maximize, -58, "□", function() self:Maximize() end)
+	local localPlayer = game:GetService("Players").LocalPlayer
+	local userName    = localPlayer and localPlayer.Name:lower() or "user"
+	mk("TextLabel", {
+		Size                   = UDim2.new(1, -130, 1, 0),
+		Position               = UDim2.new(0, 14, 0, 0),
+		BackgroundTransparency = 1,
+		Text                   = "  ⌨  C:\\ROBLOX\\system32\\cmd.exe",
+		Font                   = Enum.Font.GothamBold,
+		TextSize               = 12,
+		TextColor3             = T.Text,
+		TextXAlignment         = Enum.TextXAlignment.Left,
+		ZIndex                 = 3,
+	}, TitleBar)
+	local TerminalContainer = mk("Frame", {
+		Name             = "TerminalContainer",
+		Position         = UDim2.new(0, 0, 0, 38),
+		Size             = UDim2.new(1, 0, 1, -38),
+		BackgroundColor3 = T.Background,
+		BorderSizePixel  = 0,
+		ZIndex           = 1,
+		ClipsDescendants = true,
+	}, MainContainer)
+	corner(TerminalContainer, 0)
+	local OutputLog = mk("ScrollingFrame", {
+		Name                   = "Buffer",
+		Position               = UDim2.new(0, 6, 0, 6),
+		Size                   = UDim2.new(1, -12, 1, -44),
+		BackgroundTransparency = 1,
+		BorderSizePixel        = 0,
+		ScrollBarThickness     = 4,
+		ScrollBarImageColor3   = T.ScrollBar,
+		CanvasSize             = UDim2.new(0, 0, 0, 0),
+		AutomaticCanvasSize    = Enum.AutomaticSize.Y,
+		ScrollingDirection     = Enum.ScrollingDirection.Y,
+		ZIndex                 = 2,
+	}, TerminalContainer)
+	mk("UIListLayout", { Padding = UDim.new(0, 1), SortOrder = Enum.SortOrder.LayoutOrder }, OutputLog)
+	pad(OutputLog, 4)
+	local InputRow = mk("Frame", {
+		Name             = "InputRow",
+		Size             = UDim2.new(1, 0, 0, 38),
+		Position         = UDim2.new(0, 0, 1, -38),
+		BackgroundColor3 = Color3.fromRGB(10, 12, 18),
+		BorderSizePixel  = 0,
+		ZIndex           = 2,
+	}, TerminalContainer)
+	mk("Frame", {
+		Size             = UDim2.new(1, 0, 0, 1),
+		BackgroundColor3 = T.Accent,
+		BackgroundTransparency = 0.7,
+		BorderSizePixel  = 0,
+		ZIndex           = 3,
+	}, InputRow)
+	local promptText = "[" .. userName .. "@archos ~]$ "
+	local promptPixelW = game:GetService("TextService"):GetTextSize(
+		promptText, 14, T.Font, Vector2.new(2000, 40)).X
+	local Prompt = mk("TextLabel", {
+		Size                   = UDim2.new(0, promptPixelW, 1, 0),
+		Position               = UDim2.new(0, 8, 0, 0),
+		BackgroundTransparency = 1,
+		Text                   = promptText,
+		Font                   = T.Font,
+		TextSize               = 14,
+		TextColor3             = T.Accent,
+		TextXAlignment         = Enum.TextXAlignment.Left,
+		ZIndex                 = 4,
+	}, InputRow)
+	local inputStartX = 8 + promptPixelW
+	local inputWidth  = -(inputStartX + 8)
+	local InputField = mk("TextBox", {
+		Name                   = "Prompt",
+		Position               = UDim2.new(0, inputStartX, 0, 0),
+		Size                   = UDim2.new(1, inputWidth, 1, 0),
+		BackgroundTransparency = 1,
+		Font                   = T.Font,
+		Text                   = "",
+		PlaceholderText        = "enter command…",
+		PlaceholderColor3      = T.TextMuted,
+		TextColor3             = T.Accent,
+		TextSize               = 14,
+		TextXAlignment         = Enum.TextXAlignment.Left,
+		ClearTextOnFocus       = false,
+		ZIndex                 = 4,
+	}, InputRow)
+	local SuggestionLabel = mk("TextLabel", {
+		Name                   = "Suggestion",
+		Position               = UDim2.new(0, inputStartX, 0, 0),
+		Size                   = UDim2.new(1, inputWidth, 1, 0),
+		BackgroundTransparency = 1,
+		Font                   = T.Font,
+		Text                   = "",
+		TextColor3             = T.Suggestion,
+		TextSize               = 14,
+		TextXAlignment         = Enum.TextXAlignment.Left,
+		ZIndex                 = 3,
+	}, InputRow)
+	local Cursor = mk("Frame", {
+		Name             = "Cursor",
+		Size             = UDim2.new(0, 8, 0, 16),
+		Position         = UDim2.new(0, inputStartX, 0.5, -8),
+		BackgroundColor3 = T.Accent,
+		BorderSizePixel  = 0,
+		ZIndex           = 5,
+	}, InputRow)
 	task.spawn(function()
 		while task.wait(0.5) do
-			if not Cursor or not Cursor.Parent then
-				break
-			end
-			if InputField:IsFocused() then
-				Cursor.BackgroundTransparency = Cursor.BackgroundTransparency == 0 and 1 or 0
-			else
-				Cursor.BackgroundTransparency = 1
-			end
+			if not Cursor or not Cursor.Parent then break end
+			Cursor.BackgroundTransparency =
+				(InputField:IsFocused() and Cursor.BackgroundTransparency == 0) and 1 or 0
 		end
 	end)
-	local ResizeHandle = Instance.new("Frame")
-	ResizeHandle.Name = "ResizeHandle"
-	ResizeHandle.Size = UDim2.fromOffset(16, 16)
-	ResizeHandle.Position = UDim2.new(1, -16, 1, -16)
-	ResizeHandle.BackgroundColor3 = self.Theme.WindowGray
-	ResizeHandle.BorderSizePixel = 0
-	ResizeHandle.ZIndex = 10
-	ResizeHandle.Parent = MainContainer
+	local ResizeHandle = mk("Frame", {
+		Name             = "ResizeHandle",
+		Size             = UDim2.fromOffset(18, 18),
+		Position         = UDim2.new(1, -18, 1, -18),
+		BackgroundColor3 = T.Surface2,
+		BorderSizePixel  = 0,
+		ZIndex           = 10,
+	}, MainContainer)
+	corner(ResizeHandle, 4)
 	for i = 0, 2 do
-		local line = Instance.new("Frame", ResizeHandle)
-		line.Size = UDim2.new(0, 2, 1, -4 * i)
-		line.Position = UDim2.new(0, 4 + (4 * i), 0, 4 * i)
-		line.BackgroundColor3 = self.Theme.DarkGray
-		line.BorderSizePixel = 0
-		line.Rotation = 45
+		mk("Frame", {
+			Size             = UDim2.new(0, 1, 1, -4 * i),
+			Position         = UDim2.new(0, 4 + (4 * i), 0, 4 * i),
+			BackgroundColor3 = T.AccentDark,
+			BorderSizePixel  = 0,
+			Rotation         = 45,
+		}, ResizeHandle)
 	end
-	self.State.UI = CommandBarUI
-	self.State.Container = MainContainer
-	self.State.TextBox = InputField
-	self.State.LogFrame = OutputLog
+	self.State.UI             = CommandBarUI
+	self.State.Container      = MainContainer
+	self.State.TextBox        = InputField
+	self.State.LogFrame       = OutputLog
 	self.State.SuggestionLabel = SuggestionLabel
-	local dragging, resizing = false, false
-	local dragStart, resizeStart, startPos, startSize
-	TitleBar.InputBegan:Connect(function(input: InputObject)
+	local dragging, dragStart, startPos = false, nil, nil
+	TitleBar.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging = true
+			dragging  = true
 			dragStart = input.Position
-			startPos = MainContainer.Position
-			local conn
-			conn = input.Changed:Connect(function()
+			startPos  = MainContainer.Position
+			local conn; conn = input.Changed:Connect(function()
 				if input.UserInputState == Enum.UserInputState.End then
-					dragging = false
-					conn:Disconnect()
+					dragging = false; conn:Disconnect()
 				end
 			end)
 		end
 	end)
-	ResizeHandle.InputBegan:Connect(function(input: InputObject)
+	local resizing, resizeStart, startSize = false, nil, nil
+	ResizeHandle.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			resizing = true
+			resizing    = true
 			resizeStart = input.Position
-			startSize = MainContainer.Size
-			local conn
-			conn = input.Changed:Connect(function()
+			startSize   = MainContainer.Size
+			local conn; conn = input.Changed:Connect(function()
 				if input.UserInputState == Enum.UserInputState.End then
-					resizing = false
-					conn:Disconnect()
+					resizing = false; conn:Disconnect()
 				end
 			end)
 		end
 	end)
-	UserInputService.InputChanged:Connect(function(input: InputObject)
+	UserInputService.InputChanged:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseMovement then
 			if dragging then
-				local delta: Vector3 = input.Position - dragStart
+				local d = input.Position - dragStart
 				MainContainer.Position = UDim2.new(
-					startPos.X.Scale,
-					startPos.X.Offset + delta.X,
-					startPos.Y.Scale,
-					startPos.Y.Offset + delta.Y
-				)
+					startPos.X.Scale, startPos.X.Offset + d.X,
+					startPos.Y.Scale, startPos.Y.Offset + d.Y)
 			elseif resizing then
-				local delta: Vector2 = Vector2.new(input.Position.X - resizeStart.X, input.Position.Y - resizeStart.Y)
-				local newX = math.max(self.State.MinSize.X, startSize.X.Offset + delta.X)
-				local newY = math.max(self.State.MinSize.Y, startSize.Y.Offset + delta.Y)
+				local d    = Vector2.new(input.Position.X - resizeStart.X,
+				                         input.Position.Y - resizeStart.Y)
+				local newX = math.max(self.State.MinSize.X, startSize.X.Offset + d.X)
+				local newY = math.max(self.State.MinSize.Y, startSize.Y.Offset + d.Y)
 				MainContainer.Size = UDim2.new(0, newX, 0, newY)
 			end
 		end
 	end)
-	OutputLog.InputBegan:Connect(function(input: InputObject)
+	OutputLog.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
 			self.State.IsSelecting = true
-			local children: { Instance } = OutputLog:GetChildren()
-			local mousePos: Vector3 = input.Position
+			local children = OutputLog:GetChildren()
+			local mp       = input.Position
 			for i, child in ipairs(children) do
 				if child:IsA("TextLabel") then
-					local absPos: Vector2 = child.AbsolutePosition
-					local absSize: Vector2 = child.AbsoluteSize
-					if
-						mousePos.X >= absPos.X
-						and mousePos.X <= absPos.X + absSize.X
-						and mousePos.Y >= absPos.Y
-						and mousePos.Y <= absPos.Y + absSize.Y
-					then
-						self.State.SelectionStart = i
-						break
+					local ap, as = child.AbsolutePosition, child.AbsoluteSize
+					if mp.X >= ap.X and mp.X <= ap.X + as.X
+					and mp.Y >= ap.Y and mp.Y <= ap.Y + as.Y then
+						self.State.SelectionStart = i; break
 					end
 				end
 			end
-			local conn
-			conn = input.Changed:Connect(function()
+			local conn; conn = input.Changed:Connect(function()
 				if input.UserInputState == Enum.UserInputState.End then
-					self.State.IsSelecting = false
-					conn:Disconnect()
+					self.State.IsSelecting = false; conn:Disconnect()
 				end
 			end)
 		end
 	end)
-	OutputLog.InputChanged:Connect(function(input: InputObject)
+	OutputLog.InputChanged:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseMovement and self.State.IsSelecting then
-			local children: { Instance } = OutputLog:GetChildren()
-			local mousePos: Vector3 = input.Position
+			local children = OutputLog:GetChildren()
+			local mp       = input.Position
 			for i, child in ipairs(children) do
 				if child:IsA("TextLabel") then
-					local absPos: Vector2 = child.AbsolutePosition
-					local absSize: Vector2 = child.AbsoluteSize
-					if
-						mousePos.X >= absPos.X
-						and mousePos.X <= absPos.X + absSize.X
-						and mousePos.Y >= absPos.Y
-						and mousePos.Y <= absPos.Y + absSize.Y
-					then
+					local ap, as = child.AbsolutePosition, child.AbsoluteSize
+					if mp.X >= ap.X and mp.X <= ap.X + as.X
+					and mp.Y >= ap.Y and mp.Y <= ap.Y + as.Y then
 						self.State.SelectionEnd = i
 						for j, c in ipairs(children) do
 							if c:IsA("TextLabel") then
-								local startIdx = math.min(self.State.SelectionStart, self.State.SelectionEnd)
-								local endIdx = math.max(self.State.SelectionStart, self.State.SelectionEnd)
-								if j >= startIdx and j <= endIdx then
+								local s = math.min(self.State.SelectionStart, self.State.SelectionEnd)
+								local e = math.max(self.State.SelectionStart, self.State.SelectionEnd)
+								if j >= s and j <= e then
 									c.BackgroundTransparency = 0
-									c.BackgroundColor3 = self.Theme.Accent
-									c.TextColor3 = self.Theme.Background
+									c.BackgroundColor3       = T.Accent
+									c.TextColor3             = T.Background
 								else
 									c.BackgroundTransparency = 1
-									c.TextColor3 = self.Theme.Accent
+									c.TextColor3             = T.Accent
 								end
 							end
 						end
@@ -2331,51 +2183,46 @@ function Modules.CommandBar:Initialize(): ()
 	end)
 	InputField:GetPropertyChangedSignal("Text"):Connect(function()
 		self:UpdateSuggestions()
-		local textService = game:GetService("TextService")
-		local textWidth = textService:GetTextSize(InputField.Text, 14, self.Theme.Font, Vector2.new(10000, 20)).X
-		Cursor.Position = UDim2.new(0, 40 + textWidth, 0, 2)
+		local ts    = game:GetService("TextService")
+		local textW = ts:GetTextSize(InputField.Text, 14, T.Font, Vector2.new(10000, 20)).X
+		Cursor.Position = UDim2.new(0, inputStartX + textW, 0.5, -8)
 	end)
 	InputField.FocusLost:Connect(function(enter: boolean)
 		if enter then
-			local raw: string = InputField.Text
-			local cmd: string = string.match(raw, "^%s*(.-)%s*$")
+			local raw = InputField.Text
+			local cmd = string.match(raw, "^%s*(.-)%s*$")
 			if cmd ~= "" then
-				self:AddOutput("C:\\>" .. cmd, self.Theme.Accent)
-				if cmd:lower() == "cmds" or cmd:lower() == "help" or cmd:lower() == "dir" then
+				self:AddOutput("[" .. userName .. "@archos ~]$ " .. cmd, T.Accent)
+				if     cmd:lower() == "cmds"   or cmd:lower() == "help" or cmd:lower() == "dir" then
 					self:ListCommands()
-				elseif cmd:lower() == "cls" or cmd:lower() == "clear" then
+				elseif cmd:lower() == "cls"    or cmd:lower() == "clear" then
 					for _, child in ipairs(OutputLog:GetChildren()) do
-						if child:IsA("TextLabel") then
-							child:Destroy()
-						end
+						if child:IsA("TextLabel") then child:Destroy() end
 					end
-				elseif cmd:lower() == "scan" then
-					self:StartScan()
-				elseif cmd:lower() == "list" then
-					self:ListModules()
-				elseif cmd:lower() == "status" then
-					self:ShowStatus()
+				elseif cmd:lower() == "scan"   then self:StartScan()
+				elseif cmd:lower() == "list"   then self:ListModules()
+				elseif cmd:lower() == "status" then self:ShowStatus()
 				elseif cmd:lower():match("^inject%s+(%d+)") then
-					local index = tonumber(cmd:lower():match("^inject%s+(%d+)"))
-					if index then
-						local moduleData = self.Scanner.FoundModules[index]
-						if not moduleData then
-							self:AddOutput("Invalid module index", Color3.fromRGB(255, 255, 255))
+					local idx = tonumber(cmd:lower():match("^inject%s+(%d+)"))
+					if idx then
+						local md = self.Scanner.FoundModules[idx]
+						if not md then
+							self:AddOutput("Invalid module index.", Color3.fromRGB(255, 255, 255))
 							self:PlayBeep()
-						elseif not moduleData.Poison then
-							self:AddOutput("Module has no available poison", Color3.fromRGB(255, 255, 0))
+						elseif not md.Poison then
+							self:AddOutput("Module has no available poison.", Color3.fromRGB(255, 255, 0))
 							self:PlayBeep()
 						else
-							self:InjectPoison(moduleData)
+							self:InjectPoison(md)
 						end
 					else
 						self:AddOutput("Usage: inject <index>", Color3.fromRGB(255, 255, 255))
 						self:PlayBeep()
 					end
 				else
-					local wasProcessed: boolean = processCommand(Prefix .. cmd)
+					local wasProcessed = processCommand(Prefix .. cmd)
 					if not wasProcessed then
-						self:AddOutput("Bad command or file name", Color3.fromRGB(255, 255, 255))
+						self:AddOutput("command not found: " .. cmd, Color3.fromRGB(255, 80, 80))
 						self:PlayBeep()
 					end
 				end
@@ -2387,57 +2234,34 @@ function Modules.CommandBar:Initialize(): ()
 	UserInputService.InputBegan:Connect(function(input: InputObject, gpe: boolean)
 		if input.KeyCode == Enum.KeyCode.Tab and InputField:IsFocused() then
 			if self.State.CurrentSuggestion ~= "" then
-				InputField.Text = self.State.CurrentSuggestion
+				InputField.Text          = self.State.CurrentSuggestion
 				InputField.CursorPosition = #InputField.Text + 1
 			end
 		end
-		if not gpe and input.KeyCode == Enum.KeyCode.C and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+		if not gpe and input.KeyCode == Enum.KeyCode.C
+		and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
 			if self.State.IsEnabled then
 				self:CopySelectedText()
-				self:AddOutput("Copied to clipboard.", self.Theme.Text)
+				self:AddOutput("Copied to clipboard.", T.Text)
 			end
 		end
 		if not gpe and input.KeyCode == self.State.PrefixKey then
 			self:Toggle()
 		end
 	end)
-	self:AddOutput("Microslop(R) Windows DOS", self.Theme.Text)
-	self:AddOutput("(C)Copyright Microslop Corp 1990-1994.", self.Theme.Text)
+	self:AddOutput("     ArchBLOX Command Terminal    v1.0", T.Accent)
+	self:AddOutput("          Zuka-Tech v13.77       ", T.Text)
 	self:AddOutput("")
-	self:AddOutput("C:\\WINDOWS>", self.Theme.Accent)
+	self:AddOutput("Type 'help' or 'cmds' to list commands.", T.Text)
+	self:AddOutput("Type 'scan' to scan for injectable modules.", T.Text)
+	self:AddOutput("")
 end
-function DoNotif(text: string, duration: number?): ()
+function DoNotif(text: string, duration: number?)
 	NotificationManager.Send(text, duration)
 	if Modules.CommandBar and Modules.CommandBar.AddOutput then
 		Modules.CommandBar:AddOutput(tostring(text), Modules.CommandBar.Theme.Text)
 	end
 end
-
-Modules.UnlockMouse = { State = { Enabled = false, Connection = nil } }
-RegisterCommand({
-	Name = "unlockmouse",
-	Aliases = { "unlockcursor", "freemouse", "um" },
-	Description = "Toggles a persistent loop to unlock the mouse cursor.",
-}, function()
-	local State = Modules.UnlockMouse.State
-	State.Enabled = not State.Enabled
-	if State.Enabled then
-		if State.Connection then
-			State.Connection:Disconnect()
-		end
-		State.Connection = RunService.RenderStepped:Connect(function()
-			UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-			UserInputService.MouseIconEnabled = true
-		end)
-		DoNotif("Mouse Unlock Enabled", 2)
-	else
-		if State.Connection then
-			State.Connection:Disconnect()
-			State.Connection = nil
-		end
-		DoNotif("Mouse Unlock Disabled", 2)
-	end
-end)
 Modules.ESP = {
 	State = {
 		PlayersEnabled = false,
@@ -38673,6 +38497,7 @@ RegisterCommand({
 		end
 	end
 end)
+
 RegisterCommand({
     Name        = "movement",
     Aliases     = {"mov"},
@@ -38680,6 +38505,7 @@ RegisterCommand({
 }, function(args)
     loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/BetterMovement.lua"))()
 end)
+
 RegisterCommand({
 	Name = "noadminabuse",
 	Aliases = { "naab" },
@@ -39024,7 +38850,7 @@ RegisterCommand({
 				module.DamageBasedOnDistance = 999999
 				module.SwitchTime = 0
 				module.FriendlyFire = true
-				module.BulletPerShot = 95
+				module.BulletPerShot = 15
 				module.FullDamageDistance = 999999
 				module.SilenceEffect = false
 				module.HeadshotDamageMultiplier = 999999
@@ -39043,6 +38869,211 @@ RegisterCommand({
 	end
 end)
 
+RegisterCommand({
+    Name        = "nesp",
+    Aliases     = {},
+    Description = "name esp",
+}, function(args)
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local Camera = workspace.CurrentCamera
+    local LP = Players.LocalPlayer
+    local labels = {}
+
+    local function makeLabel()
+    	local l = Drawing.new("Text")
+    	l.Visible = false
+    	l.Size = 14
+    	l.Center = true
+    	l.Outline = true
+    	l.Color = Color3.new(1, 1, 1)
+    	return l
+    end
+
+    RunService.RenderStepped:Connect(function()
+    	for _, p in ipairs(Players:GetPlayers()) do
+    		if p == LP then
+    			continue
+    		end
+    		local hrp = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+    		if not hrp then
+    			if labels[p] then
+    				labels[p].Visible = false
+    			end
+    			continue
+    		end
+    		if not labels[p] then
+    			labels[p] = makeLabel()
+    		end
+    		local lhrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    		local dist = lhrp and math.floor((hrp.Position - lhrp.Position).Magnitude) or 0
+    		local pos, vis = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 3, 0))
+    		labels[p].Text = p.Name .. " [" .. dist .. "m]"
+    		labels[p].Position = Vector2.new(pos.X, pos.Y)
+    		labels[p].Visible = vis
+    	end
+    end)
+end)
+
+RegisterCommand({
+	Name = "void",
+	Aliases = { "dv" },
+	Description = "tps you to the void",
+	ArgsDesc = {},
+	Permissions = {},
+}, function(args, speaker)
+	local Settings = {
+		AntiAnchor = true,
+		AntiFreeze = true,
+		AntiTP = false,
+		AntiFling = true,
+		VelocityThreshold = 150,
+		LastSafeCFrame = nil,
+		VoidTrap = true,
+		VoidPlatformY = -8000,
+		VoidPlatformSize = 1000,
+	}
+	local function getChar()
+		return LocalPlayer.Character
+	end
+	local function getRoot()
+		return getChar() and getChar():FindFirstChild("HumanoidRootPart")
+	end
+	local function getHum()
+		return getChar() and getChar():FindFirstChildOfClass("Humanoid")
+	end
+	local mt = getrawmetatable(game)
+	local old_newindex = mt.__newindex
+	setreadonly(mt, false)
+	mt.__newindex = newcclosure(function(t, k, v)
+		if not checkcaller() then
+			if k == "Anchored" and Settings.AntiAnchor and t:IsDescendantOf(getChar()) then
+				return nil
+			end
+			if (k == "WalkSpeed" or k == "JumpPower") and Settings.AntiFreeze and t:IsA("Humanoid") then
+				if v == 0 then
+					return nil
+				end
+			end
+		end
+		return old_newindex(t, k, v)
+	end)
+	setreadonly(mt, true)
+	local voidPlatform = nil
+	local function buildVoidPlatform()
+		workspace.FallenPartsDestroyHeight = -50000
+		voidPlatform = Instance.new("Part")
+		voidPlatform.Name = "TITANIUM_VoidBase"
+		voidPlatform.Size = Vector3.new(Settings.VoidPlatformSize, 1, Settings.VoidPlatformSize)
+		voidPlatform.CFrame = CFrame.new(0, Settings.VoidPlatformY, 0)
+		voidPlatform.Anchored = true
+		voidPlatform.CanCollide = true
+		voidPlatform.Transparency = 1
+		voidPlatform.CastShadow = false
+		voidPlatform.CanQuery = false
+		voidPlatform.Locked = true
+		voidPlatform.Parent = workspace
+	end
+	local function dropToVoid()
+		local root = getRoot()
+		if root then
+			root.CFrame = CFrame.new(0, Settings.VoidPlatformY + 3, 0)
+			root.AssemblyLinearVelocity = Vector3.zero
+			root.AssemblyAngularVelocity = Vector3.zero
+		end
+	end
+	if Settings.VoidTrap then
+		buildVoidPlatform()
+		if getChar() then
+			dropToVoid()
+		else
+			LocalPlayer.CharacterAdded:Wait()
+			task.wait(0.5)
+			dropToVoid()
+		end
+		RunService.Heartbeat:Connect(function()
+			if not (voidPlatform and voidPlatform.Parent) then
+				buildVoidPlatform()
+			else
+				if not voidPlatform.Anchored then
+					voidPlatform.Anchored = true
+				end
+			end
+			if workspace.FallenPartsDestroyHeight > -50000 then
+				workspace.FallenPartsDestroyHeight = -50000
+			end
+		end)
+	end
+	RunService.Heartbeat:Connect(function()
+		local char = getChar()
+		local root = getRoot()
+		local hum = getHum()
+		if not (char and root and hum) then
+			return
+		end
+		if Settings.AntiAnchor then
+			for _, part in ipairs(char:GetDescendants()) do
+				if part:IsA("BasePart") and part.Anchored then
+					part.Anchored = false
+				end
+			end
+		end
+		if Settings.AntiFreeze then
+			if hum.PlatformStand then
+				hum.PlatformStand = false
+			end
+			if hum.Sit and not hum.SeatPart then
+				hum.Sit = false
+			end
+		end
+		if Settings.AntiFling then
+			local vel = root.AssemblyLinearVelocity
+			local rotVel = root.AssemblyAngularVelocity
+			if vel.Magnitude > Settings.VelocityThreshold or rotVel.Magnitude > Settings.VelocityThreshold then
+				root.AssemblyLinearVelocity = Vector3.zero
+				root.AssemblyAngularVelocity = Vector3.zero
+				if Settings.LastSafeCFrame then
+					root.CFrame = Settings.LastSafeCFrame
+				end
+			else
+				if hum.FloorMaterial ~= Enum.Material.Air then
+					Settings.LastSafeCFrame = root.CFrame
+				end
+			end
+		end
+		for _, obj in ipairs(char:GetChildren()) do
+			if obj:IsA("Model") or obj:IsA("BasePart") then
+				local name = obj.Name:lower()
+				if name:find("jail") or name:find("cage") or name:find("prison") then
+					obj:Destroy()
+				end
+			end
+		end
+	end)
+	if Settings.AntiTP then
+		local lastPos = getRoot() and getRoot().Position
+		RunService.Stepped:Connect(function()
+			local root = getRoot()
+			if root and lastPos then
+				if (root.Position - lastPos).Magnitude > 50 then
+					root.CFrame = CFrame.new(lastPos)
+				end
+				lastPos = root.Position
+			end
+		end)
+	end
+	game.DescendantAdded:Connect(function(desc)
+		if desc:IsA("Explosion") then
+			if getRoot() and (desc.Position - getRoot().Position).Magnitude < 20 then
+				desc.Visible = false
+				desc:Destroy()
+			end
+		end
+	end)
+end)
+
+
+--loadstrings
 local function loadstringCmd(url, notif)
 	pcall(function()
 		loadstring(game:HttpGet(url))()
@@ -39299,7 +39330,10 @@ RegisterCommand({ Name = "newantikick", Aliases = {}, Description = "In beta" },
 end)
 
 
---commands never go below this, i stopped caring what the order was. but now? there was no order.
+
+
+
+--commands never go below this.
 function processCommand(message)
 	if not (message:sub(1, #Prefix) == Prefix) then
 		return false
@@ -39427,6 +39461,159 @@ end
 task.spawn(function()
 	task.wait(1)
 end)
+
+local function detectEnvironment()
+	local env = {
+		executor = "Unknown",
+		functions = {},
+		missing = {},
+		level = 0,
+	}
+	if identifyexecutor then
+		env.executor = identifyexecutor()
+	elseif XENO_EXECUTOR then
+		env.executor = "Xeno"
+	elseif KRNL_LOADED then
+		env.executor = "KRNL"
+	elseif syn then
+		env.executor = "Synapse X"
+	elseif getexecutorname then
+		env.executor = getexecutorname()
+	end
+	local probeList = {
+		{ "getgenv", 2 },
+		{ "getrenv", 2 },
+		{ "getsenv", 1 },
+		{ "getfenv", 1 },
+		{ "getrawmetatable", 2 },
+		{ "setrawmetatable", 1 },
+		{ "setreadonly", 2 },
+		{ "isreadonly", 1 },
+		{ "hookfunction", 3 },
+		{ "hookmetamethod", 3 },
+		{ "replaceclosure", 2 },
+		{ "newcclosure", 2 },
+		{ "clonefunction", 1 },
+		{ "iscclosure", 1 },
+		{ "islclosure", 1 },
+		{ "checkcaller", 2 },
+		{ "getnamecallmethod", 2 },
+		{ "setnamecallmethod", 1 },
+		{ "getconnections", 2 },
+		{ "firesignal", 2 },
+		{ "fireclickdetector", 1 },
+		{ "fireproximityprompt", 1 },
+		{ "getgc", 2 },
+		{ "get_gc_objects", 1 },
+		{ "getupvalues", 2 },
+		{ "setupvalue", 2 },
+		{ "getconstants", 1 },
+		{ "setconstant", 1 },
+		{ "getprotos", 1 },
+		{ "getscripts", 1 },
+		{ "getrunningscripts", 1 },
+		{ "getscriptbytecode", 2 },
+		{ "getscriptclosure", 2 },
+		{ "getscripthash", 1 },
+		{ "decompile", 2 },
+		{ "gethiddenproperty", 2 },
+		{ "sethiddenproperty", 2 },
+		{ "Drawing", 2 },
+		{ "request", 2 },
+		{ "http_request", 1 },
+		{ "syn", 1 },
+		{ "WebSocket", 2 },
+		{ "readfile", 2 },
+		{ "writefile", 2 },
+		{ "appendfile", 1 },
+		{ "isfile", 1 },
+		{ "isfolder", 1 },
+		{ "makefolder", 1 },
+		{ "delfolder", 1 },
+		{ "delfile", 1 },
+		{ "listfiles", 1 },
+		{ "loadfile", 1 },
+		{ "rconsolecreate", 1 },
+		{ "rconsolename", 1 },
+		{ "rconsoleprint", 1 },
+		{ "keypress", 2 },
+		{ "keyrelease", 1 },
+		{ "mouse1click", 1 },
+		{ "setidentity", 2 },
+		{ "getidentity", 1 },
+		{ "setthreadidentity", 1 },
+		{ "getthreadidentity", 1 },
+	}
+	local genv = getfenv()
+	for _, entry in ipairs(probeList) do
+		local name, weight = entry[1], entry[2]
+		local val = genv[name]
+		if val ~= nil then
+			env.functions[name] = type(val)
+			env.level = env.level + weight
+		else
+			table.insert(env.missing, name)
+		end
+	end
+	if env.level >= 60 then
+		env.rating = "S-Tier (Full)"
+	elseif env.level >= 40 then
+		env.rating = "A-Tier (Good)"
+	elseif env.level >= 25 then
+		env.rating = "B-Tier (Decent)"
+	elseif env.level >= 10 then
+		env.rating = "C-Tier (Limited)"
+	else
+		env.rating = "F-Tier (LOL HEL NAH)"
+	end
+	return env
+end
+local envInfo = detectEnvironment()
+print(string.rep("-", 40))
+print("  [ENV DETECT]")
+print(string.rep("-", 40))
+print("Executor     :", envInfo.executor)
+print("Weighted Score:", envInfo.level)
+print("Rating       :", envInfo.rating)
+print(
+	"Functions Found:",
+	(function()
+		local count = 0
+		for _ in pairs(envInfo.functions) do
+			count = count + 1
+		end
+		return count
+	end)()
+)
+if XENO_EXECUTOR or (identifyexecutor and identifyexecutor():lower():find("xeno")) then
+	print("[!] Xeno detected — module poisoning via getgc is restricted. Don't use a shit exploit!")
+end
+local dbg = debug
+local getgc = getgc or get_gc_objects
+local setupvalue = (dbg and dbg.setupvalue) or setupvalue
+local getupvalue = (dbg and dbg.getupvalue) or getupvalue
+local getupvalues = (dbg and dbg.getupvalues) or getupvalues
+local getconstants = (dbg and dbg.getconstants) or getconstants
+local setconstant = (dbg and dbg.setconstant) or setconstant
+local getprotos = (dbg and dbg.getprotos) or getprotos
+local httpRequest = (syn and syn.request) or request or http_request or (http and http.request)
+
+
+
+return {
+	env = envInfo,
+	httpRequest = httpRequest,
+	getgc = getgc,
+	setupvalue = setupvalue,
+	getupvalue = getupvalue,
+	getupvalues = getupvalues,
+	getconstants = getconstants,
+	setconstant = setconstant,
+	getprotos = getprotos,
+}
+
+
+
 
 --luna addon optional below
 
