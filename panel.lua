@@ -27870,7 +27870,6 @@ Modules.FixCamera = {
 		self.State.OriginalMaxZoom = nil
 		self.State.OriginalCameraMode = nil
 		self.State.Enabled = false
-		DoNotif("Camera restored to normal.", 3)
 		return true
 	end,
 	Toggle = function(self)
@@ -28417,741 +28416,6 @@ RegisterCommand({
 	Description = "Toggles a client-side FPS meter.",
 }, function()
 	Modules.FpsMeter:Toggle()
-end)
-RegisterCommand({
-	Name = "weaponedit",
-	Aliases = { "mightcausebugs" },
-	Description = "no problem.",
-	ArgsDesc = {},
-	Permissions = {},
-}, function(args, speaker)
-	local Players = game:GetService("Players")
-	local UserInputService = game:GetService("UserInputService")
-	local CoreGui = game:GetService("CoreGui")
-	local ReplicatedStorage = game:GetService("ReplicatedStorage")
-	local lp = Players.LocalPlayer
-	local ScreenGui = Instance.new("ScreenGui")
-	ScreenGui.Name = "Callum_DirectEditor"
-	ScreenGui.ResetOnSpawn = false
-	ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-	ScreenGui.Parent = (gethui and gethui()) or CoreGui
-	local GlowFrame2 = Instance.new("Frame")
-	GlowFrame2.Size = UDim2.new(0, 406, 0, 560)
-	GlowFrame2.Position = UDim2.new(0.5, -203, 0.5, -280)
-	GlowFrame2.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	GlowFrame2.BackgroundTransparency = 0.93
-	GlowFrame2.BorderSizePixel = 0
-	GlowFrame2.ZIndex = 1
-	GlowFrame2.Parent = ScreenGui
-	Instance.new("UICorner", GlowFrame2).CornerRadius = UDim.new(0, 10)
-	local GlowFrame = Instance.new("Frame")
-	GlowFrame.Size = UDim2.new(0, 390, 0, 544)
-	GlowFrame.Position = UDim2.new(0.5, -195, 0.5, -272)
-	GlowFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	GlowFrame.BackgroundTransparency = 0.82
-	GlowFrame.BorderSizePixel = 0
-	GlowFrame.ZIndex = 2
-	GlowFrame.Parent = ScreenGui
-	Instance.new("UICorner", GlowFrame).CornerRadius = UDim.new(0, 8)
-	local MainFrame = Instance.new("Frame")
-	MainFrame.Size = UDim2.new(0, 370, 0, 524)
-	MainFrame.Position = UDim2.new(0.5, -185, 0.5, -262)
-	MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-	MainFrame.BackgroundTransparency = 0.18
-	MainFrame.BorderSizePixel = 0
-	MainFrame.Active = true
-	MainFrame.Draggable = true
-	MainFrame.ZIndex = 3
-	MainFrame.Parent = ScreenGui
-	Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 4)
-	local Gradient = Instance.new("UIGradient")
-	Gradient.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(18, 18, 18)),
-	})
-	Gradient.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.88),
-		NumberSequenceKeypoint.new(0.4, 0.96),
-		NumberSequenceKeypoint.new(1, 1.0),
-	})
-	Gradient.Rotation = 135
-	Gradient.Parent = MainFrame
-	MainFrame:GetPropertyChangedSignal("Position"):Connect(function()
-		local p = MainFrame.Position
-		GlowFrame.Position = UDim2.new(p.X.Scale, p.X.Offset - 10, p.Y.Scale, p.Y.Offset - 10)
-		GlowFrame2.Position = UDim2.new(p.X.Scale, p.X.Offset - 18, p.Y.Scale, p.Y.Offset - 18)
-	end)
-	local Title = Instance.new("TextLabel")
-	Title.Size = UDim2.new(1, 0, 0, 30)
-	Title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-	Title.Text = "direct weapon editor  v2"
-	Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-	Title.TextSize = 13
-	Title.Font = Enum.Font.Code
-	Title.TextXAlignment = Enum.TextXAlignment.Left
-	Title.Parent = MainFrame
-	Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 4)
-	local SourceBadge = Instance.new("TextLabel")
-	SourceBadge.Size = UDim2.new(0, 120, 0, 16)
-	SourceBadge.Position = UDim2.new(1, -124, 0, 7)
-	SourceBadge.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-	SourceBadge.Text = ""
-	SourceBadge.TextColor3 = Color3.fromRGB(140, 160, 255)
-	SourceBadge.TextSize = 10
-	SourceBadge.Font = Enum.Font.Code
-	SourceBadge.Parent = MainFrame
-	Instance.new("UICorner", SourceBadge).CornerRadius = UDim.new(0, 3)
-	local StatusLabel = Instance.new("TextLabel")
-	StatusLabel.Size = UDim2.new(1, -10, 0, 16)
-	StatusLabel.Position = UDim2.new(0, 5, 0, 33)
-	StatusLabel.BackgroundTransparency = 1
-	StatusLabel.Text = "Scanning..."
-	StatusLabel.TextColor3 = Color3.fromRGB(255, 150, 0)
-	StatusLabel.TextSize = 11
-	StatusLabel.Font = Enum.Font.Code
-	StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
-	StatusLabel.Parent = MainFrame
-	local ToolNameBar = Instance.new("Frame")
-	ToolNameBar.Size = UDim2.new(1, -10, 0, 20)
-	ToolNameBar.Position = UDim2.new(0, 5, 0, 51)
-	ToolNameBar.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-	ToolNameBar.BorderSizePixel = 0
-	ToolNameBar.Parent = MainFrame
-	Instance.new("UICorner", ToolNameBar).CornerRadius = UDim.new(0, 3)
-	local ToolIcon = Instance.new("TextLabel", ToolNameBar)
-	ToolIcon.Size = UDim2.new(0, 20, 1, 0)
-	ToolIcon.BackgroundTransparency = 1
-	ToolIcon.Text = "⚙"
-	ToolIcon.TextColor3 = Color3.fromRGB(140, 160, 255)
-	ToolIcon.TextSize = 12
-	ToolIcon.Font = Enum.Font.Code
-	local ToolNameLabel = Instance.new("TextLabel", ToolNameBar)
-	ToolNameLabel.Size = UDim2.new(1, -24, 1, 0)
-	ToolNameLabel.Position = UDim2.new(0, 20, 0, 0)
-	ToolNameLabel.BackgroundTransparency = 1
-	ToolNameLabel.Text = "no tool selected"
-	ToolNameLabel.TextColor3 = Color3.fromRGB(200, 200, 255)
-	ToolNameLabel.TextSize = 11
-	ToolNameLabel.Font = Enum.Font.Code
-	ToolNameLabel.TextXAlignment = Enum.TextXAlignment.Left
-	ToolNameLabel.TextTruncate = Enum.TextTruncate.AtEnd
-	local SearchBar = Instance.new("Frame")
-	SearchBar.Size = UDim2.new(1, -10, 0, 22)
-	SearchBar.Position = UDim2.new(0, 5, 0, 74)
-	SearchBar.BackgroundColor3 = Color3.fromRGB(28, 28, 36)
-	SearchBar.BorderSizePixel = 0
-	SearchBar.Parent = MainFrame
-	Instance.new("UICorner", SearchBar).CornerRadius = UDim.new(0, 3)
-	local SearchIcon = Instance.new("TextLabel", SearchBar)
-	SearchIcon.Size = UDim2.new(0, 22, 1, 0)
-	SearchIcon.BackgroundTransparency = 1
-	SearchIcon.Text = "?"
-	SearchIcon.TextSize = 11
-	SearchIcon.Font = Enum.Font.Code
-	local SearchBox = Instance.new("TextBox", SearchBar)
-	SearchBox.Size = UDim2.new(1, -26, 1, 0)
-	SearchBox.Position = UDim2.new(0, 22, 0, 0)
-	SearchBox.BackgroundTransparency = 1
-	SearchBox.PlaceholderText = "search keys..."
-	SearchBox.PlaceholderColor3 = Color3.fromRGB(90, 90, 90)
-	SearchBox.Text = ""
-	SearchBox.TextColor3 = Color3.fromRGB(200, 200, 200)
-	SearchBox.TextSize = 11
-	SearchBox.Font = Enum.Font.Code
-	SearchBox.ClearTextOnFocus = false
-	SearchBox.TextXAlignment = Enum.TextXAlignment.Left
-	local ButtonRow = Instance.new("Frame")
-	ButtonRow.Size = UDim2.new(1, -10, 0, 22)
-	ButtonRow.Position = UDim2.new(0, 5, 0, 99)
-	ButtonRow.BackgroundTransparency = 1
-	ButtonRow.Parent = MainFrame
-	local function MakeBtn(text, color, xPos, widthScale)
-		local btn = Instance.new("TextButton", ButtonRow)
-		btn.Size = UDim2.new(widthScale, -3, 1, 0)
-		btn.Position = UDim2.new(xPos, 2, 0, 0)
-		btn.BackgroundColor3 = color
-		btn.Text = text
-		btn.TextColor3 = Color3.fromRGB(240, 240, 240)
-		btn.TextSize = 10
-		btn.Font = Enum.Font.Code
-		btn.BorderSizePixel = 0
-		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 3)
-		return btn
-	end
-	local RefreshBtn = MakeBtn("refresh", Color3.fromRGB(40, 80, 60), 0, 0.25)
-	local ResetAllBtn = MakeBtn("reset all", Color3.fromRGB(80, 40, 40), 0.25, 0.25)
-	local ExportBtn = MakeBtn("export", Color3.fromRGB(40, 40, 80), 0.5, 0.25)
-	local OverrideBtn = MakeBtn("override", Color3.fromRGB(60, 50, 20), 0.75, 0.25)
-	local OverrideBar = Instance.new("Frame")
-	OverrideBar.Size = UDim2.new(1, -10, 0, 22)
-	OverrideBar.Position = UDim2.new(0, 5, 0, 124)
-	OverrideBar.BackgroundColor3 = Color3.fromRGB(40, 38, 20)
-	OverrideBar.BorderSizePixel = 0
-	OverrideBar.Visible = false
-	OverrideBar.Parent = MainFrame
-	Instance.new("UICorner", OverrideBar).CornerRadius = UDim.new(0, 3)
-	local OverrideBox = Instance.new("TextBox", OverrideBar)
-	OverrideBox.Size = UDim2.new(1, -50, 1, 0)
-	OverrideBox.BackgroundTransparency = 1
-	OverrideBox.PlaceholderText = "e.g. ReplicatedStorage.Guns.AK47.Settings"
-	OverrideBox.PlaceholderColor3 = Color3.fromRGB(100, 90, 50)
-	OverrideBox.Text = ""
-	OverrideBox.TextColor3 = Color3.fromRGB(255, 220, 100)
-	OverrideBox.TextSize = 10
-	OverrideBox.Font = Enum.Font.Code
-	OverrideBox.ClearTextOnFocus = false
-	OverrideBox.TextXAlignment = Enum.TextXAlignment.Left
-	local OverrideGoBtn = Instance.new("TextButton", OverrideBar)
-	OverrideGoBtn.Size = UDim2.new(0, 46, 1, 0)
-	OverrideGoBtn.Position = UDim2.new(1, -48, 0, 0)
-	OverrideGoBtn.BackgroundColor3 = Color3.fromRGB(80, 70, 20)
-	OverrideGoBtn.Text = "load"
-	OverrideGoBtn.TextColor3 = Color3.fromRGB(255, 220, 80)
-	OverrideGoBtn.TextSize = 10
-	OverrideGoBtn.Font = Enum.Font.Code
-	OverrideGoBtn.BorderSizePixel = 0
-	Instance.new("UICorner", OverrideGoBtn).CornerRadius = UDim.new(0, 3)
-	local SCROLL_Y_NORMAL = 124
-	local SCROLL_Y_OVERRIDE = 149
-	local ScrollFrame = Instance.new("ScrollingFrame")
-	ScrollFrame.Size = UDim2.new(1, -10, 1, -130)
-	ScrollFrame.Position = UDim2.new(0, 5, 0, SCROLL_Y_NORMAL)
-	ScrollFrame.BackgroundTransparency = 1
-	ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-	ScrollFrame.ScrollBarThickness = 2
-	ScrollFrame.Parent = MainFrame
-	local UIListLayout = Instance.new("UIListLayout")
-	UIListLayout.Padding = UDim.new(0, 3)
-	UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	UIListLayout.Parent = ScrollFrame
-	local ActiveModule = nil
-	local ActiveTable = nil
-	local ActiveSource = nil
-	local AllRows = {}
-	local PinnedKeys = {}
-	local OverrideOpen = false
-	local function TrySetReadonly(t, state)
-		if setreadonly then
-			pcall(setreadonly, t, state)
-		end
-	end
-	local function RefreshCanvasSize()
-		task.defer(function()
-			ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 5)
-		end)
-	end
-	local function SetScrollPosition(yOffset)
-		ScrollFrame.Position = UDim2.new(0, 5, 0, yOffset)
-		ScrollFrame.Size = UDim2.new(1, -10, 1, -(yOffset + 6))
-	end
-	local function ApplySearch(query)
-		local q = query:lower():gsub("%s+", "")
-		for _, entry in ipairs(AllRows) do
-			if entry.pinned then
-				entry.row.Visible = true
-			else
-				local match = q == "" or tostring(entry.key):lower():find(q, 1, true)
-				entry.row.Visible = (match ~= nil and match ~= false)
-			end
-		end
-		RefreshCanvasSize()
-	end
-	SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
-		ApplySearch(SearchBox.Text)
-	end)
-	local function FormatVal(val)
-		local t = typeof(val)
-		if t == "Vector3" then
-			return string.format("%.3f,%.3f,%.3f", val.X, val.Y, val.Z)
-		elseif t == "Vector2" then
-			return string.format("%.3f,%.3f", val.X, val.Y)
-		elseif t == "Color3" then
-			return string.format("%d,%d,%d", math.floor(val.R * 255), math.floor(val.G * 255), math.floor(val.B * 255))
-		else
-			return tostring(val)
-		end
-	end
-	local function ApplyValue(key, valueString)
-		if not ActiveTable then
-			return
-		end
-		TrySetReadonly(ActiveTable, false)
-		local original = ActiveTable[key]
-		local newValue = valueString
-		if type(original) == "number" then
-			newValue = tonumber(valueString) or original
-		elseif type(original) == "boolean" then
-			local l = valueString:lower()
-			if l == "true" then
-				newValue = true
-			elseif l == "false" then
-				newValue = false
-			else
-				newValue = original
-			end
-		elseif typeof(original) == "Vector3" then
-			local c = {}
-			for s in valueString:gmatch("([^,]+)") do
-				table.insert(c, tonumber(s))
-			end
-			if #c == 3 then
-				newValue = Vector3.new(c[1], c[2], c[3])
-			end
-		elseif typeof(original) == "Vector2" then
-			local c = {}
-			for s in valueString:gmatch("([^,]+)") do
-				table.insert(c, tonumber(s))
-			end
-			if #c == 2 then
-				newValue = Vector2.new(c[1], c[2])
-			end
-		elseif typeof(original) == "Color3" then
-			local c = {}
-			for s in valueString:gmatch("([^,]+)") do
-				table.insert(c, tonumber(s))
-			end
-			if #c == 3 then
-				newValue = Color3.fromRGB(c[1], c[2], c[3])
-			end
-		end
-		ActiveTable[key] = newValue
-		print("[WeaponEditor] Set " .. tostring(key) .. " = " .. tostring(newValue))
-	end
-	local function CreateRow(key, val, originalVal)
-		local typeOf = typeof(val)
-		local inputColor = Color3.fromRGB(0, 255, 150)
-		if type(val) == "boolean" then
-			inputColor = Color3.fromRGB(255, 200, 80)
-		elseif typeOf == "Vector3" or typeOf == "Vector2" then
-			inputColor = Color3.fromRGB(100, 180, 255)
-		elseif typeOf == "Color3" then
-			inputColor = Color3.fromRGB(255, 120, 200)
-		end
-		local Row = Instance.new("Frame")
-		Row.Size = UDim2.new(1, -5, 0, 28)
-		Row.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-		Row.BorderSizePixel = 0
-		Row.Parent = ScrollFrame
-		local TypeTag = Instance.new("TextLabel", Row)
-		TypeTag.Size = UDim2.new(0, 32, 1, 0)
-		TypeTag.BackgroundTransparency = 1
-		TypeTag.Text = typeOf:sub(1, 3):upper()
-		TypeTag.TextColor3 = inputColor
-		TypeTag.TextSize = 9
-		TypeTag.Font = Enum.Font.Code
-		local PinBtn = Instance.new("TextButton", Row)
-		PinBtn.Size = UDim2.new(0, 18, 0, 18)
-		PinBtn.Position = UDim2.new(0, 32, 0.5, -9)
-		PinBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-		PinBtn.Text = "★"
-		PinBtn.TextSize = 11
-		PinBtn.Font = Enum.Font.Code
-		PinBtn.BorderSizePixel = 0
-		Instance.new("UICorner", PinBtn).CornerRadius = UDim.new(0, 3)
-		local Label = Instance.new("TextLabel", Row)
-		Label.Size = UDim2.new(0.42, -52, 1, 0)
-		Label.Position = UDim2.new(0, 52, 0, 0)
-		Label.BackgroundTransparency = 1
-		Label.Text = tostring(key)
-		Label.TextColor3 = Color3.fromRGB(180, 180, 180)
-		Label.TextSize = 11
-		Label.Font = Enum.Font.Code
-		Label.TextXAlignment = Enum.TextXAlignment.Left
-		Label.TextTruncate = Enum.TextTruncate.AtEnd
-		local Input = Instance.new("TextBox", Row)
-		Input.Size = UDim2.new(0.52, -22, 0.8, 0)
-		Input.Position = UDim2.new(0.48, 0, 0.1, 0)
-		Input.BackgroundColor3 = Color3.fromRGB(38, 38, 38)
-		Input.Text = FormatVal(val)
-		Input.TextColor3 = inputColor
-		Input.TextSize = 11
-		Input.Font = Enum.Font.Code
-		Input.ClearTextOnFocus = false
-		Instance.new("UICorner", Input).CornerRadius = UDim.new(0, 3)
-		local ResetBtn = Instance.new("TextButton", Row)
-		ResetBtn.Size = UDim2.new(0, 18, 0, 18)
-		ResetBtn.Position = UDim2.new(1, -20, 0.5, -9)
-		ResetBtn.BackgroundColor3 = Color3.fromRGB(60, 30, 30)
-		ResetBtn.Text = "<-"
-		ResetBtn.TextSize = 10
-		ResetBtn.Font = Enum.Font.Code
-		ResetBtn.BorderSizePixel = 0
-		ResetBtn.TextColor3 = Color3.fromRGB(255, 120, 120)
-		Instance.new("UICorner", ResetBtn).CornerRadius = UDim.new(0, 3)
-		local entry = {
-			key = key,
-			row = Row,
-			pinned = PinnedKeys[key] == true,
-			originalVal = originalVal,
-		}
-		table.insert(AllRows, entry)
-		local function UpdatePinVisual()
-			if entry.pinned then
-				Row.BackgroundColor3 = Color3.fromRGB(30, 30, 48)
-				PinBtn.TextColor3 = Color3.fromRGB(180, 180, 255)
-				Row.LayoutOrder = -1
-			else
-				Row.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-				PinBtn.TextColor3 = Color3.fromRGB(100, 100, 100)
-				Row.LayoutOrder = 0
-			end
-		end
-		UpdatePinVisual()
-		PinBtn.MouseButton1Click:Connect(function()
-			entry.pinned = not entry.pinned
-			if entry.pinned then
-				PinnedKeys[key] = true
-			else
-				PinnedKeys[key] = nil
-			end
-			UpdatePinVisual()
-			RefreshCanvasSize()
-		end)
-		Input.FocusLost:Connect(function()
-			ApplyValue(key, Input.Text)
-		end)
-		ResetBtn.MouseButton1Click:Connect(function()
-			if not ActiveTable then
-				return
-			end
-			TrySetReadonly(ActiveTable, false)
-			ActiveTable[key] = originalVal
-			Input.Text = FormatVal(originalVal)
-			print("[WeaponEditor] Reset " .. tostring(key) .. " -> " .. tostring(originalVal))
-		end)
-	end
-	local function ClearRows()
-		AllRows = {}
-		for _, v in pairs(ScrollFrame:GetChildren()) do
-			if v:IsA("Frame") then
-				v:Destroy()
-			end
-		end
-		ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-	end
-	local function LoadModule(moduleScript, sourceLabel, forceReload)
-		if moduleScript == ActiveModule and not forceReload then
-			return
-		end
-		local ok, result = pcall(require, moduleScript)
-		if not ok or type(result) ~= "table" then
-			StatusLabel.Text = "Failed: " .. moduleScript.Name
-			StatusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
-			return
-		end
-		ActiveModule = moduleScript
-		ActiveTable = result
-		ActiveSource = sourceLabel
-		TrySetReadonly(ActiveTable, false)
-		ClearRows()
-		SearchBox.Text = ""
-		local keys = {}
-		for k, v in pairs(ActiveTable) do
-			local t = type(v)
-			local tv = typeof(v)
-			if
-				(t ~= "table" and t ~= "function" and t ~= "thread" and t ~= "userdata")
-				or tv == "Vector3"
-				or tv == "Vector2"
-				or tv == "Color3"
-			then
-				table.insert(keys, k)
-			end
-		end
-		table.sort(keys, function(a, b)
-			return tostring(a) < tostring(b)
-		end)
-		for _, k in ipairs(keys) do
-			CreateRow(k, ActiveTable[k], ActiveTable[k])
-		end
-		RefreshCanvasSize()
-		local toolName = moduleScript.Name
-		local p = moduleScript.Parent
-		if p then
-			if p.Parent and p.Parent:IsA("Tool") then
-				toolName = p.Parent.Name
-			elseif p:IsA("Tool") then
-				toolName = p.Name
-			else
-				toolName = p.Name
-			end
-		end
-		StatusLabel.Text = #keys .. " keys loaded"
-		StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 150)
-		ToolNameLabel.Text = toolName
-		SourceBadge.Text = " src: " .. (sourceLabel or "?") .. " "
-	end
-	local function ReloadActive()
-		if not ActiveModule then
-			StatusLabel.Text = "No module loaded to refresh."
-			StatusLabel.TextColor3 = Color3.fromRGB(255, 180, 0)
-			return
-		end
-		StatusLabel.Text = "Re-scanning..."
-		StatusLabel.TextColor3 = Color3.fromRGB(255, 180, 0)
-		ToolNameLabel.Text = "refreshing..."
-		local mod = ActiveModule
-		local source = ActiveSource
-		ActiveModule = nil
-		ActiveTable = nil
-		ClearRows()
-		LoadModule(mod, source, true)
-	end
-	local function ExportTable()
-		if not ActiveTable then
-			print("[WeaponEditor] No table loaded.")
-			return
-		end
-		print("[WeaponEditor] ── EXPORT ──────────────────────")
-		for k, v in pairs(ActiveTable) do
-			local t = type(v)
-			if t ~= "table" and t ~= "function" and t ~= "thread" then
-				print(string.format("  [%s] %s = %s", typeof(v), tostring(k), FormatVal(v)))
-			end
-		end
-		print(
-			"[WeaponEditor] ────────────────────────────────"
-		)
-		StatusLabel.Text = "Exported to console."
-		StatusLabel.TextColor3 = Color3.fromRGB(140, 160, 255)
-	end
-	local function ResetAll()
-		if not ActiveTable then
-			return
-		end
-		TrySetReadonly(ActiveTable, false)
-		for _, entry in ipairs(AllRows) do
-			ActiveTable[entry.key] = entry.originalVal
-			for _, child in pairs(entry.row:GetChildren()) do
-				if child:IsA("TextBox") then
-					child.Text = FormatVal(entry.originalVal)
-				end
-			end
-		end
-		print("[WeaponEditor] All values reset to original.")
-		StatusLabel.Text = "All values reset."
-		StatusLabel.TextColor3 = Color3.fromRGB(255, 160, 80)
-	end
-	local function TryOverridePath(pathStr)
-		local parts = {}
-		for p in pathStr:gmatch("[^%.]+") do
-			table.insert(parts, p)
-		end
-		if #parts < 2 then
-			StatusLabel.Text = "Invalid path."
-			StatusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
-			return
-		end
-		local services = {
-			ReplicatedStorage = game:GetService("ReplicatedStorage"),
-			Workspace = game:GetService("Workspace"),
-			Players = game:GetService("Players"),
-		}
-		local ssOk, ss = pcall(function()
-			return game:GetService("ServerStorage")
-		end)
-		if ssOk then
-			services.ServerStorage = ss
-		end
-		local root = services[parts[1]] or game:FindFirstChild(parts[1])
-		if not root then
-			StatusLabel.Text = "Root not found: " .. parts[1]
-			StatusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
-			return
-		end
-		local current = root
-		for i = 2, #parts do
-			current = current:FindFirstChild(parts[i])
-			if not current then
-				StatusLabel.Text = "Not found: " .. parts[i]
-				StatusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
-				return
-			end
-		end
-		if not current:IsA("ModuleScript") then
-			StatusLabel.Text = parts[#parts] .. " is not a ModuleScript"
-			StatusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
-			return
-		end
-		ActiveModule = nil
-		LoadModule(current, "override")
-	end
-	RefreshBtn.MouseButton1Click:Connect(function()
-		ReloadActive()
-	end)
-	ResetAllBtn.MouseButton1Click:Connect(function()
-		ResetAll()
-	end)
-	ExportBtn.MouseButton1Click:Connect(function()
-		ExportTable()
-	end)
-	OverrideBtn.MouseButton1Click:Connect(function()
-		OverrideOpen = not OverrideOpen
-		OverrideBar.Visible = OverrideOpen
-		SetScrollPosition(OverrideOpen and SCROLL_Y_OVERRIDE or SCROLL_Y_NORMAL)
-	end)
-	OverrideGoBtn.MouseButton1Click:Connect(function()
-		TryOverridePath(OverrideBox.Text)
-	end)
-	OverrideBox.FocusLost:Connect(function(enter)
-		if enter then
-			TryOverridePath(OverrideBox.Text)
-		end
-	end)
-	local SETTING_MODULE_NAMES = {
-		["setting"] = true,
-		["settings"] = true,
-		["config"] = true,
-		["configuration"] = true,
-		["weaponconfig"] = true,
-		["gunconfig"] = true,
-		["weaponsettings"] = true,
-		["stats"] = true,
-		["weaponstats"] = true,
-	}
-	local function tryFindInTool(tool)
-		local settingFolder = tool:FindFirstChild("Setting")
-		if settingFolder then
-			local one = settingFolder:FindFirstChild("1")
-			if one and one:IsA("ModuleScript") then
-				return one, "Tool>Setting>1"
-			end
-			if settingFolder:IsA("ModuleScript") then
-				return settingFolder, "Tool>Setting"
-			end
-			for _, child in ipairs(settingFolder:GetChildren()) do
-				if child:IsA("ModuleScript") then
-					return child, "Tool>Setting>" .. child.Name
-				end
-			end
-		end
-		for _, child in ipairs(tool:GetChildren()) do
-			if child:IsA("ModuleScript") and SETTING_MODULE_NAMES[child.Name:lower()] then
-				return child, "Tool>" .. child.Name
-			end
-		end
-		return nil, nil
-	end
-	local GUN_KEYWORDS = { "gun", "weapon", "rifle", "pistol", "smg", "shotgun", "sniper", "firearm", "ar", "lmg" }
-	local function looksLikeWeapon(name)
-		local l = name:lower()
-		for _, kw in ipairs(GUN_KEYWORDS) do
-			if l:find(kw, 1, true) then
-				return true
-			end
-		end
-		return false
-	end
-	local function scanReplicatedStorage()
-		for _, d in ipairs(ReplicatedStorage:GetDescendants()) do
-			if d:IsA("ModuleScript") and SETTING_MODULE_NAMES[d.Name:lower()] then
-				local ancestor = d.Parent
-				while ancestor and ancestor ~= ReplicatedStorage do
-					if looksLikeWeapon(ancestor.Name) then
-						return d, "RepStorage>" .. ancestor.Name
-					end
-					ancestor = ancestor.Parent
-				end
-			end
-		end
-		local candidates = {}
-		for _, d in ipairs(ReplicatedStorage:GetDescendants()) do
-			if d:IsA("ModuleScript") and SETTING_MODULE_NAMES[d.Name:lower()] then
-				table.insert(candidates, d)
-			end
-		end
-		if #candidates == 1 then
-			return candidates[1], "RepStorage"
-		end
-		return nil, nil
-	end
-	local function PriorityScan()
-		local char = lp.Character
-		if char then
-			for _, obj in ipairs(char:GetChildren()) do
-				if obj:IsA("Tool") then
-					local m, src = tryFindInTool(obj)
-					if m then
-						return m, src
-					end
-				end
-			end
-		end
-		local bp = lp.Backpack
-		if bp then
-			for _, obj in ipairs(bp:GetChildren()) do
-				if obj:IsA("Tool") then
-					local m, src = tryFindInTool(obj)
-					if m then
-						return m, src
-					end
-				end
-			end
-		end
-		return scanReplicatedStorage()
-	end
-	local scanDebounce = false
-	local function TriggerScan()
-		if scanDebounce then
-			return
-		end
-		scanDebounce = true
-		task.delay(0.3, function()
-			scanDebounce = false
-			local found, source = PriorityScan()
-			if found then
-				LoadModule(found, source)
-			else
-				if ActiveModule then
-					ActiveModule = nil
-					ActiveTable = nil
-					ActiveSource = nil
-					ClearRows()
-					SourceBadge.Text = ""
-					ToolNameLabel.Text = "no tool selected"
-					SearchBox.Text = ""
-				end
-				StatusLabel.Text = "Scanning for weapon module..."
-				StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-			end
-		end)
-	end
-	local function WatchContainer(container)
-		if not container then
-			return
-		end
-		container.ChildAdded:Connect(function(child)
-			if child:IsA("Tool") then
-				TriggerScan()
-			end
-		end)
-		container.ChildRemoved:Connect(function(child)
-			if child:IsA("Tool") then
-				TriggerScan()
-			end
-		end)
-	end
-	local function WatchCharacter(char)
-		if not char then
-			return
-		end
-		WatchContainer(char)
-		TriggerScan()
-	end
-	if lp.Character then
-		WatchCharacter(lp.Character)
-	end
-	lp.CharacterAdded:Connect(WatchCharacter)
-	WatchContainer(lp.Backpack)
-	TriggerScan()
-	UserInputService.InputBegan:Connect(function(input, gpe)
-		if not gpe and input.KeyCode == Enum.KeyCode.RightControl then
-			MainFrame.Visible = not MainFrame.Visible
-			GlowFrame.Visible = MainFrame.Visible
-			GlowFrame2.Visible = MainFrame.Visible
-		end
-	end)
-	warn("[WeaponEditor] loaded")
 end)
 Modules.HitboxESP = {
 	State = {
@@ -30068,13 +29332,13 @@ function Modules.InternalAntiAfk:Toggle(): ()
 			virtualUser:CaptureController()
 			virtualUser:ClickButton2(Vector2.new())
 		end)
-		DoNotif("Internal Anti-AFK: ENABLED", 2)
+		DoNotif("Anti-AFK: ENABLED", 2)
 	else
 		if self.State.Connection then
 			self.State.Connection:Disconnect()
 			self.State.Connection = nil
 		end
-		DoNotif("Internal Anti-AFK: DISABLED", 2)
+		DoNotif("Anti-AFK: DISABLED", 2)
 	end
 end
 RegisterCommand({
@@ -30090,7 +29354,6 @@ Modules.ToolSpy = {
 	},
 }
 function Modules.ToolSpy:Scan(): ()
-	print("--- [Tool Spy Report] ---")
 	local found = 0
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer then
@@ -30117,7 +29380,6 @@ function Modules.ToolSpy:Scan(): ()
 			end
 		end
 	end
-	print("--- End of Report ---")
 	DoNotif("Tool Spy: Found inventory for " .. found .. " players. Check Console (F9).", 4)
 end
 RegisterCommand({
@@ -30265,7 +29527,7 @@ function Modules.NetworkSaturator:Start(): ()
 			task.wait(0.1)
 		end
 	end)
-	DoNotif("Network Saturation: ACTIVE", 2)
+	DoNotif("ACTIVE", 2)
 end
 RegisterCommand({
 	Name = "rempayload",
@@ -30299,7 +29561,7 @@ function Modules.UltimateGod:Toggle(): ()
 				end
 			end
 		end)
-		DoNotif("Ultimate Godmode: ENABLED", 2)
+		DoNotif("Godmode: ENABLED", 2)
 	else
 		if self.State.Connection then
 			self.State.Connection:Disconnect()
@@ -30308,7 +29570,7 @@ function Modules.UltimateGod:Toggle(): ()
 		if hum then
 			hum:SetStateEnabled(Enum.HumanoidStateType.Dead, true)
 		end
-		DoNotif("Ultimate Godmode: DISABLED", 2)
+		DoNotif("Godmode: DISABLED", 2)
 	end
 end
 RegisterCommand({
@@ -34583,7 +33845,7 @@ function Modules.Aggressor:Stop()
 		hum:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
 	end
 	self.State.TargetPlayer = nil
-	DoNotif("Aggressor sequence terminated.", 2)
+	DoNotif("sex sequence stopped.", 2)
 end
 function Modules.Aggressor:Start(targetPlayer)
 	if self.State.IsEnabled then
@@ -34627,7 +33889,7 @@ function Modules.Aggressor:Start(targetPlayer)
 			task.wait()
 		end
 	end)
-	DoNotif("Aggressor sequence started on " .. targetPlayer.Name, 2)
+	DoNotif("sex sequence started on " .. targetPlayer.Name, 2)
 end
 RegisterCommand({
 	Name = "bang",
@@ -34971,7 +34233,7 @@ RegisterCommand({
 			end
 		)
 	if not (getRawMetatable and setReadOnly and hookfunction and newcclosure) then
-		return warn("[Architect]: Executor missing required closure/metatable functions.")
+		return warn("warn: Executor missing required closure/metatable functions.")
 	end
 	local Config = {
 		Debug = true,
@@ -35291,7 +34553,7 @@ function Modules.ScriptSearcher:ShowHistory()
 		historyBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 		historyBtn.BorderSizePixel = 1
 		historyBtn.BorderColor3 = Color3.fromRGB(60, 60, 60)
-		historyBtn.Text = "🔍 " .. query
+		historyBtn.Text = "?" .. query
 		historyBtn.TextColor3 = self.Config.ACCENT
 		historyBtn.Font = Enum.Font.Code
 		historyBtn.TextSize = 11
@@ -35605,7 +34867,7 @@ function Modules.ScriptSearcher:CreateUI()
 	local scriptCountLabel = Instance.new("TextLabel", gameInfoPanel)
 	scriptCountLabel.Size = UDim2.new(0.5, -5, 0, 15)
 	scriptCountLabel.Position = UDim2.new(0.5, 5, 0, 38)
-	scriptCountLabel.Text = "📄 Scripts: Searching..."
+	scriptCountLabel.Text = " Scripts: Searching..."
 	scriptCountLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
 	scriptCountLabel.Font = Enum.Font.Code
 	scriptCountLabel.TextSize = 9
@@ -35627,7 +34889,7 @@ function Modules.ScriptSearcher:CreateUI()
 		end)
 		if success and gameInfo then
 			gameNameLabel.Text = "Game: " .. (gameInfo.GameName or "Unknown")
-			scriptCountLabel.Text = "📄 Scripts: " .. #self.State.GameScripts .. " available"
+			scriptCountLabel.Text = " Scripts: " .. #self.State.GameScripts .. " available"
 			descLabel.Text = " " .. (gameInfo.Description or "No description available"):sub(1, 120)
 		else
 			gameNameLabel.Text = "Game: " .. tostring(game.GameId)
@@ -35798,1800 +35060,11 @@ function Modules.GoToPart:Initialize()
 		end
 	end)
 end
--- ── Imported: adonishijacker  [raw → register] ──────────────────────
-
-RegisterCommand({
-	Name = "adonishijacker",
-	Aliases = { "adonish" },
-	Description = "reveals internal adonis stuff ig",
-}, function(args)
-	local Players = game:GetService("Players")
-	local UIS = game:GetService("UserInputService")
-	local CoreGui = game:GetService("CoreGui")
-	local lp = Players.LocalPlayer
-	local hookfn = hookfunction
-	local newcc = newcclosure
-	local chkcall = checkcaller
-	local adonis = nil
-	local function FindAdonis()
-		for _, v in pairs(getgc(true)) do
-			if
-				type(v) == "table"
-				and rawget(v, "Remote") ~= nil
-				and rawget(v, "Core") ~= nil
-				and type(rawget(v, "Remote")) == "table"
-				and type(rawget(v, "Core")) == "table"
-			then
-				return v
-			end
-		end
-		return nil
-	end
-	local State = {
-		linked = false,
-		key = nil,
-		remoteName = nil,
-		getMitm = false,
-		_getOrig = nil,
-		sendMitm = false,
-		_sendOrig = nil,
-		bytecodeHooked = false,
-		_byteOrig = nil,
-		detNeutd = false,
-		_detOrig = nil,
-		remoteDestHooked = false,
-		_destroyOrig = nil,
-		globalProxied = false,
-		getLog = {},
-		sendLog = {},
-	}
-	local Root = Instance.new("ScreenGui")
-	Root.Name = "Callum_AdonisTools_v2"
-	Root.ResetOnSpawn = false
-	Root.ZIndexBehavior = Enum.ZIndexBehavior.Global
-	Root.Parent = (gethui and gethui()) or CoreGui
-	local function MkGlow(w, h, xo, yo, tr, z)
-		local f = Instance.new("Frame", Root)
-		f.Size = UDim2.new(0, w, 0, h)
-		f.Position = UDim2.new(0.5, xo, 0.5, yo)
-		f.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-		f.BackgroundTransparency = tr
-		f.BorderSizePixel = 0
-		f.ZIndex = z
-		Instance.new("UICorner", f).CornerRadius = UDim.new(0, 10)
-		return f
-	end
-	local G2 = MkGlow(408, 562, -204, -281, 0.93, 1)
-	local G1 = MkGlow(394, 548, -197, -274, 0.82, 2)
-	local Win = Instance.new("Frame", Root)
-	Win.Size = UDim2.new(0, 376, 0, 526)
-	Win.Position = UDim2.new(0.5, -188, 0.5, -263)
-	Win.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-	Win.BackgroundTransparency = 0.1
-	Win.BorderSizePixel = 0
-	Win.Active = true
-	Win.Draggable = true
-	Win.ZIndex = 3
-	Instance.new("UICorner", Win).CornerRadius = UDim.new(0, 5)
-	Win.Parent = Root
-	do
-		local g = Instance.new("UIGradient", Win)
-		g.Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-			ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 15, 15)),
-		})
-		g.Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.88),
-			NumberSequenceKeypoint.new(0.4, 0.95),
-			NumberSequenceKeypoint.new(1, 1.0),
-		})
-		g.Rotation = 140
-	end
-	Win:GetPropertyChangedSignal("Position"):Connect(function()
-		local p = Win.Position
-		G1.Position = UDim2.new(p.X.Scale, p.X.Offset - 9, p.Y.Scale, p.Y.Offset - 11)
-		G2.Position = UDim2.new(p.X.Scale, p.X.Offset - 16, p.Y.Scale, p.Y.Offset - 18)
-	end)
-	local TBar = Instance.new("Frame", Win)
-	TBar.Size = UDim2.new(1, 0, 0, 32)
-	TBar.BackgroundColor3 = Color3.fromRGB(26, 16, 40)
-	TBar.BorderSizePixel = 0
-	Instance.new("UICorner", TBar).CornerRadius = UDim.new(0, 5)
-	local TLbl = Instance.new("TextLabel", TBar)
-	TLbl.Size = UDim2.new(1, -100, 1, 0)
-	TLbl.Position = UDim2.new(0, 10, 0, 0)
-	TLbl.BackgroundTransparency = 1
-	TLbl.Text = "★  adonis tools  v2"
-	TLbl.TextColor3 = Color3.fromRGB(205, 165, 255)
-	TLbl.TextSize = 13
-	TLbl.Font = Enum.Font.Code
-	TLbl.TextXAlignment = Enum.TextXAlignment.Left
-	local LinkLbl = Instance.new("TextLabel", TBar)
-	LinkLbl.Size = UDim2.new(0, 90, 1, 0)
-	LinkLbl.Position = UDim2.new(1, -170, 0, 0)
-	LinkLbl.BackgroundTransparency = 1
-	LinkLbl.Text = "not linked"
-	LinkLbl.TextColor3 = Color3.fromRGB(200, 80, 80)
-	LinkLbl.TextSize = 10
-	LinkLbl.Font = Enum.Font.Code
-	LinkLbl.TextXAlignment = Enum.TextXAlignment.Right
-	local function TBtn(txt, col, xo, w)
-		local b = Instance.new("TextButton", TBar)
-		b.Size = UDim2.new(0, w, 0, 22)
-		b.Position = UDim2.new(1, xo, 0.5, -11)
-		b.BackgroundColor3 = col
-		b.Text = txt
-		b.TextColor3 = Color3.fromRGB(230, 230, 230)
-		b.TextSize = 10
-		b.Font = Enum.Font.Code
-		b.BorderSizePixel = 0
-		Instance.new("UICorner", b).CornerRadius = UDim.new(0, 3)
-		return b
-	end
-	local BtnLink = TBtn("⟳ link", Color3.fromRGB(35, 55, 35), -76, 68)
-	local BtnClose = TBtn("✕", Color3.fromRGB(70, 20, 20), -4, 22)
-	local SF = Instance.new("ScrollingFrame", Win)
-	SF.Size = UDim2.new(1, -8, 1, -40)
-	SF.Position = UDim2.new(0, 4, 0, 36)
-	SF.BackgroundTransparency = 1
-	SF.CanvasSize = UDim2.new(0, 0, 0, 0)
-	SF.ScrollBarThickness = 3
-	SF.ScrollBarImageColor3 = Color3.fromRGB(120, 70, 190)
-	local SFL = Instance.new("UIListLayout", SF)
-	SFL.Padding = UDim.new(0, 6)
-	SFL.SortOrder = Enum.SortOrder.LayoutOrder
-	local function RefreshCanvas()
-		task.defer(function()
-			SF.CanvasSize = UDim2.new(0, 0, 0, SFL.AbsoluteContentSize.Y + 12)
-		end)
-	end
-	local function Card(title)
-		local f = Instance.new("Frame", SF)
-		f.Size = UDim2.new(1, -4, 0, 0)
-		f.AutomaticSize = Enum.AutomaticSize.Y
-		f.BackgroundColor3 = Color3.fromRGB(22, 16, 32)
-		f.BorderSizePixel = 0
-		Instance.new("UICorner", f).CornerRadius = UDim.new(0, 5)
-		local pad = Instance.new("UIPadding", f)
-		pad.PaddingLeft = UDim.new(0, 8)
-		pad.PaddingRight = UDim.new(0, 8)
-		pad.PaddingTop = UDim.new(0, 4)
-		pad.PaddingBottom = UDim.new(0, 6)
-		local ll = Instance.new("UIListLayout", f)
-		ll.Padding = UDim.new(0, 4)
-		ll.SortOrder = Enum.SortOrder.LayoutOrder
-		local hdr = Instance.new("TextLabel", f)
-		hdr.Size = UDim2.new(1, 0, 0, 18)
-		hdr.BackgroundTransparency = 1
-		hdr.Text = title
-		hdr.TextColor3 = Color3.fromRGB(190, 150, 255)
-		hdr.TextSize = 10
-		hdr.Font = Enum.Font.Code
-		hdr.TextXAlignment = Enum.TextXAlignment.Left
-		hdr.LayoutOrder = 0
-		return f
-	end
-	local function Btn(parent, txt, col, lo)
-		local b = Instance.new("TextButton", parent)
-		b.Size = UDim2.new(1, 0, 0, 22)
-		b.BackgroundColor3 = col
-		b.Text = txt
-		b.TextColor3 = Color3.fromRGB(225, 225, 225)
-		b.TextSize = 10
-		b.Font = Enum.Font.Code
-		b.BorderSizePixel = 0
-		b.LayoutOrder = lo or 99
-		Instance.new("UICorner", b).CornerRadius = UDim.new(0, 3)
-		return b
-	end
-	local function Lbl(parent, txt, col, lo, h)
-		local l = Instance.new("TextLabel", parent)
-		l.Size = UDim2.new(1, 0, 0, h or 14)
-		l.BackgroundTransparency = 1
-		l.Text = txt
-		l.TextColor3 = col or Color3.fromRGB(170, 170, 170)
-		l.TextSize = 10
-		l.Font = Enum.Font.Code
-		l.TextXAlignment = Enum.TextXAlignment.Left
-		l.TextWrapped = true
-		l.LayoutOrder = lo or 99
-		return l
-	end
-	local function LogBox(parent, h, lo)
-		local bg = Instance.new("Frame", parent)
-		bg.Size = UDim2.new(1, 0, 0, h)
-		bg.BackgroundColor3 = Color3.fromRGB(12, 12, 20)
-		bg.BorderSizePixel = 0
-		bg.LayoutOrder = lo or 99
-		Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 3)
-		local sf2 = Instance.new("ScrollingFrame", bg)
-		sf2.Size = UDim2.new(1, -4, 1, -4)
-		sf2.Position = UDim2.new(0, 2, 0, 2)
-		sf2.BackgroundTransparency = 1
-		sf2.CanvasSize = UDim2.new(0, 0, 0, 0)
-		sf2.ScrollBarThickness = 2
-		local ll2 = Instance.new("UIListLayout", sf2)
-		ll2.Padding = UDim.new(0, 1)
-		ll2.SortOrder = Enum.SortOrder.LayoutOrder
-		local function append(txt, col)
-			local l = Instance.new("TextLabel", sf2)
-			l.Size = UDim2.new(1, 0, 0, 13)
-			l.BackgroundTransparency = 1
-			l.Text = txt
-			l.TextColor3 = col or Color3.fromRGB(175, 210, 175)
-			l.TextSize = 9
-			l.Font = Enum.Font.Code
-			l.TextXAlignment = Enum.TextXAlignment.Left
-			l.TextTruncate = Enum.TextTruncate.AtEnd
-			task.defer(function()
-				sf2.CanvasSize = UDim2.new(0, 0, 0, ll2.AbsoluteContentSize.Y + 4)
-				sf2.CanvasPosition = Vector2.new(0, math.huge)
-			end)
-		end
-		local function clear()
-			for _, c in ipairs(sf2:GetChildren()) do
-				if c:IsA("TextLabel") then
-					c:Destroy()
-				end
-			end
-			sf2.CanvasSize = UDim2.new(0, 0, 0, 0)
-		end
-		return append, clear
-	end
-	local function InputBox(parent, placeholder, lo)
-		local bg = Instance.new("Frame", parent)
-		bg.Size = UDim2.new(1, 0, 0, 22)
-		bg.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-		bg.BorderSizePixel = 0
-		bg.LayoutOrder = lo or 99
-		Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 3)
-		local tb = Instance.new("TextBox", bg)
-		tb.Size = UDim2.new(1, -8, 1, -4)
-		tb.Position = UDim2.new(0, 4, 0, 2)
-		tb.BackgroundTransparency = 1
-		tb.PlaceholderText = placeholder
-		tb.PlaceholderColor3 = Color3.fromRGB(75, 75, 75)
-		tb.Text = ""
-		tb.TextColor3 = Color3.fromRGB(200, 220, 200)
-		tb.TextSize = 10
-		tb.Font = Enum.Font.Code
-		tb.ClearTextOnFocus = false
-		tb.TextXAlignment = Enum.TextXAlignment.Left
-		return tb
-	end
-	local statCard = Card("◈  status")
-	local statLinked = Lbl(statCard, "not linked", Color3.fromRGB(200, 80, 80), 1)
-	local statKey = Lbl(statCard, "key:  waiting...", Color3.fromRGB(150, 150, 150), 2)
-	local statRemote = Lbl(statCard, "remote:  —", Color3.fromRGB(150, 150, 150), 3)
-	local statGet = Lbl(statCard, "Remote.Get MITM:  off", Color3.fromRGB(150, 150, 150), 4)
-	local statSend = Lbl(statCard, "Remote.Send MITM:  off", Color3.fromRGB(150, 150, 150), 5)
-	local statDet = Lbl(statCard, "Detected neutralised:  no", Color3.fromRGB(150, 150, 150), 6)
-	local statByte = Lbl(statCard, "LoadBytecode hooked:  no", Color3.fromRGB(150, 150, 150), 7)
-	local statProxy = Lbl(statCard, "_G.Adonis proxy:  no", Color3.fromRGB(150, 150, 150), 8)
-	local statRemDest = Lbl(statCard, "remote destroy trap:  off", Color3.fromRGB(150, 150, 150), 9)
-	local function UpdateStatus()
-		if not adonis then
-			statLinked.Text = "not linked"
-			statLinked.TextColor3 = Color3.fromRGB(200, 80, 80)
-			LinkLbl.Text = "not linked"
-			LinkLbl.TextColor3 = Color3.fromRGB(200, 80, 80)
-			return
-		end
-		statLinked.Text = "✓ linked to Adonis client table"
-		statLinked.TextColor3 = Color3.fromRGB(90, 235, 130)
-		LinkLbl.Text = "✓ linked"
-		LinkLbl.TextColor3 = Color3.fromRGB(90, 235, 130)
-		local key = State.key or rawget(adonis.Core, "Key")
-		statKey.Text = "key:  " .. (key and tostring(key) or "not yet received")
-		statKey.TextColor3 = key and Color3.fromRGB(255, 215, 80) or Color3.fromRGB(150, 150, 150)
-		local rname = adonis.RemoteName or rawget(adonis, "RemoteName")
-		statRemote.Text = "remote:  " .. (rname and tostring(rname) or "—")
-		statRemote.TextColor3 = rname and Color3.fromRGB(130, 200, 255) or Color3.fromRGB(150, 150, 150)
-		local function pill(lbl, on, onTxt, offTxt)
-			lbl.Text = on and onTxt or offTxt
-			lbl.TextColor3 = on and Color3.fromRGB(90, 235, 130) or Color3.fromRGB(150, 150, 150)
-		end
-		pill(statGet, State.getMitm, "Remote.Get MITM:  ✓ active", "Remote.Get MITM:  off")
-		pill(statSend, State.sendMitm, "Remote.Send MITM:  ✓ active", "Remote.Send MITM:  off")
-		pill(statDet, State.detNeutd, "Detected neutralised:  ✓ yes", "Detected neutralised:  no")
-		pill(statByte, State.bytecodeHooked, "LoadBytecode hooked:  ✓ yes", "LoadBytecode hooked:  no")
-		pill(statProxy, State.globalProxied, "_G.Adonis proxy:  ✓ active", "_G.Adonis proxy:  no")
-		pill(statRemDest, State.remoteDestHooked, "remote destroy trap:  ✓ active", "remote destroy trap:  off")
-		RefreshCanvas()
-	end
-	local function StartKeyPoll()
-		task.spawn(function()
-			while adonis and not (State.key or rawget(adonis.Core, "Key")) do
-				task.wait(0.1)
-			end
-			if adonis then
-				State.key = rawget(adonis.Core, "Key")
-				UpdateStatus()
-				print("[AdonisTools] Key received: " .. tostring(State.key))
-			end
-		end)
-	end
-	local mitmCard = Card("🔀  remote MITM  (Get + Send)")
-	local getLogAppend, getLogClear = LogBox(mitmCard, 90, 1)
-	local sendLogAppend, sendLogClear = LogBox(mitmCard, 70, 2)
-	local mitmGetBtn = Btn(mitmCard, "▶ hook Remote.Get", Color3.fromRGB(28, 48, 28), 3)
-	local mitmSendBtn = Btn(mitmCard, "▶ hook Remote.Send", Color3.fromRGB(28, 40, 55), 4)
-	local mitmOffBtn = Btn(mitmCard, "■ remove all MITM", Color3.fromRGB(55, 20, 20), 5)
-	local mitmLbl = Lbl(mitmCard, "", Color3.fromRGB(140, 200, 140), 6)
-	mitmGetBtn.MouseButton1Click:Connect(function()
-		if not adonis then
-			mitmLbl.Text = "not linked"
-			mitmLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-			return
-		end
-		if State.getMitm then
-			mitmLbl.Text = "Get already hooked"
-			return
-		end
-		State._getOrig = adonis.Remote.Get
-		adonis.Remote.Get = function(key, ...)
-			local args = { ... }
-			local line = "[GET] " .. tostring(key)
-			if #args > 0 then
-				line = line .. "  args: " .. table.concat(args, ", ")
-			end
-			table.insert(State.getLog, line)
-			getLogAppend(
-				line,
-				tostring(key):find("GET_KEY", 1, true) and Color3.fromRGB(255, 215, 80)
-					or tostring(key) == "ExecutePermission" and Color3.fromRGB(255, 140, 80)
-					or Color3.fromRGB(130, 210, 255)
-			)
-			if tostring(key) == "ExecutePermission" then
-				warn("[AdonisTools] ExecutePermission → FiOne bytecode incoming")
-			end
-			return State._getOrig(key, ...)
-		end
-		State.getMitm = true
-		mitmLbl.Text = "✓ Get hooked"
-		mitmLbl.TextColor3 = Color3.fromRGB(90, 235, 130)
-		UpdateStatus()
-	end)
-	mitmSendBtn.MouseButton1Click:Connect(function()
-		if not adonis then
-			mitmLbl.Text = "not linked"
-			mitmLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-			return
-		end
-		if State.sendMitm then
-			mitmLbl.Text = "Send already hooked"
-			return
-		end
-		State._sendOrig = adonis.Remote.Send
-		adonis.Remote.Send = function(key, ...)
-			local args = { ... }
-			if tostring(key) == "Detected" or tostring(args[1]) == "Detected" then
-				local reason = tostring(args[2] or args[1] or "?")
-				local line = "[SEND-SILENCED] " .. tostring(key) .. "  " .. reason
-				table.insert(State.sendLog, line)
-				sendLogAppend(line, Color3.fromRGB(255, 120, 120))
-				warn("[AdonisTools] Dropped detection report: " .. reason)
-				return nil
-			end
-			local line = "[SEND] " .. tostring(key)
-			if #args > 0 then
-				line = line .. "  args: " .. table.concat(args, ", ")
-			end
-			table.insert(State.sendLog, line)
-			sendLogAppend(line, Color3.fromRGB(200, 200, 130))
-			return State._sendOrig(key, ...)
-		end
-		State.sendMitm = true
-		mitmLbl.Text = "✓ Send hooked"
-		mitmLbl.TextColor3 = Color3.fromRGB(90, 235, 130)
-		UpdateStatus()
-	end)
-	mitmOffBtn.MouseButton1Click:Connect(function()
-		if not adonis then
-			return
-		end
-		if State.getMitm and State._getOrig then
-			adonis.Remote.Get = State._getOrig
-			State.getMitm = false
-			State._getOrig = nil
-		end
-		if State.sendMitm and State._sendOrig then
-			adonis.Remote.Send = State._sendOrig
-			State.sendMitm = false
-			State._sendOrig = nil
-		end
-		mitmLbl.Text = "MITM removed"
-		mitmLbl.TextColor3 = Color3.fromRGB(200, 200, 200)
-		UpdateStatus()
-	end)
-	Btn(mitmCard, "clear Get log", Color3.fromRGB(30, 30, 30), 7).MouseButton1Click:Connect(getLogClear)
-	Btn(mitmCard, "clear Send log", Color3.fromRGB(30, 30, 30), 8).MouseButton1Click:Connect(sendLogClear)
-	local acCard = Card("🛡  anti-cheat neutraliser")
-	Lbl(acCard, "hooks Anti.Detected — every kick/crash call is swallowed", Color3.fromRGB(110, 110, 110), 1)
-	local neutBtn = Btn(acCard, "⚡ neutralise Detected", Color3.fromRGB(62, 32, 10), 2)
-	local restBtn = Btn(acCard, "↩ restore Detected", Color3.fromRGB(20, 40, 20), 3)
-	local acLbl = Lbl(acCard, "", Color3.fromRGB(140, 200, 140), 4)
-	neutBtn.MouseButton1Click:Connect(function()
-		if not adonis then
-			acLbl.Text = "not linked"
-			acLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-			return
-		end
-		if State.detNeutd then
-			acLbl.Text = "already neutralised"
-			return
-		end
-		local anti = rawget(adonis, "Anti")
-		if type(anti) ~= "table" then
-			acLbl.Text = "Anti table not found in adonis"
-			acLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-			return
-		end
-		local det = rawget(anti, "Detected")
-		if type(det) ~= "function" then
-			acLbl.Text = "Detected fn not found"
-			acLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-			return
-		end
-		State._detOrig = det
-		local ok, err = pcall(function()
-			hookfn(
-				det,
-				newcc(function(action, reason, ...)
-					warn(
-						"[AdonisTools] Detected() swallowed — action="
-							.. tostring(action)
-							.. " reason="
-							.. tostring(reason)
-					)
-					return true
-				end)
-			)
-		end)
-		if ok then
-			State.detNeutd = true
-			acLbl.Text = "✓ all kicks/crashes from Detected are blocked"
-			acLbl.TextColor3 = Color3.fromRGB(90, 235, 130)
-		else
-			acLbl.Text = "hookfunction failed: " .. tostring(err)
-			acLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-		end
-		UpdateStatus()
-	end)
-	restBtn.MouseButton1Click:Connect(function()
-		if State.detNeutd and State._detOrig then
-			pcall(hookfn, State._detOrig, State._detOrig)
-			State.detNeutd = false
-			acLbl.Text = "restored"
-			acLbl.TextColor3 = Color3.fromRGB(200, 200, 200)
-			UpdateStatus()
-		end
-	end)
-	local byteCard = Card("🔬  bytecode intercept  (LoadBytecode)")
-	Lbl(byteCard, "logs every time Adonis pushes a custom script through FiOne", Color3.fromRGB(110, 110, 110), 1)
-	local byteAppend, byteClear = LogBox(byteCard, 80, 2)
-	local startByteBtn = Btn(byteCard, "▶ hook LoadBytecode", Color3.fromRGB(28, 45, 55), 3)
-	local stopByteBtn = Btn(byteCard, "■ remove hook", Color3.fromRGB(55, 20, 20), 4)
-	local byteLbl = Lbl(byteCard, "", Color3.fromRGB(140, 200, 140), 5)
-	startByteBtn.MouseButton1Click:Connect(function()
-		if not adonis then
-			byteLbl.Text = "not linked"
-			byteLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-			return
-		end
-		if State.bytecodeHooked then
-			byteLbl.Text = "already hooked"
-			return
-		end
-		local core = rawget(adonis, "Core")
-		if type(core) ~= "table" or type(rawget(core, "LoadBytecode")) ~= "function" then
-			byteLbl.Text = "LoadBytecode not found in Core"
-			byteLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-			return
-		end
-		State._byteOrig = rawget(core, "LoadBytecode")
-		core.LoadBytecode = function(bytecode, env)
-			local preview = type(bytecode) == "string" and bytecode:sub(1, 60) or tostring(bytecode)
-			local line = "[BYTECODE] len="
-				.. (type(bytecode) == "string" and #bytecode or "?")
-				.. "  preview: "
-				.. preview
-			byteAppend(line, Color3.fromRGB(255, 175, 80))
-			warn("[AdonisTools] LoadBytecode intercepted — " .. line)
-			return State._byteOrig(bytecode, env)
-		end
-		State.bytecodeHooked = true
-		byteLbl.Text = "✓ hooked — scripts will be logged"
-		byteLbl.TextColor3 = Color3.fromRGB(90, 235, 130)
-		UpdateStatus()
-	end)
-	stopByteBtn.MouseButton1Click:Connect(function()
-		if State.bytecodeHooked and State._byteOrig and adonis then
-			rawget(adonis, "Core").LoadBytecode = State._byteOrig
-			State.bytecodeHooked = false
-			byteLbl.Text = "removed"
-			byteLbl.TextColor3 = Color3.fromRGB(200, 200, 200)
-			UpdateStatus()
-		end
-	end)
-	Btn(byteCard, "clear log", Color3.fromRGB(30, 30, 30), 6).MouseButton1Click:Connect(byteClear)
-	local rdCard = Card("🔒  remote destroy trap")
-	Lbl(rdCard, "blocks Adonis from destroying its own RemoteEvent during handshake", Color3.fromRGB(110, 110, 110), 1)
-	local rdOnBtn = Btn(rdCard, "▶ activate trap", Color3.fromRGB(28, 45, 28), 2)
-	local rdOffBtn = Btn(rdCard, "■ remove trap", Color3.fromRGB(55, 20, 20), 3)
-	local rdLbl = Lbl(rdCard, "", Color3.fromRGB(140, 200, 140), 4)
-	rdOnBtn.MouseButton1Click:Connect(function()
-		if not adonis then
-			rdLbl.Text = "not linked"
-			rdLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-			return
-		end
-		if State.remoteDestHooked then
-			rdLbl.Text = "already active"
-			return
-		end
-		local ok, err = pcall(function()
-			State._destroyOrig = hookfn(
-				game.Destroy,
-				newcc(function(self, ...)
-					if not chkcall() then
-						local re = adonis.RemoteEvent
-						local reObj = re and (rawget(re, "Object") or re)
-						if reObj and self == reObj then
-							warn("[AdonisTools] Blocked RemoteEvent:Destroy() — handshake trap prevented")
-							return nil
-						end
-					end
-					return State._destroyOrig(self, ...)
-				end)
-			)
-		end)
-		if ok then
-			State.remoteDestHooked = true
-			rdLbl.Text = "✓ trap active — RemoteEvent destroy blocked"
-			rdLbl.TextColor3 = Color3.fromRGB(90, 235, 130)
-		else
-			rdLbl.Text = "hookfunction failed: " .. tostring(err)
-			rdLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-		end
-		UpdateStatus()
-	end)
-	rdOffBtn.MouseButton1Click:Connect(function()
-		if State.remoteDestHooked and State._destroyOrig then
-			pcall(hookfn, game.Destroy, State._destroyOrig)
-			State.remoteDestHooked = false
-			rdLbl.Text = "removed"
-			rdLbl.TextColor3 = Color3.fromRGB(200, 200, 200)
-			UpdateStatus()
-		end
-	end)
-	local gpCard = Card("🌐  _G.Adonis proxy")
-	Lbl(gpCard, "wraps _G.Adonis so every API access is logged", Color3.fromRGB(110, 110, 110), 1)
-	local gpAppend, gpClear = LogBox(gpCard, 70, 2)
-	local gpOnBtn = Btn(gpCard, "▶ install proxy", Color3.fromRGB(28, 40, 55), 3)
-	local gpOffBtn = Btn(gpCard, "■ remove proxy", Color3.fromRGB(55, 20, 20), 4)
-	local gpLbl = Lbl(gpCard, "", Color3.fromRGB(140, 200, 140), 5)
-	local _realAPI = nil
-	local function FindGlobalAPI()
-		local v = _G["Adonis"]
-		if v ~= nil then
-			return v, "direct _G index"
-		end
-		local v2 = rawget(_G, "Adonis")
-		if v2 ~= nil then
-			return v2, "rawget _G"
-		end
-		local v3 = nil
-		pcall(function()
-			for _, obj in ipairs(getgc(true)) do
-				if type(obj) == "userdata" then
-					local ok, mt = pcall(getmetatable, obj)
-					if ok and mt == "API" then
-						local ok2, val = pcall(function()
-							return obj.Scripts
-						end)
-						if ok2 and val ~= nil then
-							v3 = obj
-							break
-						end
-					end
-				end
-			end
-		end)
-		if v3 then
-			return v3, "getgc userdata scan"
-		end
-		if adonis then
-			local v4 = rawget(adonis, "G_API")
-			if v4 ~= nil then
-				return v4, "adonis.G_API"
-			end
-		end
-		return nil, "not found"
-	end
-	gpOnBtn.MouseButton1Click:Connect(function()
-		if State.globalProxied then
-			gpLbl.Text = "already proxied"
-			return
-		end
-		local api, source = FindGlobalAPI()
-		if not api then
-			gpLbl.Text = "could not find _G.Adonis — is Adonis fully loaded?"
-			gpLbl.TextColor3 = Color3.fromRGB(255, 150, 80)
-			return
-		end
-		gpAppend("found via: " .. source, Color3.fromRGB(130, 150, 255))
-		_realAPI = api
-		local fakeAPI = newproxy(true)
-		local mt = getmetatable(fakeAPI)
-		mt.__index = function(_, index)
-			local line = "[G-API] accessed: " .. tostring(index)
-			gpAppend(line, Color3.fromRGB(195, 165, 255))
-			print("[AdonisTools] " .. line)
-			local ok, val = pcall(function()
-				return _realAPI[index]
-			end)
-			return ok and val or nil
-		end
-		mt.__newindex = function(_, index, value)
-			gpAppend("[G-API] write: " .. tostring(index) .. " = " .. tostring(value), Color3.fromRGB(255, 170, 100))
-		end
-		mt.__metatable = "API"
-		pcall(function()
-			rawset(_G, "Adonis", fakeAPI)
-		end)
-		pcall(function()
-			_G["Adonis"] = fakeAPI
-		end)
-		State.globalProxied = true
-		gpLbl.Text = "✓ proxy installed (src: " .. source .. ")"
-		gpLbl.TextColor3 = Color3.fromRGB(90, 235, 130)
-		UpdateStatus()
-	end)
-	gpOffBtn.MouseButton1Click:Connect(function()
-		if State.globalProxied and _realAPI then
-			pcall(function()
-				rawset(_G, "Adonis", _realAPI)
-			end)
-			pcall(function()
-				_G["Adonis"] = _realAPI
-			end)
-			State.globalProxied = false
-			gpLbl.Text = "removed"
-			gpLbl.TextColor3 = Color3.fromRGB(200, 200, 200)
-			UpdateStatus()
-		end
-	end)
-	Btn(gpCard, "clear log", Color3.fromRGB(30, 30, 30), 6).MouseButton1Click:Connect(gpClear)
-	local tdCard = Card("🗂  table dump")
-	local tdTabBar = Instance.new("Frame", tdCard)
-	tdTabBar.Size = UDim2.new(1, 0, 0, 22)
-	tdTabBar.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
-	tdTabBar.BorderSizePixel = 0
-	tdTabBar.LayoutOrder = 1
-	Instance.new("UICorner", tdTabBar).CornerRadius = UDim.new(0, 3)
-	local tdTabLL = Instance.new("UIListLayout", tdTabBar)
-	tdTabLL.FillDirection = Enum.FillDirection.Horizontal
-	tdTabLL.Padding = UDim.new(0, 2)
-	tdTabLL.SortOrder = Enum.SortOrder.LayoutOrder
-	local tdSelected = "Core"
-	local tdBtns = {}
-	for i, name in ipairs({ "Core", "Remote", "Anti", "Functions", "Variables", "Service" }) do
-		local b = Instance.new("TextButton", tdTabBar)
-		b.Size = UDim2.new(0, 54, 1, -4)
-		b.LayoutOrder = i
-		b.BackgroundColor3 = (name == "Core") and Color3.fromRGB(55, 35, 85) or Color3.fromRGB(28, 28, 40)
-		b.Text = name
-		b.TextColor3 = Color3.fromRGB(195, 195, 215)
-		b.TextSize = 9
-		b.Font = Enum.Font.Code
-		b.BorderSizePixel = 0
-		Instance.new("UICorner", b).CornerRadius = UDim.new(0, 3)
-		tdBtns[name] = b
-		b.MouseButton1Click:Connect(function()
-			tdSelected = name
-			for n, tb in pairs(tdBtns) do
-				tb.BackgroundColor3 = (n == name) and Color3.fromRGB(55, 35, 85) or Color3.fromRGB(28, 28, 40)
-			end
-		end)
-	end
-	local tdAppend, tdClear = LogBox(tdCard, 110, 2)
-	local tdDumpBtn = Btn(tdCard, "dump", Color3.fromRGB(28, 28, 50), 3)
-	Btn(tdCard, "clear", Color3.fromRGB(30, 30, 30), 4).MouseButton1Click:Connect(tdClear)
-	tdDumpBtn.MouseButton1Click:Connect(function()
-		tdClear()
-		if not adonis then
-			tdAppend("not linked", Color3.fromRGB(255, 100, 100))
-			return
-		end
-		local tbl = rawget(adonis, tdSelected)
-		if type(tbl) ~= "table" then
-			tdAppend(tdSelected .. " not found in adonis table", Color3.fromRGB(255, 100, 100))
-			return
-		end
-		local n = 0
-		pcall(function()
-			for k, v in pairs(tbl) do
-				local vt = typeof(v)
-				tdAppend(
-					"[" .. vt .. "]  " .. tostring(k) .. "  =  " .. tostring(v),
-					vt == "function" and Color3.fromRGB(145, 210, 145)
-						or vt == "table" and Color3.fromRGB(185, 160, 255)
-						or Color3.fromRGB(195, 205, 200)
-				)
-				n = n + 1
-				if n > 120 then
-					tdAppend("...truncated")
-					break
-				end
-			end
-		end)
-		if n == 0 then
-			tdAppend("empty or protected", Color3.fromRGB(110, 110, 110))
-		end
-	end)
-	local fhCard = Card("⚡  function hook editor")
-	Lbl(fhCard, "table + key to hook, write your replacement below", Color3.fromRGB(110, 110, 110), 1)
-	local fhTblBox = InputBox(fhCard, "table:  Core  Remote  Anti  Service ...", 2)
-	local fhFnBox = InputBox(fhCard, "function key:  GetEvent  Send  Detected ...", 3)
-	local fhEdBg = Instance.new("Frame", fhCard)
-	fhEdBg.Size = UDim2.new(1, 0, 0, 110)
-	fhEdBg.BackgroundColor3 = Color3.fromRGB(16, 16, 26)
-	fhEdBg.BorderSizePixel = 0
-	fhEdBg.LayoutOrder = 4
-	Instance.new("UICorner", fhEdBg).CornerRadius = UDim.new(0, 3)
-	local fhEd = Instance.new("TextBox", fhEdBg)
-	fhEd.Size = UDim2.new(1, -8, 1, -8)
-	fhEd.Position = UDim2.new(0, 4, 0, 4)
-	fhEd.BackgroundTransparency = 1
-	fhEd.MultiLine = true
-	fhEd.ClearTextOnFocus = false
-	fhEd.Text = "-- 'original' = original fn\n-- args passed as ...\nreturn original(...)"
-	fhEd.TextColor3 = Color3.fromRGB(170, 215, 170)
-	fhEd.TextSize = 10
-	fhEd.Font = Enum.Font.Code
-	fhEd.TextXAlignment = Enum.TextXAlignment.Left
-	fhEd.TextYAlignment = Enum.TextYAlignment.Top
-	local fhApply = Btn(fhCard, "⚡ apply", Color3.fromRGB(35, 58, 35), 5)
-	local fhRemove = Btn(fhCard, "✕ remove", Color3.fromRGB(58, 20, 20), 6)
-	local fhLbl = Lbl(fhCard, "", Color3.fromRGB(140, 200, 140), 7)
-	local _fhOrig, _fhRef, _fhHooked = nil, nil, false
-	fhApply.MouseButton1Click:Connect(function()
-		if not adonis then
-			fhLbl.Text = "not linked"
-			fhLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-			return
-		end
-		local tblName = fhTblBox.Text:gsub("%s", "")
-		local fnName = fhFnBox.Text:gsub("%s", "")
-		if tblName == "" or fnName == "" then
-			fhLbl.Text = "fill both fields"
-			fhLbl.TextColor3 = Color3.fromRGB(255, 180, 80)
-			return
-		end
-		local tbl = rawget(adonis, tblName)
-		if type(tbl) ~= "table" then
-			fhLbl.Text = tblName .. " not found"
-			fhLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-			return
-		end
-		local fn = rawget(tbl, fnName)
-		if type(fn) ~= "function" then
-			fhLbl.Text = fnName .. " not found in " .. tblName
-			fhLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-			return
-		end
-		if _fhHooked and _fhRef and _fhOrig then
-			pcall(hookfn, _fhRef, _fhOrig)
-			_fhHooked = false
-		end
-		local src = "return function(original) return function(...) " .. fhEd.Text .. " end end"
-		local ok, w = pcall(loadstring, src)
-		if not ok or not w then
-			fhLbl.Text = "syntax: " .. tostring(w)
-			fhLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-			return
-		end
-		local ok2, fac = pcall(w)
-		if not ok2 or type(fac) ~= "function" then
-			fhLbl.Text = "compile: " .. tostring(fac)
-			fhLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-			return
-		end
-		_fhRef = fn
-		_fhOrig = fn
-		local ok3, err = pcall(function()
-			hookfn(fn, newcc(fac(fn)))
-		end)
-		if ok3 then
-			_fhHooked = true
-			fhLbl.Text = "✓ hooked " .. tblName .. "." .. fnName
-			fhLbl.TextColor3 = Color3.fromRGB(90, 235, 130)
-		else
-			fhLbl.Text = "hookfunction failed: " .. tostring(err)
-			fhLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-		end
-	end)
-	fhRemove.MouseButton1Click:Connect(function()
-		if _fhHooked and _fhRef and _fhOrig then
-			pcall(hookfn, _fhRef, _fhOrig)
-			_fhHooked = false
-			fhLbl.Text = "hook removed"
-			fhLbl.TextColor3 = Color3.fromRGB(200, 200, 200)
-		else
-			fhLbl.Text = "nothing hooked"
-		end
-	end)
-	local alCard = Card("📋  acliLogs  (v_u_36)")
-	Lbl(
-		alCard,
-		"scans GC for the loader log table — contains all ACLI: prefixed entries",
-		Color3.fromRGB(110, 110, 110),
-		1
-	)
-	local alAppend, alClear = LogBox(alCard, 100, 2)
-	local alDumpBtn = Btn(alCard, "dump acliLogs", Color3.fromRGB(28, 35, 55), 3)
-	local alClearBtn = Btn(alCard, "clear", Color3.fromRGB(30, 30, 30), 4)
-	local alLbl = Lbl(alCard, "", Color3.fromRGB(140, 200, 140), 5)
-	alDumpBtn.MouseButton1Click:Connect(function()
-		alClear()
-		local logs = nil
-		pcall(function()
-			for _, v in ipairs(getgc(true)) do
-				if type(v) == "table" then
-					local hasACLI, allStr, n = false, true, 0
-					for k, val in pairs(v) do
-						n = n + 1
-						if type(k) ~= "number" or type(val) ~= "string" then
-							allStr = false
-							break
-						end
-						if val:find("ACLI:", 1, true) then
-							hasACLI = true
-						end
-						if n > 500 then
-							allStr = false
-							break
-						end
-					end
-					if allStr and hasACLI then
-						logs = v
-						break
-					end
-				end
-			end
-		end)
-		if not logs then
-			alAppend("not found — Adonis may not have fully loaded yet", Color3.fromRGB(255, 120, 120))
-			alLbl.Text = "not found"
-			alLbl.TextColor3 = Color3.fromRGB(255, 120, 120)
-			return
-		end
-		local n = 0
-		for _, entry in ipairs(logs) do
-			local col = entry:find("WARNING", 1, true) and Color3.fromRGB(255, 200, 80)
-				or entry:find("ACLI-0x", 1, true) and Color3.fromRGB(255, 120, 120)
-				or Color3.fromRGB(175, 210, 175)
-			alAppend(entry, col)
-			n = n + 1
-		end
-		alLbl.Text = n .. " entries"
-		alLbl.TextColor3 = Color3.fromRGB(90, 235, 130)
-		if n == 0 then
-			alAppend("table found but empty", Color3.fromRGB(140, 140, 140))
-		end
-	end)
-	alClearBtn.MouseButton1Click:Connect(alClear)
-	BtnLink.MouseButton1Click:Connect(function()
-		BtnLink.Text = "linking..."
-		task.spawn(function()
-			adonis = FindAdonis()
-			if adonis then
-				State.linked = true
-				print("[AdonisTools] Linked — RemoteName: " .. tostring(adonis.RemoteName))
-				StartKeyPoll()
-			else
-				warn("[AdonisTools] Could not find Adonis client table in GC")
-			end
-			UpdateStatus()
-			BtnLink.Text = "⟳ link"
-		end)
-	end)
-	BtnClose.MouseButton1Click:Connect(function()
-		Win.Visible = false
-		G1.Visible = false
-		G2.Visible = false
-	end)
-	UIS.InputBegan:Connect(function(input, gpe)
-		if not gpe and input.KeyCode == Enum.KeyCode.RightAlt then
-			local v = not Win.Visible
-			Win.Visible = v
-			G1.Visible = v
-			G2.Visible = v
-		end
-	end)
-	local prCard = Card("📥  Process.Remote hook  (server→client)")
-	Lbl(prCard, "intercepts every incoming Adonis command before it is handled", Color3.fromRGB(110, 110, 110), 1)
-	local prAppend, prClear = LogBox(prCard, 110, 2)
-	local prBlockBox = InputBox(prCard, "block commands (comma-separated, e.g.  Hint,Notify)", 3)
-	local prOnBtn = Btn(prCard, "▶ hook Process.Remote", Color3.fromRGB(28, 48, 28), 4)
-	local prOffBtn = Btn(prCard, "■ remove hook", Color3.fromRGB(55, 20, 20), 5)
-	local prLbl = Lbl(prCard, "", Color3.fromRGB(140, 200, 140), 6)
-	Btn(prCard, "clear log", Color3.fromRGB(30, 30, 30), 7).MouseButton1Click:Connect(prClear)
-	State.processHooked = false
-	State._processOrig = nil
-	prOnBtn.MouseButton1Click:Connect(function()
-		if not adonis then
-			prLbl.Text = "not linked"
-			prLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-			return
-		end
-		if State.processHooked then
-			prLbl.Text = "already hooked"
-			return
-		end
-		local proc = rawget(adonis, "Process")
-		if type(proc) ~= "table" then
-			prLbl.Text = "adonis.Process not found"
-			prLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-			return
-		end
-		local fn = rawget(proc, "Remote")
-		if type(fn) ~= "function" then
-			prLbl.Text = "Process.Remote not found"
-			prLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-			return
-		end
-		State._processOrig = fn
-		local ok, err = pcall(function()
-			hookfn(
-				fn,
-				newcc(function(cmd, ...)
-					local args = { ... }
-					local cmdStr = tostring(cmd)
-					local blocked = false
-					local blockRaw = prBlockBox.Text:gsub("%s", "")
-					if blockRaw ~= "" then
-						for entry in blockRaw:gmatch("[^,]+") do
-							if cmdStr:lower() == entry:lower() then
-								blocked = true
-								break
-							end
-						end
-					end
-					local argStr = ""
-					if #args > 0 then
-						local parts = {}
-						for i, a in ipairs(args) do
-							parts[i] = tostring(a)
-						end
-						argStr = "  args: " .. table.concat(parts, ", ")
-					end
-					local prefix = blocked and "[BLOCKED] " or "[CMD] "
-					local col = blocked and Color3.fromRGB(255, 120, 120)
-						or cmdStr:find("Execute", 1, true) and Color3.fromRGB(255, 175, 80)
-						or Color3.fromRGB(130, 210, 255)
-					prAppend(prefix .. cmdStr .. argStr, col)
-					print("[AdonisTools] Process.Remote: " .. prefix .. cmdStr .. argStr)
-					if blocked then
-						return nil
-					end
-					return State._processOrig(cmd, ...)
-				end)
-			)
-		end)
-		if ok then
-			State.processHooked = true
-			prLbl.Text = "✓ hooked — all server→client commands logged"
-			prLbl.TextColor3 = Color3.fromRGB(90, 235, 130)
-		else
-			prLbl.Text = "hookfunction failed: " .. tostring(err)
-			prLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-		end
-	end)
-	prOffBtn.MouseButton1Click:Connect(function()
-		if State.processHooked and State._processOrig then
-			pcall(hookfn, State._processOrig, State._processOrig)
-			State.processHooked = false
-			prLbl.Text = "removed"
-			prLbl.TextColor3 = Color3.fromRGB(200, 200, 200)
-		end
-	end)
-	local kfCard = Card("🔑  key forger  /  raw remote caller")
-	Lbl(kfCard, "correct wire format: XOR-encrypted cmd + metadata header", Color3.fromRGB(110, 110, 110), 1)
-	local kfCmdBox = InputBox(kfCard, "command  e.g.  GetPlayers   Kick   Ban   Hint", 2)
-	local kfArgsBox = InputBox(kfCard, "args (comma-separated)  e.g.  Player1, bad behaviour", 3)
-	local kfModeBar = Instance.new("Frame", kfCard)
-	kfModeBar.Size = UDim2.new(1, 0, 0, 22)
-	kfModeBar.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
-	kfModeBar.BorderSizePixel = 0
-	kfModeBar.LayoutOrder = 4
-	Instance.new("UICorner", kfModeBar).CornerRadius = UDim.new(0, 3)
-	local kfModeLL = Instance.new("UIListLayout", kfModeBar)
-	kfModeLL.FillDirection = Enum.FillDirection.Horizontal
-	kfModeLL.Padding = UDim.new(0, 2)
-	kfModeLL.SortOrder = Enum.SortOrder.LayoutOrder
-	local kfMode = "Fire"
-	local kfModeBtns = {}
-	for i, pair in ipairs({ { "Fire", "Fire  (Send)" }, { "Get", "Get  (Invoke)" } }) do
-		local mkey, mlbl = pair[1], pair[2]
-		local b = Instance.new("TextButton", kfModeBar)
-		b.Size = UDim2.new(0.5, -2, 1, -4)
-		b.LayoutOrder = i
-		b.BackgroundColor3 = (mkey == "Fire") and Color3.fromRGB(55, 35, 85) or Color3.fromRGB(28, 28, 40)
-		b.Text = mlbl
-		b.TextColor3 = Color3.fromRGB(195, 195, 215)
-		b.TextSize = 9
-		b.Font = Enum.Font.Code
-		b.BorderSizePixel = 0
-		Instance.new("UICorner", b).CornerRadius = UDim.new(0, 3)
-		kfModeBtns[mkey] = b
-		b.MouseButton1Click:Connect(function()
-			kfMode = mkey
-			for n, tb in pairs(kfModeBtns) do
-				tb.BackgroundColor3 = (n == mkey) and Color3.fromRGB(55, 35, 85) or Color3.fromRGB(28, 28, 40)
-			end
-		end)
-	end
-	local kfSendBtn = Btn(kfCard, "▶ send", Color3.fromRGB(38, 48, 28), 5)
-	local kfAppend, kfClear = LogBox(kfCard, 100, 6)
-	Btn(kfCard, "clear", Color3.fromRGB(30, 30, 30), 7).MouseButton1Click:Connect(kfClear)
-	local kfLbl = Lbl(kfCard, "", Color3.fromRGB(140, 200, 140), 8)
-	local function ParseArgs(raw)
-		local args = {}
-		for part in raw:gmatch("[^,]+") do
-			local s = part:match("^%s*(.-)%s*$")
-			if s == "true" then
-				table.insert(args, true)
-			elseif s == "false" then
-				table.insert(args, false)
-			elseif tonumber(s) then
-				table.insert(args, tonumber(s))
-			elseif s ~= "" then
-				table.insert(args, s)
-			end
-		end
-		return args
-	end
-	local _kfCache = {}
-	local function NewEncrypt(cmd, key)
-		if not (cmd and key) then
-			return cmd
-		end
-		local kc = _kfCache[key] or {}
-		_kfCache[key] = kc
-		if kc[cmd] then
-			return kc[cmd]
-		end
-		local wb = buffer.writeu8
-		local rb = buffer.readu8
-		local bxor = bit32.bxor
-		local buf = buffer.fromstring(cmd)
-		local kbuf = kc[1] or buffer.fromstring(key)
-		local klen = #key
-		for i = 0, #cmd - 1 do
-			wb(buf, i, bxor(rb(buf, i), rb(kbuf, i % klen)))
-		end
-		kc[cmd] = buffer.tostring(buf)
-		kc[1] = kbuf
-		return kc[cmd]
-	end
-	local function BuildHeader(mode)
-		local remote = adonis and rawget(adonis, "Remote")
-		local sent = (remote and rawget(remote, "Sent") or 0) + 1
-		return {
-			Mode = mode,
-			Module = rawget(adonis, "Module"),
-			Loader = rawget(adonis, "Loader"),
-			Sent = sent,
-			Received = remote and rawget(remote, "Received") or 0,
-		}
-	end
-	local function GetRawRemotes()
-		local core = adonis and rawget(adonis, "Core")
-		local re = core and rawget(core, "RemoteEvent")
-		if re then
-			return rawget(re, "Object"), rawget(re, "Function")
-		end
-		for _, d in ipairs(game:GetService("ReplicatedStorage"):GetDescendants()) do
-			if d:IsA("RemoteEvent") and d:FindFirstChild("__FUNCTION") then
-				return d, d:FindFirstChild("__FUNCTION")
-			end
-		end
-		return nil, nil
-	end
-	kfSendBtn.MouseButton1Click:Connect(function()
-		if not adonis then
-			kfLbl.Text = "not linked"
-			kfLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-			return
-		end
-		local key = State.key or (adonis.Core and rawget(adonis.Core, "Key"))
-		if not key then
-			kfLbl.Text = "key not captured — use key intercept first"
-			kfLbl.TextColor3 = Color3.fromRGB(255, 175, 80)
-			return
-		end
-		local cmd = kfCmdBox.Text:match("^%s*(.-)%s*$")
-		if cmd == "" then
-			kfLbl.Text = "enter a command"
-			kfLbl.TextColor3 = Color3.fromRGB(255, 175, 80)
-			return
-		end
-		local args = ParseArgs(kfArgsBox.Text)
-		local reObj, rfObj = GetRawRemotes()
-		local encCmd = NewEncrypt(cmd, key)
-		kfAppend("key:       " .. tostring(key), Color3.fromRGB(255, 215, 80))
-		kfAppend("cmd plain: " .. cmd, Color3.fromRGB(130, 210, 255))
-		kfAppend("cmd xor:   " .. tostring(encCmd), Color3.fromRGB(195, 165, 255))
-		if #args > 0 then
-			local p = {}
-			for i, a in ipairs(args) do
-				p[i] = tostring(a)
-			end
-			kfAppend("args:      " .. table.concat(p, ", "), Color3.fromRGB(180, 200, 180))
-		end
-		if kfMode == "Fire" then
-			if not reObj then
-				kfLbl.Text = "RemoteEvent not found"
-				kfLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-				return
-			end
-			local ok, err = pcall(function()
-				reObj:FireServer(BuildHeader("Fire"), encCmd, table.table.unpack(args))
-			end)
-			if ok then
-				pcall(function()
-					local r = rawget(adonis, "Remote")
-					if r then
-						r.Sent = (r.Sent or 0) + 1
-					end
-				end)
-				kfLbl.Text = "✓ fired"
-				kfLbl.TextColor3 = Color3.fromRGB(90, 235, 130)
-				kfAppend("← sent ok", Color3.fromRGB(90, 235, 130))
-			else
-				kfLbl.Text = "error"
-				kfLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-				kfAppend("← " .. tostring(err), Color3.fromRGB(255, 120, 120))
-			end
-		elseif kfMode == "Get" then
-			if not rfObj then
-				kfLbl.Text = "__FUNCTION not found"
-				kfLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-				return
-			end
-			local ok, result = pcall(function()
-				return rfObj:InvokeServer(BuildHeader("Get"), encCmd, table.table.unpack(args))
-			end)
-			if ok then
-				local res = type(result) == "table" and ("[table] " .. tostring(#result) .. " entries")
-					or tostring(result)
-				kfLbl.Text = "✓ return received"
-				kfLbl.TextColor3 = Color3.fromRGB(90, 235, 130)
-				kfAppend("← " .. res, Color3.fromRGB(90, 235, 130))
-				pcall(function()
-					local r = rawget(adonis, "Remote")
-					if r then
-						r.Sent = (r.Sent or 0) + 1
-					end
-				end)
-				if type(result) == "table" then
-					print("[AdonisTools] Get(" .. cmd .. ") return:")
-					for k, v in pairs(result) do
-						print("  [" .. tostring(k) .. "] = " .. tostring(v))
-					end
-				else
-					print("[AdonisTools] Get(" .. cmd .. ") -> " .. tostring(result))
-				end
-			else
-				kfLbl.Text = "error"
-				kfLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-				kfAppend("← " .. tostring(result), Color3.fromRGB(255, 120, 120))
-			end
-		end
-	end)
-	local sniffCard = Card("🕵  arg sniffer")
-	Lbl(
-		sniffCard,
-		"records real Adonis calls so you know exactly what args each command needs",
-		Color3.fromRGB(110, 110, 110),
-		1
-	)
-	local sniffAppend, sniffClear = LogBox(sniffCard, 120, 2)
-	local sniffOnBtn = Btn(sniffCard, "▶ start sniffing", Color3.fromRGB(28, 48, 28), 3)
-	local sniffOffBtn = Btn(sniffCard, "■ stop", Color3.fromRGB(55, 20, 20), 4)
-	local sniffFillBtn = Btn(sniffCard, "→ fill args from last selected cmd", Color3.fromRGB(38, 35, 55), 5)
-	Btn(sniffCard, "clear", Color3.fromRGB(30, 30, 30), 6).MouseButton1Click:Connect(sniffClear)
-	local sniffLbl = Lbl(sniffCard, "", Color3.fromRGB(140, 200, 140), 7)
-	local SniffedCmds = {}
-	local lastSniffedCmd = nil
-	local _sniffFireOrig = nil
-	local _sniffInvokeOrig = nil
-	local _sniffActive = false
-	local function FormatArgSig(args)
-		if #args == 0 then
-			return "(no args)"
-		end
-		local parts = {}
-		for i, a in ipairs(args) do
-			parts[i] = typeof(a) .. "=" .. tostring(a):sub(1, 30)
-		end
-		return table.concat(parts, "  |  ")
-	end
-	sniffOnBtn.MouseButton1Click:Connect(function()
-		if not adonis then
-			sniffLbl.Text = "not linked"
-			sniffLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-			return
-		end
-		if _sniffActive then
-			sniffLbl.Text = "already sniffing"
-			return
-		end
-		local reObj, rfObj = GetRawRemotes()
-		if not reObj then
-			sniffLbl.Text = "RemoteEvent not found"
-			sniffLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-			return
-		end
-		local fireOk, fireErr = pcall(function()
-			_sniffFireOrig = hookfn(
-				reObj.FireServer,
-				newcc(function(self, ...)
-					local allArgs = { ... }
-					local sentKey = allArgs[1]
-					local cmd = tostring(allArgs[2] or "?")
-					local realArgs = {}
-					for i = 3, #allArgs do
-						realArgs[#realArgs + 1] = allArgs[i]
-					end
-					local myKey = State.key or rawget(adonis.Core, "Key")
-					if tostring(sentKey) == tostring(myKey) then
-						SniffedCmds[cmd] = { types = {}, values = {}, raw = realArgs }
-						for i, a in ipairs(realArgs) do
-							SniffedCmds[cmd].types[i] = typeof(a)
-							SniffedCmds[cmd].values[i] = tostring(a)
-						end
-						lastSniffedCmd = cmd
-						local sig = FormatArgSig(realArgs)
-						sniffAppend("[FIRE] " .. cmd .. "  →  " .. sig, Color3.fromRGB(195, 165, 255))
-						print("[AdonisTools] sniff FIRE " .. cmd .. "  " .. sig)
-					end
-					return _sniffFireOrig(self, ...)
-				end)
-			)
-		end)
-		local invokeOk = false
-		if rfObj then
-			invokeOk = pcall(function()
-				_sniffInvokeOrig = hookfn(
-					rfObj.InvokeServer,
-					newcc(function(self, ...)
-						local allArgs = { ... }
-						local sentKey = allArgs[1]
-						local cmd = tostring(allArgs[2] or "?")
-						local realArgs = {}
-						for i = 3, #allArgs do
-							realArgs[#realArgs + 1] = allArgs[i]
-						end
-						local myKey = State.key or rawget(adonis.Core, "Key")
-						if tostring(sentKey) == tostring(myKey) then
-							SniffedCmds[cmd] = { types = {}, values = {}, raw = realArgs }
-							for i, a in ipairs(realArgs) do
-								SniffedCmds[cmd].types[i] = typeof(a)
-								SniffedCmds[cmd].values[i] = tostring(a)
-							end
-							lastSniffedCmd = cmd
-							local sig = FormatArgSig(realArgs)
-							sniffAppend("[INVOKE] " .. cmd .. "  →  " .. sig, Color3.fromRGB(130, 210, 255))
-						end
-						return _sniffInvokeOrig(self, ...)
-					end)
-				)
-			end)
-		end
-		if fireOk then
-			_sniffActive = true
-			sniffLbl.Text = "✓ sniffing — interact with the game to trigger real Adonis calls"
-				.. (invokeOk and "" or "  (RemoteFunction hook failed)")
-			sniffLbl.TextColor3 = Color3.fromRGB(90, 235, 130)
-		else
-			sniffLbl.Text = "FireServer hook failed: " .. tostring(fireErr)
-			sniffLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-		end
-	end)
-	sniffOffBtn.MouseButton1Click:Connect(function()
-		if not _sniffActive then
-			return
-		end
-		local reObj, rfObj = GetRawRemotes()
-		if _sniffFireOrig and reObj then
-			pcall(hookfn, reObj.FireServer, _sniffFireOrig)
-			_sniffFireOrig = nil
-		end
-		if _sniffInvokeOrig and rfObj then
-			pcall(hookfn, rfObj.InvokeServer, _sniffInvokeOrig)
-			_sniffInvokeOrig = nil
-		end
-		_sniffActive = false
-		sniffLbl.Text = "stopped — "
-			.. tostring(#SniffedCmds ~= 0 and table.concat(
-				(function()
-					local k = {}
-					for cmd in pairs(SniffedCmds) do
-						k[#k + 1] = cmd
-					end
-					return k
-				end)(),
-				", "
-			) or "no cmds recorded")
-		sniffLbl.TextColor3 = Color3.fromRGB(200, 200, 200)
-	end)
-	sniffFillBtn.MouseButton1Click:Connect(function()
-		local target = kfCmdBox.Text:match("^%s*(.-)%s*$")
-		if target == "" then
-			target = lastSniffedCmd
-		end
-		if not target then
-			sniffLbl.Text = "no cmd to fill — type one in the key forger box"
-			return
-		end
-		local entry = SniffedCmds[target]
-		if not entry then
-			local have = {}
-			for cmd in pairs(SniffedCmds) do
-				have[#have + 1] = cmd
-			end
-			if #have == 0 then
-				sniffLbl.Text = "nothing sniffed yet — start sniffing and trigger some Adonis activity"
-				sniffLbl.TextColor3 = Color3.fromRGB(255, 175, 80)
-			else
-				sniffLbl.Text = "'" .. target .. "' not seen yet. Recorded: " .. table.concat(have, ", ")
-				sniffLbl.TextColor3 = Color3.fromRGB(255, 175, 80)
-			end
-			return
-		end
-		local parts = {}
-		for i, v in ipairs(entry.values) do
-			parts[i] = v
-		end
-		kfArgsBox.Text = table.concat(parts, ", ")
-		local typeSig = {}
-		for i, t in ipairs(entry.types) do
-			typeSig[i] = t
-		end
-		sniffLbl.Text = "✓ filled from '" .. target .. "'  types: " .. table.concat(typeSig, ", ")
-		sniffLbl.TextColor3 = Color3.fromRGB(90, 235, 130)
-		sniffAppend("→ filled forger: [" .. table.concat(parts, ", ") .. "]", Color3.fromRGB(255, 215, 80))
-		print("[AdonisTools] Arg signature for '" .. target .. "': " .. table.concat(typeSig, ", "))
-	end)
-	local scCard = Card("📜  ScriptCache reader")
-	Lbl(scCard, "dumps every script Adonis has cached/executed on this client", Color3.fromRGB(110, 110, 110), 1)
-	local scAppend, scClear = LogBox(scCard, 120, 2)
-	local scDumpBtn = Btn(scCard, "dump ScriptCache", Color3.fromRGB(28, 38, 55), 3)
-	local scSrcBtn = Btn(scCard, "dump sources (code)", Color3.fromRGB(38, 28, 55), 4)
-	local scClearBtn = Btn(scCard, "clear", Color3.fromRGB(30, 30, 30), 5)
-	local scLbl = Lbl(scCard, "", Color3.fromRGB(140, 200, 140), 6)
-	scClearBtn.MouseButton1Click:Connect(scClear)
-	scDumpBtn.MouseButton1Click:Connect(function()
-		scClear()
-		if not adonis then
-			scAppend("not linked", Color3.fromRGB(255, 100, 100))
-			return
-		end
-		local core = rawget(adonis, "Core")
-		local cache = core and rawget(core, "ScriptCache")
-		if type(cache) ~= "table" then
-			scAppend("ScriptCache not found in Core", Color3.fromRGB(255, 120, 120))
-			scLbl.Text = "not found"
-			scLbl.TextColor3 = Color3.fromRGB(255, 120, 120)
-			return
-		end
-		local n = 0
-		for i, entry in ipairs(cache) do
-			local scriptName = "?"
-			pcall(function()
-				scriptName = tostring(entry.Script)
-			end)
-			local executions = tostring(entry.Executions or 0)
-			local noCache = entry.noCache and " [noCache]" or ""
-			local runLim = entry.runLimit and (" [limit=" .. tostring(entry.runLimit) .. "]") or ""
-			scAppend(
-				i .. ".  " .. scriptName .. "  execs=" .. executions .. noCache .. runLim,
-				Color3.fromRGB(195, 165, 255)
-			)
-			n = n + 1
-		end
-		scLbl.Text = n .. " cached scripts"
-		scLbl.TextColor3 = Color3.fromRGB(90, 235, 130)
-		if n == 0 then
-			scAppend("cache is empty — no scripts executed yet", Color3.fromRGB(140, 140, 140))
-		end
-	end)
-	scSrcBtn.MouseButton1Click:Connect(function()
-		scClear()
-		if not adonis then
-			scAppend("not linked", Color3.fromRGB(255, 100, 100))
-			return
-		end
-		local core = rawget(adonis, "Core")
-		local cache = core and rawget(core, "ScriptCache")
-		if type(cache) ~= "table" then
-			scAppend("ScriptCache not found", Color3.fromRGB(255, 120, 120))
-			return
-		end
-		local n = 0
-		for i, entry in ipairs(cache) do
-			local src = entry.Source
-			if type(src) == "string" and #src > 0 then
-				local preview = src:sub(1, 120):gsub("\n", " ↵ ")
-				scAppend(
-					"── script " .. i .. " ──────────────────────",
-					Color3.fromRGB(160, 130, 220)
-				)
-				scAppend(preview .. (#src > 120 and "…" or ""), Color3.fromRGB(175, 215, 175))
-				print("[AdonisTools] ScriptCache[" .. i .. "] source:\n" .. src)
-				n = n + 1
-			end
-		end
-		if n == 0 then
-			scAppend("no source strings found in cache", Color3.fromRGB(140, 140, 140))
-		end
-		scLbl.Text = "printed " .. n .. " sources to console"
-		scLbl.TextColor3 = Color3.fromRGB(90, 235, 130)
-	end)
-	local plCard = Card("🔌  plugin loader hijack  (Core.LoadPlugin)")
-	Lbl(
-		plCard,
-		"logs every plugin Adonis loads — block by name to prevent execution",
-		Color3.fromRGB(110, 110, 110),
-		1
-	)
-	local plAppend, plClear = LogBox(plCard, 80, 2)
-	local plBlockBox = InputBox(plCard, "block plugin names (comma-separated)", 3)
-	local plOnBtn = Btn(plCard, "▶ hook LoadPlugin", Color3.fromRGB(28, 45, 28), 4)
-	local plOffBtn = Btn(plCard, "■ remove hook", Color3.fromRGB(55, 20, 20), 5)
-	local plLbl = Lbl(plCard, "", Color3.fromRGB(140, 200, 140), 6)
-	Btn(plCard, "clear log", Color3.fromRGB(30, 30, 30), 7).MouseButton1Click:Connect(plClear)
-	State.pluginHooked = false
-	State._pluginOrig = nil
-	plOnBtn.MouseButton1Click:Connect(function()
-		if not adonis then
-			plLbl.Text = "not linked"
-			plLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-			return
-		end
-		if State.pluginHooked then
-			plLbl.Text = "already hooked"
-			return
-		end
-		local core = rawget(adonis, "Core")
-		if type(core) ~= "table" then
-			plLbl.Text = "Core not found"
-			plLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-			return
-		end
-		local fn = rawget(core, "LoadPlugin")
-		if type(fn) ~= "function" then
-			plLbl.Text = "LoadPlugin not found in Core"
-			plLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-			return
-		end
-		State._pluginOrig = fn
-		local ok, err = pcall(function()
-			hookfn(
-				fn,
-				newcc(function(moduleScript, ...)
-					local name = "?"
-					pcall(function()
-						name = tostring(moduleScript.Name)
-					end)
-					local fullPath = "?"
-					pcall(function()
-						fullPath = moduleScript:GetFullName()
-					end)
-					local blocked = false
-					local blockRaw = plBlockBox.Text:gsub("%s", "")
-					if blockRaw ~= "" then
-						for entry in blockRaw:gmatch("[^,]+") do
-							if name:lower() == entry:lower() then
-								blocked = true
-								break
-							end
-						end
-					end
-					local prefix = blocked and "[BLOCKED] " or "[LOAD] "
-					local col = blocked and Color3.fromRGB(255, 120, 120) or Color3.fromRGB(130, 210, 255)
-					plAppend(prefix .. name .. "  (" .. fullPath .. ")", col)
-					warn("[AdonisTools] LoadPlugin: " .. prefix .. name .. "  " .. fullPath)
-					if blocked then
-						return nil
-					end
-					return State._pluginOrig(moduleScript, ...)
-				end)
-			)
-		end)
-		if ok then
-			State.pluginHooked = true
-			plLbl.Text = "✓ hooked — all plugin loads logged"
-			plLbl.TextColor3 = Color3.fromRGB(90, 235, 130)
-		else
-			plLbl.Text = "hookfunction failed: " .. tostring(err)
-			plLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-		end
-	end)
-	plOffBtn.MouseButton1Click:Connect(function()
-		if State.pluginHooked and State._pluginOrig then
-			pcall(hookfn, State._pluginOrig, State._pluginOrig)
-			State.pluginHooked = false
-			plLbl.Text = "removed"
-			plLbl.TextColor3 = Color3.fromRGB(200, 200, 200)
-		end
-	end)
-	local gaCard = Card("🔓  G_Access probe  (escalation)")
-	Lbl(
-		gaCard,
-		"tests whether G_Access is enabled and tries to call _G.Adonis.Access",
-		Color3.fromRGB(110, 110, 110),
-		1
-	)
-	local gaAppend, gaClear = LogBox(gaCard, 130, 2)
-	local gaKeyBox = InputBox(gaCard, "custom key to try (leave blank to use captured key)", 3)
-	local gaTblBox = InputBox(gaCard, "table to request:  Service  Functions  Variables ...", 4)
-	local gaProbeBtn = Btn(gaCard, "🔎 probe G_Access", Color3.fromRGB(55, 38, 12), 5)
-	local gaAutoBtn = Btn(gaCard, "⚡ auto-try weak keys", Color3.fromRGB(45, 28, 55), 6)
-	local gaDumpBtn = Btn(gaCard, "📋 dump returned proxy", Color3.fromRGB(28, 38, 55), 7)
-	local gaClearBtn = Btn(gaCard, "clear", Color3.fromRGB(30, 30, 30), 8)
-	local gaLbl = Lbl(gaCard, "", Color3.fromRGB(140, 200, 140), 9)
-	gaClearBtn.MouseButton1Click:Connect(gaClear)
-	local gaProxy = nil
-	local function CheckGAccessEnabled()
-		if not adonis then
-			return false, "not linked"
-		end
-		local vars = rawget(adonis, "Variables")
-		if type(vars) ~= "table" then
-			return false, "Variables not found in adonis"
-		end
-		local enabled = rawget(vars, "G_Access")
-		local key = rawget(vars, "G_Access_Key")
-		local perms = rawget(vars, "G_Access_Perms") or "Read"
-		return enabled == true,
-			"G_Access="
-				.. tostring(enabled)
-				.. "  G_Access_Key="
-				.. tostring(key ~= nil and "[set]" or "nil")
-				.. "  G_Access_Perms="
-				.. tostring(perms)
-	end
-	local function TryAccess(inputKey, tableName)
-		local api, source = FindGlobalAPI()
-		if not api then
-			return nil, "_G.Adonis not found (" .. source .. ")"
-		end
-		local ok, result = pcall(function()
-			return api.Access(inputKey, tableName or "Service")
-		end)
-		if ok and result ~= nil then
-			return result, "success (found via " .. source .. ")"
-		end
-		return nil, ok and "returned nil (key rejected)" or tostring(result)
-	end
-	gaProbeBtn.MouseButton1Click:Connect(function()
-		if not adonis then
-			gaAppend("not linked", Color3.fromRGB(255, 100, 100))
-			return
-		end
-		local enabled, configStr = CheckGAccessEnabled()
-		gaAppend("config:  " .. configStr, enabled and Color3.fromRGB(255, 215, 80) or Color3.fromRGB(180, 180, 180))
-		if not enabled then
-			gaAppend(
-				"G_Access is disabled on this server — escalation not possible via this path",
-				Color3.fromRGB(200, 120, 80)
-			)
-			gaLbl.Text = "G_Access disabled"
-			gaLbl.TextColor3 = Color3.fromRGB(200, 120, 80)
-			return
-		end
-		gaAppend("G_Access is ENABLED — attempting key...", Color3.fromRGB(90, 235, 130))
-		local inputKey = gaKeyBox.Text ~= "" and gaKeyBox.Text or State.key or rawget(adonis.Core, "Key")
-		local tblName = gaTblBox.Text ~= "" and gaTblBox.Text or "Service"
-		if inputKey then
-			gaAppend(
-				"trying captured key: " .. tostring(inputKey) .. "  table: " .. tblName,
-				Color3.fromRGB(130, 210, 255)
-			)
-			local proxy, msg = TryAccess(tostring(inputKey), tblName)
-			if proxy then
-				gaProxy = proxy
-				gaAppend("✓ ACCESS GRANTED with key: " .. tostring(inputKey), Color3.fromRGB(90, 235, 130))
-				gaAppend(
-					"proxy type: " .. typeof(proxy) .. "  mt: " .. tostring(getmetatable(proxy)),
-					Color3.fromRGB(195, 165, 255)
-				)
-				gaLbl.Text = "✓ access granted — use dump proxy to read"
-				gaLbl.TextColor3 = Color3.fromRGB(90, 235, 130)
-				print("[AdonisTools] G_Access granted with key: " .. tostring(inputKey))
-				return
-			else
-				gaAppend("✗ key rejected: " .. msg, Color3.fromRGB(200, 120, 80))
-			end
-		else
-			gaAppend("no key captured yet — start key intercept first", Color3.fromRGB(255, 175, 80))
-		end
-		gaLbl.Text = "access denied"
-		gaLbl.TextColor3 = Color3.fromRGB(200, 120, 80)
-	end)
-	gaAutoBtn.MouseButton1Click:Connect(function()
-		if not adonis then
-			gaAppend("not linked", Color3.fromRGB(255, 100, 100))
-			return
-		end
-		local enabled, configStr = CheckGAccessEnabled()
-		gaAppend("config:  " .. configStr, enabled and Color3.fromRGB(255, 215, 80) or Color3.fromRGB(180, 180, 180))
-		if not enabled then
-			gaAppend("G_Access disabled — auto-try skipped", Color3.fromRGB(200, 120, 80))
-			return
-		end
-		local tblName = gaTblBox.Text ~= "" and gaTblBox.Text or "Service"
-		local weakKeys = {
-			"admin",
-			"adonis",
-			"1234",
-			"password",
-			"secret",
-			"key",
-			"access",
-			"1234567890",
-			"admin123",
-			"roblox",
-			"adonisadmin",
-			"adonis_key",
-			"g_access",
-			"gaccess",
-			tostring(game.GameId),
-			"adonis" .. tostring(game.GameId),
-			tostring(game.PlaceId),
-		}
-		local capturedKey = State.key or rawget(adonis.Core, "Key")
-		if capturedKey then
-			table.insert(weakKeys, 1, tostring(capturedKey))
-		end
-		gaAppend("trying " .. #weakKeys .. " keys against table '" .. tblName .. "'...", Color3.fromRGB(195, 165, 255))
-		local found = false
-		for _, k in ipairs(weakKeys) do
-			local proxy, msg = TryAccess(k, tblName)
-			if proxy then
-				gaProxy = proxy
-				gaAppend("✓ ACCESS GRANTED — key: " .. tostring(k), Color3.fromRGB(90, 235, 130))
-				gaAppend(
-					"proxy: " .. typeof(proxy) .. "  mt: " .. tostring(getmetatable(proxy)),
-					Color3.fromRGB(195, 165, 255)
-				)
-				gaLbl.Text = "✓ access granted with: " .. tostring(k)
-				gaLbl.TextColor3 = Color3.fromRGB(90, 235, 130)
-				print("[AdonisTools] G_Access granted — key was: " .. tostring(k))
-				found = true
-				break
-			else
-				gaAppend("✗ " .. tostring(k) .. "  → " .. msg, Color3.fromRGB(130, 130, 130))
-			end
-			task.wait()
-		end
-		if not found then
-			gaAppend("all keys rejected — server key is not weak/default", Color3.fromRGB(200, 120, 80))
-			gaLbl.Text = "all attempts failed"
-			gaLbl.TextColor3 = Color3.fromRGB(200, 120, 80)
-		end
-	end)
-	gaDumpBtn.MouseButton1Click:Connect(function()
-		if not gaProxy then
-			gaAppend("no proxy — run probe or auto-try first", Color3.fromRGB(255, 175, 80))
-			return
-		end
-		gaAppend(
-			"── proxy dump ────────────────────────",
-			Color3.fromRGB(160, 130, 220)
-		)
-		local n = 0
-		local knownKeys = {
-			"TrackTask",
-			"EventTask",
-			"GetTasks",
-			"StartLoop",
-			"StopLoop",
-			"Wrap",
-			"UnWrap",
-			"ReadOnly",
-			"New",
-			"Delete",
-			"GetPlayers",
-			"Filter",
-			"LaxFilter",
-			"FormatPlayer",
-			"FormatTime",
-			"FormatNumber",
-			"MakeAdmin",
-			"RemoveAdmin",
-			"SetRank",
-			"GetRank",
-			"IsAdmin",
-			"CheckAdmin",
-			"GetGroupRank",
-			"GetGroupRole",
-			"Admins",
-			"Banned",
-			"Settings",
-			"AdminLevels",
-			"G_Access",
-			"G_Access_Key",
-			"G_Access_Perms",
-			"AdonisVersion",
-		}
-		for _, k in ipairs(knownKeys) do
-			local ok, v = pcall(function()
-				return gaProxy[k]
-			end)
-			if ok and v ~= nil then
-				local vt = typeof(v)
-				gaAppend(
-					"[" .. vt .. "]  " .. k .. " = " .. tostring(v),
-					vt == "function" and Color3.fromRGB(145, 210, 145)
-						or vt == "table" and Color3.fromRGB(185, 160, 255)
-						or Color3.fromRGB(195, 205, 200)
-				)
-				n = n + 1
-			end
-		end
-		pcall(function()
-			for k, v in pairs(gaProxy) do
-				local vt = typeof(v)
-				gaAppend(
-					"[" .. vt .. "]  " .. tostring(k) .. " = " .. tostring(v),
-					vt == "function" and Color3.fromRGB(145, 210, 145)
-						or vt == "table" and Color3.fromRGB(185, 160, 255)
-						or Color3.fromRGB(195, 205, 200)
-				)
-				n = n + 1
-				if n > 100 then
-					gaAppend("...truncated")
-					break
-				end
-			end
-		end)
-		if n == 0 then
-			gaAppend("proxy returned no readable keys", Color3.fromRGB(140, 140, 140))
-			gaAppend("(server may have G_Access_Perms = Read with locked proxy)", Color3.fromRGB(120, 120, 120))
-		end
-	end)
-	task.spawn(function()
-		task.wait(0.5)
-		adonis = FindAdonis()
-		if adonis then
-			State.linked = true
-			print("[AdonisTools] Auto-linked — " .. tostring(adonis.RemoteName))
-			StartKeyPoll()
-		else
-			warn("[AdonisTools] Auto-link failed — hit ⟳ link once Adonis loads")
-		end
-		UpdateStatus()
-		RefreshCanvas()
-	end)
-	print("[AdonisTools v2] RightAlt = toggle  |  ⟳ link = find Adonis")
-end)
 RegisterCommand({
 	Name = "combatai",
 	Aliases = { "bot1" },
 	Description = "sword fighting bot, im still better fr",
 }, function(args)
-	local Players = game:GetService("Players")
-	local RunService = game:GetService("RunService")
-	local UserInputService = game:GetService("UserInputService")
-	local TweenService = game:GetService("TweenService")
-	local StarterGui = game:GetService("StarterGui")
-	local player = Players.LocalPlayer
-	local mouse = player:GetMouse()
 	local State = {
 		target = nil,
 		active = false,
@@ -38497,7 +35970,6 @@ RegisterCommand({
 		end
 	end
 end)
-
 RegisterCommand({
     Name        = "movement",
     Aliases     = {"mov"},
@@ -38505,7 +35977,6 @@ RegisterCommand({
 }, function(args)
     loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/BetterMovement.lua"))()
 end)
-
 RegisterCommand({
 	Name = "noadminabuse",
 	Aliases = { "naab" },
@@ -39073,8 +36544,8 @@ RegisterCommand({
 end)
 
 
---loadstrings
-local function loadstringCmd(url, notif)
+
+local function loadstringCmd(url, notif) -- Loadstrings
 	pcall(function()
 		loadstring(game:HttpGet(url))()
 	end)
@@ -39329,11 +36800,1396 @@ RegisterCommand({ Name = "newantikick", Aliases = {}, Description = "In beta" },
 	)
 end)
 
+RegisterCommand({
+    Name        = "partshield",
+    Aliases     = {"shield"},
+    Description = "orbit parts around you as a shield.",
+}, function(args)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/Shield.lua"))()
+end)
+
+RegisterCommand({
+    Name        = "partflinger",
+    Aliases     = {"pv4"},
+    Description = "version 4",
+}, function(args)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/fling.lua"))()
+end)
+
+-- aimbot core/gui
+local function loadAimbotGUI(args)
+	local CoreGui = game:GetService("CoreGui")
+	if CoreGui:FindFirstChild("aim_addon") and not args then
+		if DoNotif then
+			DoNotif("Aimbot GUI is already open.", 2)
+		else
+			warn("Aimbot GUI is already open.")
+		end
+		return
+	end
+	local success, err = pcall(function()
+		local UserInputService = game:GetService("UserInputService")
+		local RunService = game:GetService("RunService")
+		local Players = game:GetService("Players")
+		local Workspace = game:GetService("Workspace")
+		local TweenService = game:GetService("TweenService")
+		local LocalPlayer = Players.LocalPlayer
+		local Camera = Workspace.CurrentCamera
+		local janitor = {}
+		local MainScreenGui = CoreGui:FindFirstChild("aim_addon") or Instance.new("ScreenGui")
+		MainScreenGui.Name = "aim_addon"
+		MainScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+		MainScreenGui.DisplayOrder = 10
+		MainScreenGui.ResetOnSpawn = false
+		if not MainScreenGui.Parent then
+			table.insert(
+				janitor,
+				MainScreenGui.Destroying:Connect(function()
+					for _, c in ipairs(janitor) do
+						pcall(function()
+							c:Disconnect()
+						end)
+					end
+				end)
+			)
+			MainScreenGui.Parent = CoreGui
+		end
+		local FlyoutGui = CoreGui:FindFirstChild("aim_addon_flyouts") or Instance.new("ScreenGui")
+		FlyoutGui.Name = "aim_addon_flyouts"
+		FlyoutGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+		FlyoutGui.DisplayOrder = 9999
+		FlyoutGui.ResetOnSpawn = false
+		if not FlyoutGui.Parent then
+			FlyoutGui.Parent = CoreGui
+		end
+		table.insert(
+			janitor,
+			MainScreenGui.Destroying:Connect(function()
+				if FlyoutGui and FlyoutGui.Parent then
+					FlyoutGui:Destroy()
+				end
+			end)
+		)
+		local old = MainScreenGui:FindFirstChild("MainWindow")
+		if old then
+			old:Destroy()
+		end
+		getgenv().TargetScope = Workspace
+		getgenv().TargetIndex = {}
+		local P = {
+			BG = Color3.fromRGB(11, 11, 15),
+			BG2 = Color3.fromRGB(17, 17, 23),
+			BG3 = Color3.fromRGB(22, 22, 30),
+			BORDER = Color3.fromRGB(42, 42, 56),
+			ACCENT = Color3.fromRGB(100, 180, 255),
+			GREEN = Color3.fromRGB(80, 220, 120),
+			RED = Color3.fromRGB(220, 80, 80),
+			FG = Color3.fromRGB(210, 210, 220),
+			FG_DIM = Color3.fromRGB(110, 110, 128),
+			FG_MUT = Color3.fromRGB(55, 55, 68),
+			ON = Color3.fromRGB(60, 200, 110),
+			OFF = Color3.fromRGB(80, 80, 95),
+		}
+		local function addStroke(parent, color, thickness)
+			local s = Instance.new("UIStroke", parent)
+			s.Color = color or P.BORDER
+			s.Thickness = thickness or 1
+			s.LineJoinMode = Enum.LineJoinMode.Miter
+			return s
+		end
+		local function makeBtn(parent, text, bg, fg, w, h)
+			local b = Instance.new("TextButton", parent)
+			b.Size = UDim2.fromOffset(w or 80, h or 22)
+			b.BackgroundColor3 = bg or P.BG3
+			b.BorderSizePixel = 0
+			b.Text = text
+			b.TextColor3 = fg or P.FG
+			b.Font = Enum.Font.Code
+			b.TextSize = 11
+			addStroke(b, P.BORDER)
+			return b
+		end
+		local function makeRow(parent, labelText, order)
+			local row = Instance.new("Frame", parent)
+			row.LayoutOrder = order or 0
+			row.Size = UDim2.new(1, 0, 0, 24)
+			row.BackgroundTransparency = 1
+			row.BorderSizePixel = 0
+			local lbl = Instance.new("TextLabel", row)
+			lbl.Size = UDim2.new(0, 108, 1, 0)
+			lbl.BackgroundTransparency = 1
+			lbl.Text = labelText
+			lbl.TextColor3 = P.FG_DIM
+			lbl.Font = Enum.Font.Code
+			lbl.TextSize = 11
+			lbl.TextXAlignment = Enum.TextXAlignment.Left
+			local slot = Instance.new("Frame", row)
+			slot.Size = UDim2.new(1, -112, 1, 0)
+			slot.Position = UDim2.fromOffset(112, 0)
+			slot.BackgroundTransparency = 1
+			slot.BorderSizePixel = 0
+			return row, slot
+		end
+		local function sectionDiv(parent, text, order)
+			local d = Instance.new("Frame", parent)
+			d.LayoutOrder = order or 0
+			d.Size = UDim2.new(1, 0, 0, 18)
+			d.BackgroundColor3 = P.BG2
+			d.BorderSizePixel = 0
+			addStroke(d, P.BORDER)
+			local lbl = Instance.new("TextLabel", d)
+			lbl.Size = UDim2.new(1, -8, 1, 0)
+			lbl.Position = UDim2.fromOffset(6, 0)
+			lbl.BackgroundTransparency = 1
+			lbl.Text = "─ " .. text
+			lbl.TextColor3 = P.FG_DIM
+			lbl.Font = Enum.Font.Code
+			lbl.TextSize = 10
+			lbl.TextXAlignment = Enum.TextXAlignment.Left
+		end
+		local function makeToggle(parent, label, initState, order)
+			local state = initState
+			local row, slot = makeRow(parent, label, order)
+			local btn = Instance.new("TextButton", slot)
+			btn.Size = UDim2.new(1, 0, 1, 0)
+			btn.BackgroundColor3 = state and P.ON or P.OFF
+			btn.BorderSizePixel = 0
+			btn.Text = state and "ON" or "OFF"
+			btn.TextColor3 = P.BG
+			btn.Font = Enum.Font.Code
+			btn.TextSize = 11
+			addStroke(btn, state and P.ON or P.BORDER)
+			local callbacks = {}
+			btn.MouseButton1Click:Connect(function()
+				state = not state
+				btn.BackgroundColor3 = state and P.ON or P.OFF
+				btn.Text = state and "ON" or "OFF"
+				local s = btn:FindFirstChildOfClass("UIStroke")
+				if s then
+					s.Color = state and P.ON or P.BORDER
+				end
+				for _, cb in ipairs(callbacks) do
+					cb(state)
+				end
+			end)
+			return {
+				Row = row,
+				Button = btn,
+				GetState = function()
+					return state
+				end,
+				SetState = function(v)
+					state = v
+					btn.BackgroundColor3 = v and P.ON or P.OFF
+					btn.Text = v and "ON" or "OFF"
+					local s = btn:FindFirstChildOfClass("UIStroke")
+					if s then
+						s.Color = v and P.ON or P.BORDER
+					end
+				end,
+				OnChanged = function(cb)
+					table.insert(callbacks, cb)
+				end,
+			}
+		end
+		local function makeSlider(parent, label, minV, maxV, initV, fmt, order)
+			local val = initV
+			local row, slot = makeRow(parent, label, order)
+			local valueLbl = Instance.new("TextLabel", slot)
+			valueLbl.Size = UDim2.new(0, 36, 1, 0)
+			valueLbl.BackgroundTransparency = 1
+			valueLbl.TextColor3 = P.FG
+			valueLbl.Font = Enum.Font.Code
+			valueLbl.TextSize = 11
+			valueLbl.TextXAlignment = Enum.TextXAlignment.Left
+			valueLbl.Text = fmt and string.format(fmt, val) or tostring(math.floor(val))
+			local trackRow = Instance.new("Frame", parent)
+			trackRow.LayoutOrder = (order or 0) + 0.5
+			trackRow.Size = UDim2.new(1, 0, 0, 14)
+			trackRow.BackgroundTransparency = 1
+			local track = Instance.new("Frame", trackRow)
+			track.Size = UDim2.new(1, -8, 0, 3)
+			track.Position = UDim2.fromOffset(4, 5)
+			track.BackgroundColor3 = P.BG3
+			track.BorderSizePixel = 0
+			addStroke(track, P.BORDER)
+			local fill = Instance.new("Frame", track)
+			fill.Size = UDim2.new(0, 0, 1, 0)
+			fill.BackgroundColor3 = P.ACCENT
+			fill.BorderSizePixel = 0
+			local handle = Instance.new("TextButton", track)
+			handle.Size = UDim2.fromOffset(8, 12)
+			handle.Position = UDim2.new(0, 0, 0.5, -6)
+			handle.BackgroundColor3 = P.ACCENT
+			handle.BorderSizePixel = 0
+			handle.Text = ""
+			local function syncFromValue()
+				local ratio = math.clamp((val - minV) / (maxV - minV), 0, 1)
+				local tw = track.AbsoluteSize.X
+				local hw = handle.AbsoluteSize.X
+				local hx = ratio * math.max(tw - hw, 0)
+				handle.Position = UDim2.new(0, hx, 0.5, -6)
+				fill.Size = UDim2.new(0, hx + hw / 2, 1, 0)
+				valueLbl.Text = fmt and string.format(fmt, val) or tostring(math.floor(val))
+			end
+			local dragging = false
+			table.insert(
+				janitor,
+				handle.InputBegan:Connect(function(inp)
+					if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+						dragging = true
+					end
+				end)
+			)
+			table.insert(
+				janitor,
+				UserInputService.InputEnded:Connect(function(inp)
+					if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+						dragging = false
+					end
+				end)
+			)
+			table.insert(
+				janitor,
+				UserInputService.InputChanged:Connect(function(inp)
+					if dragging and inp.UserInputType == Enum.UserInputType.MouseMovement then
+						local mx = UserInputService:GetMouseLocation().X
+						local tx = track.AbsolutePosition.X
+						local tw = track.AbsoluteSize.X
+						local hw = handle.AbsoluteSize.X
+						local hx = math.clamp(mx - tx - hw / 2, 0, tw - hw)
+						local r = hx / math.max(tw - hw, 1)
+						val = minV + (maxV - minV) * r
+						handle.Position = UDim2.new(0, hx, 0.5, -6)
+						fill.Size = UDim2.new(0, hx + hw / 2, 1, 0)
+						valueLbl.Text = fmt and string.format(fmt, val) or tostring(math.floor(val))
+					end
+				end)
+			)
+			task.defer(syncFromValue)
+			return {
+				Row = row,
+				TrackRow = trackRow,
+				GetValue = function()
+					return val
+				end,
+				SetValue = function(v)
+					val = math.clamp(v, minV, maxV)
+					syncFromValue()
+				end,
+			}
+		end
+		local function makeInputRow(parent, label, placeholder, initText, order)
+			local row, slot = makeRow(parent, label, order)
+			local box = Instance.new("TextBox", slot)
+			box.Size = UDim2.new(1, 0, 1, 0)
+			box.BackgroundColor3 = P.BG3
+			box.BorderSizePixel = 0
+			box.Text = initText or ""
+			box.PlaceholderText = placeholder or ""
+			box.PlaceholderColor3 = P.FG_MUT
+			box.TextColor3 = P.FG
+			box.Font = Enum.Font.Code
+			box.TextSize = 11
+			addStroke(box, P.BORDER)
+			return row, box
+		end
+		local function makeDropdown(parent, items, initText, order, onSelect)
+			local row, slot = makeRow(parent, "", order)
+			local btn = Instance.new("TextButton", slot)
+			btn.Size = UDim2.new(1, 0, 1, 0)
+			btn.BackgroundColor3 = P.BG3
+			btn.BorderSizePixel = 0
+			btn.Text = initText or items[1] or ""
+			btn.TextColor3 = P.FG
+			btn.Font = Enum.Font.Code
+			btn.TextSize = 11
+			btn.TextXAlignment = Enum.TextXAlignment.Left
+			local bp = Instance.new("UIPadding", btn)
+			bp.PaddingLeft = UDim.new(0, 5)
+			addStroke(btn, P.BORDER)
+			local arrow = Instance.new("TextLabel", btn)
+			arrow.Size = UDim2.fromOffset(14, 22)
+			arrow.Position = UDim2.new(1, -16, 0, 0)
+			arrow.BackgroundTransparency = 1
+			arrow.Text = "▾"
+			arrow.TextColor3 = P.FG_DIM
+			arrow.Font = Enum.Font.Code
+			arrow.TextSize = 10
+			local flyout = nil
+			local open = false
+			local function closeFlyout()
+				if flyout and flyout.Parent then
+					flyout:Destroy()
+				end
+				flyout = nil
+				open = false
+				arrow.Text = "▾"
+			end
+			btn.MouseButton1Click:Connect(function()
+				if open then
+					closeFlyout()
+					return
+				end
+				open = true
+				arrow.Text = "▴"
+				local resolvedItems = type(items) == "function" and items() or items
+				if #resolvedItems == 0 then
+					open = false
+					arrow.Text = "▾"
+					return
+				end
+				flyout = Instance.new("Frame")
+				flyout.Name = "AimDropFlyout"
+				flyout.BackgroundColor3 = P.BG2
+				flyout.BorderSizePixel = 0
+				flyout.Size = UDim2.fromOffset(btn.AbsoluteSize.X, #resolvedItems * 22)
+				flyout.Position = UDim2.fromOffset(btn.AbsolutePosition.X, btn.AbsolutePosition.Y + btn.AbsoluteSize.Y)
+				flyout.Parent = FlyoutGui
+				addStroke(flyout, P.ACCENT)
+				local ly = Instance.new("UIListLayout", flyout)
+				ly.Padding = UDim.new(0, 0)
+				ly.SortOrder = Enum.SortOrder.LayoutOrder
+				for i, item in ipairs(resolvedItems) do
+					local ib = Instance.new("TextButton", flyout)
+					ib.LayoutOrder = i
+					ib.Size = UDim2.new(1, 0, 0, 22)
+					ib.BackgroundColor3 = P.BG3
+					ib.BorderSizePixel = 0
+					ib.Text = "  " .. tostring(item)
+					ib.TextColor3 = P.FG
+					ib.Font = Enum.Font.Code
+					ib.TextSize = 11
+					ib.TextXAlignment = Enum.TextXAlignment.Left
+					addStroke(ib, P.BORDER)
+					ib.MouseButton1Click:Connect(function()
+						btn.Text = tostring(item)
+						closeFlyout()
+						if onSelect then
+							onSelect(item)
+						end
+					end)
+				end
+			end)
+			table.insert(
+				janitor,
+				UserInputService.InputBegan:Connect(function(inp)
+					if not open then
+						return
+					end
+					if inp.UserInputType ~= Enum.UserInputType.MouseButton1 then
+						return
+					end
+					task.defer(function()
+						if not flyout or not flyout.Parent then
+							return
+						end
+						local mouse = UserInputService:GetMouseLocation()
+						local fp = flyout.AbsolutePosition
+						local fs = flyout.AbsoluteSize
+						local overFlyout = mouse.X >= fp.X
+							and mouse.X <= fp.X + fs.X
+							and mouse.Y >= fp.Y
+							and mouse.Y <= fp.Y + fs.Y
+						local bp = btn.AbsolutePosition
+						local bs = btn.AbsoluteSize
+						local overBtn = mouse.X >= bp.X
+							and mouse.X <= bp.X + bs.X
+							and mouse.Y >= bp.Y
+							and mouse.Y <= bp.Y + bs.Y
+						if not overFlyout and not overBtn then
+							closeFlyout()
+						end
+					end)
+				end)
+			)
+			return row, btn, closeFlyout
+		end
+		local explorerWindow = nil
+		local function createExplorerWindow(statusLabel, indexerUpdateSignal)
+			if explorerWindow and explorerWindow.Parent then
+				explorerWindow.Visible = not explorerWindow.Visible
+				return explorerWindow
+			end
+			local ef = Instance.new("Frame", MainScreenGui)
+			ef.Name = "ExplorerWindow"
+			ef.Size = UDim2.fromOffset(300, 450)
+			ef.Position = UDim2.new(0.5, 10, 0.5, -225)
+			ef.BackgroundColor3 = P.BG
+			ef.BorderSizePixel = 0
+			ef.Active = true
+			ef.ClipsDescendants = true
+			addStroke(ef, P.ACCENT)
+			local tb = Instance.new("Frame", ef)
+			tb.Size = UDim2.new(1, 0, 0, 24)
+			tb.BackgroundColor3 = P.BG2
+			tb.BorderSizePixel = 0
+			local etitle = Instance.new("TextLabel", tb)
+			etitle.Size = UDim2.new(1, -30, 1, 0)
+			etitle.Position = UDim2.fromOffset(8, 0)
+			etitle.BackgroundTransparency = 1
+			etitle.Text = "EXPLORER"
+			etitle.TextColor3 = P.ACCENT
+			etitle.Font = Enum.Font.Code
+			etitle.TextSize = 11
+			etitle.TextXAlignment = Enum.TextXAlignment.Left
+			local ecClose = makeBtn(tb, "X", P.RED, P.BG, 22, 22)
+			ecClose.Position = UDim2.new(1, -24, 0, 1)
+			table.insert(
+				janitor,
+				ecClose.MouseButton1Click:Connect(function()
+					ef.Visible = false
+				end)
+			)
+			local eDragging, eDragStart, eFrameStart
+			tb.InputBegan:Connect(function(inp)
+				if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+					eDragging = true
+					eDragStart = inp.Position
+					eFrameStart = ef.Position
+				end
+			end)
+			tb.InputEnded:Connect(function(inp)
+				if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+					eDragging = false
+				end
+			end)
+			table.insert(
+				janitor,
+				UserInputService.InputChanged:Connect(function(inp)
+					if eDragging and inp.UserInputType == Enum.UserInputType.MouseMovement then
+						local d = inp.Position - eDragStart
+						ef.Position = UDim2.new(
+							eFrameStart.X.Scale,
+							eFrameStart.X.Offset + d.X,
+							eFrameStart.Y.Scale,
+							eFrameStart.Y.Offset + d.Y
+						)
+					end
+				end)
+			)
+			local treeScroll = Instance.new("ScrollingFrame", ef)
+			treeScroll.Position = UDim2.new(0, 0, 0, 24)
+			treeScroll.Size = UDim2.new(1, 0, 1, -24)
+			treeScroll.BackgroundColor3 = P.BG3
+			treeScroll.BorderSizePixel = 0
+			treeScroll.ScrollBarThickness = 3
+			treeScroll.ScrollBarImageColor3 = P.ACCENT
+			local uiListLayout = Instance.new("UIListLayout", treeScroll)
+			uiListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+			uiListLayout.Padding = UDim.new(0, 1)
+			local contextMenu = nil
+			local function closeCtx()
+				if contextMenu and contextMenu.Parent then
+					contextMenu:Destroy()
+				end
+			end
+			table.insert(
+				janitor,
+				UserInputService.InputBegan:Connect(function(inp)
+					if inp.UserInputType ~= Enum.UserInputType.MouseButton2 then
+						closeCtx()
+					end
+				end)
+			)
+			local function createTree(parentInst, parentUi, indent)
+				for _, child in ipairs(parentInst:GetChildren()) do
+					local itemFrame = Instance.new("Frame", parentUi)
+					itemFrame.Name = child.Name
+					itemFrame.Size = UDim2.new(1, 0, 0, 22)
+					itemFrame.BackgroundTransparency = 1
+					local hasChildren = #child:GetChildren() > 0
+					local toggleBtn = Instance.new("TextButton", itemFrame)
+					toggleBtn.Size = UDim2.fromOffset(18, 20)
+					toggleBtn.Position = UDim2.fromOffset(indent * 10, 1)
+					toggleBtn.BackgroundColor3 = P.BG3
+					toggleBtn.Font = Enum.Font.Code
+					toggleBtn.TextSize = 10
+					toggleBtn.TextColor3 = P.FG_DIM
+					toggleBtn.Text = hasChildren and "[+]" or "[ ]"
+					toggleBtn.BorderSizePixel = 0
+					local nameBtn = Instance.new("TextButton", itemFrame)
+					nameBtn.Size = UDim2.new(1, -((indent * 10) + 20), 0, 20)
+					nameBtn.Position = UDim2.fromOffset((indent * 10) + 20, 1)
+					nameBtn.BackgroundColor3 = P.BG2
+					nameBtn.Font = Enum.Font.Code
+					nameBtn.TextSize = 10
+					nameBtn.TextColor3 = P.FG
+					nameBtn.Text = " " .. child.Name .. " [" .. child.ClassName .. "]"
+					nameBtn.TextXAlignment = Enum.TextXAlignment.Left
+					nameBtn.BorderSizePixel = 0
+					local childContainer = Instance.new("Frame", itemFrame)
+					childContainer.Name = "CC"
+					childContainer.Size = UDim2.new(1, 0, 0, 0)
+					childContainer.Position = UDim2.new(0, 0, 1, 0)
+					childContainer.BackgroundTransparency = 1
+					childContainer.ClipsDescendants = true
+					local cl = Instance.new("UIListLayout", childContainer)
+					cl.SortOrder = Enum.SortOrder.LayoutOrder
+					table.insert(
+						janitor,
+						cl:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+							childContainer.Size = UDim2.new(1, 0, 0, cl.AbsoluteContentSize.Y)
+							itemFrame.Size = UDim2.new(1, 0, 0, 22 + childContainer.AbsoluteSize.Y)
+						end)
+					)
+					table.insert(
+						janitor,
+						toggleBtn.MouseButton1Click:Connect(function()
+							if not hasChildren then
+								return
+							end
+							local expanded = childContainer:FindFirstChildOfClass("Frame") ~= nil
+							if expanded then
+								for _, v in ipairs(childContainer:GetChildren()) do
+									if v:IsA("Frame") then
+										v:Destroy()
+									end
+								end
+								toggleBtn.Text = "[+]"
+							else
+								createTree(child, childContainer, indent + 1)
+								toggleBtn.Text = "[-]"
+							end
+						end)
+					)
+					table.insert(
+						janitor,
+						nameBtn.MouseButton2Click:Connect(function()
+							closeCtx()
+							if child:IsA("Folder") or child:IsA("Model") or child:IsA("Workspace") then
+								contextMenu = Instance.new("Frame", MainScreenGui)
+								contextMenu.Size = UDim2.fromOffset(160, 24)
+								contextMenu.Position = UDim2.fromOffset(
+									UserInputService:GetMouseLocation().X,
+									UserInputService:GetMouseLocation().Y
+								)
+								contextMenu.BackgroundColor3 = P.BG2
+								contextMenu.BorderSizePixel = 0
+								contextMenu.ZIndex = 200
+								addStroke(contextMenu, P.ACCENT)
+								local csBtn = Instance.new("TextButton", contextMenu)
+								csBtn.Size = UDim2.new(1, 0, 1, 0)
+								csBtn.BackgroundColor3 = P.BG3
+								csBtn.BorderSizePixel = 0
+								csBtn.TextColor3 = P.ACCENT
+								csBtn.Font = Enum.Font.Code
+								csBtn.Text = "Set as Target Scope"
+								csBtn.TextSize = 10
+								table.insert(
+									janitor,
+									csBtn.MouseButton1Click:Connect(function()
+										getgenv().TargetScope = child
+										statusLabel.Text = "scope: " .. child.Name
+										indexerUpdateSignal:Fire()
+										closeCtx()
+									end)
+								)
+							end
+						end)
+					)
+				end
+			end
+			createTree(game, treeScroll, 0)
+			explorerWindow = ef
+			return ef
+		end
+		local PANEL_W = 260
+		local HEADER_H = 24
+		local Header = Instance.new("Frame", MainScreenGui)
+		Header.Name = "MainWindow"
+		Header.Size = UDim2.fromOffset(PANEL_W, HEADER_H)
+		Header.Position = UDim2.new(1, -(PANEL_W + 8), 0, 8)
+		Header.BackgroundColor3 = P.BG2
+		Header.BorderSizePixel = 0
+		addStroke(Header, P.ACCENT)
+		local headerTitle = Instance.new("TextLabel", Header)
+		headerTitle.Size = UDim2.new(1, -80, 1, 0)
+		headerTitle.Position = UDim2.fromOffset(8, 0)
+		headerTitle.BackgroundTransparency = 1
+		headerTitle.Text = "> AIMBOT"
+		headerTitle.TextColor3 = P.ACCENT
+		headerTitle.Font = Enum.Font.Code
+		headerTitle.TextSize = 11
+		headerTitle.TextXAlignment = Enum.TextXAlignment.Left
+		local dot = Instance.new("Frame", Header)
+		dot.Size = UDim2.fromOffset(6, 6)
+		dot.Position = UDim2.new(1, -14, 0.5, -3)
+		dot.BackgroundColor3 = P.FG_MUT
+		dot.BorderSizePixel = 0
+		local hExplorer = makeBtn(Header, "E", P.BG3, P.FG_DIM, 22, 20)
+		hExplorer.Position = UDim2.new(1, -68, 0.5, -10)
+		local hClose = makeBtn(Header, "X", P.BG3, P.RED, 22, 20)
+		hClose.Position = UDim2.new(1, -44, 0.5, -10)
+		local chevron = makeBtn(Header, "▾", P.BG3, P.FG_DIM, 20, 20)
+		chevron.Position = UDim2.new(1, -22, 0.5, -10)
+		local Panel = Instance.new("Frame", MainScreenGui)
+		Panel.Name = "DropPanel"
+		Panel.Size = UDim2.fromOffset(PANEL_W, 0)
+		Panel.Position = UDim2.new(1, -(PANEL_W + 8), 0, HEADER_H + 9)
+		Panel.BackgroundColor3 = P.BG
+		Panel.BorderSizePixel = 0
+		Panel.ClipsDescendants = true
+		Panel.Visible = false
+		addStroke(Panel, P.ACCENT)
+		local scroll = Instance.new("ScrollingFrame", Panel)
+		scroll.Name = "Content"
+		scroll.Size = UDim2.new(1, -2, 1, -2)
+		scroll.Position = UDim2.fromOffset(1, 1)
+		scroll.BackgroundTransparency = 1
+		scroll.BorderSizePixel = 0
+		scroll.ScrollBarThickness = 3
+		scroll.ScrollBarImageColor3 = P.ACCENT
+		scroll.CanvasSize = UDim2.fromOffset(0, 0)
+		scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		local listLayout = Instance.new("UIListLayout", scroll)
+		listLayout.Padding = UDim.new(0, 2)
+		listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		local panelPad = Instance.new("UIPadding", scroll)
+		panelPad.PaddingLeft = UDim.new(0, 6)
+		panelPad.PaddingRight = UDim.new(0, 6)
+		panelPad.PaddingTop = UDim.new(0, 4)
+		panelPad.PaddingBottom = UDim.new(0, 4)
+		local PANEL_FULL_H = 380
+		local panelOpen = false
+		local function setPanelOpen(v)
+			panelOpen = v
+			chevron.Text = v and "▴" or "▾"
+			dot.BackgroundColor3 = v and P.ACCENT or P.FG_MUT
+			if v then
+				Panel.Visible = true
+				TweenService:Create(Panel, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+					Size = UDim2.fromOffset(PANEL_W, PANEL_FULL_H),
+				}):Play()
+			else
+				local tw =
+					TweenService:Create(Panel, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+						Size = UDim2.fromOffset(PANEL_W, 0),
+					})
+				tw:Play()
+				tw.Completed:Connect(function()
+					Panel.Visible = false
+				end)
+			end
+		end
+		table.insert(
+			janitor,
+			chevron.MouseButton1Click:Connect(function()
+				setPanelOpen(not panelOpen)
+			end)
+		)
+		table.insert(
+			janitor,
+			headerTitle.InputBegan:Connect(function(inp)
+				if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+					setPanelOpen(not panelOpen)
+				end
+			end)
+		)
+		local hDragging, hDragStart, hHeaderStart
+		Header.InputBegan:Connect(function(inp)
+			if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+				hDragging = true
+				hDragStart = inp.Position
+				hHeaderStart = Header.Position
+			end
+		end)
+		Header.InputEnded:Connect(function(inp)
+			if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+				hDragging = false
+			end
+		end)
+		table.insert(
+			janitor,
+			UserInputService.InputChanged:Connect(function(inp)
+				if hDragging and inp.UserInputType == Enum.UserInputType.MouseMovement then
+					local d = inp.Position - hDragStart
+					local newX = { Scale = hHeaderStart.X.Scale, Offset = hHeaderStart.X.Offset + d.X }
+					local newY = { Scale = hHeaderStart.Y.Scale, Offset = hHeaderStart.Y.Offset + d.Y }
+					Header.Position = UDim2.new(newX.Scale, newX.Offset, newY.Scale, newY.Offset)
+					Panel.Position = UDim2.new(newX.Scale, newX.Offset, newY.Scale, newY.Offset + HEADER_H + 1)
+				end
+			end)
+		)
+		local statusBar = Instance.new("Frame", scroll)
+		statusBar.LayoutOrder = 1
+		statusBar.Size = UDim2.new(1, 0, 0, 32)
+		statusBar.BackgroundColor3 = P.BG2
+		statusBar.BorderSizePixel = 0
+		addStroke(statusBar, P.BORDER)
+		local statusLabel = Instance.new("TextLabel", statusBar)
+		statusLabel.Size = UDim2.new(1, 0, 0, 16)
+		statusLabel.Position = UDim2.fromOffset(6, 2)
+		statusLabel.BackgroundTransparency = 1
+		statusLabel.TextColor3 = P.GREEN
+		statusLabel.Font = Enum.Font.Code
+		statusLabel.TextSize = 10
+		statusLabel.Text = "ready — hold toggle key to aim"
+		statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+		local selectLabel = Instance.new("TextLabel", statusBar)
+		selectLabel.Size = UDim2.new(1, 0, 0, 12)
+		selectLabel.Position = UDim2.fromOffset(6, 18)
+		selectLabel.BackgroundTransparency = 1
+		selectLabel.TextColor3 = P.FG_MUT
+		selectLabel.Font = Enum.Font.Code
+		selectLabel.TextSize = 9
+		selectLabel.Text = "[V] delete under mouse"
+		selectLabel.TextXAlignment = Enum.TextXAlignment.Left
+		sectionDiv(scroll, "GENERAL", 10)
+		local toggleKeyRow, toggleKeyBox = makeInputRow(scroll, "Toggle Key", "key", "MouseButton2", 11)
+		toggleKeyRow.LayoutOrder = 11
+		local parts = { "Head", "HumanoidRootPart", "Torso", "UpperTorso", "LowerTorso" }
+		local partRow, partDropdown = makeDropdown(scroll, parts, "Head", 12)
+		partRow.LayoutOrder = 12
+		do
+			local lbl = partRow:FindFirstChildOfClass("TextLabel")
+			if lbl then
+				lbl.Text = "Aim Part"
+			end
+		end
+		sectionDiv(scroll, "FIELD OF VIEW", 20)
+		local fovSlider = makeSlider(scroll, "FOV Radius", 50, 500, 75, "%.0fpx", 21)
+		fovSlider.Row.LayoutOrder = 21
+		fovSlider.TrackRow.LayoutOrder = 22
+		sectionDiv(scroll, "SMOOTHING", 30)
+		local smoothToggle = makeToggle(scroll, "Smoothing", true, 31)
+		smoothToggle.Row.LayoutOrder = 31
+		local smoothSlider = makeSlider(scroll, "Factor", 0.05, 1.0, 0.2, "%.2f", 32)
+		smoothSlider.Row.LayoutOrder = 32
+		smoothSlider.TrackRow.LayoutOrder = 33
+		sectionDiv(scroll, "PREDICTION", 40)
+		local projRow, projSpeedBox = makeInputRow(scroll, "Proj Speed", "studs/s", "600", 41)
+		projRow.LayoutOrder = 41
+		local gravToggle = makeToggle(scroll, "Gravity Drop", false, 42)
+		gravToggle.Row.LayoutOrder = 42
+		local velResolverToggle = makeToggle(scroll, "Vel Resolver", false, 43)
+		velResolverToggle.Row.LayoutOrder = 43
+		local velCapRow, velCapBox = makeInputRow(scroll, "Spoof Cap", "studs/s", "120", 44)
+		velCapRow.LayoutOrder = 44
+		sectionDiv(scroll, "TARGETING", 50)
+		local function getPlayerNames()
+			local names = {}
+			for _, plr in ipairs(Players:GetPlayers()) do
+				if plr ~= LocalPlayer then
+					table.insert(names, plr.Name)
+				end
+			end
+			return names
+		end
+		local selectedPlayerTarget = nil
+		local playerRow, playerDropdown = makeDropdown(scroll, getPlayerNames, "None", 51, function(name)
+			for _, plr in ipairs(Players:GetPlayers()) do
+				if plr.Name == name then
+					selectedPlayerTarget = plr
+					break
+				end
+			end
+		end)
+		playerRow.LayoutOrder = 51
+		do
+			local lbl = playerRow:FindFirstChildOfClass("TextLabel")
+			if lbl then
+				lbl.Text = "Target Player"
+			end
+		end
+		local targetToggle = makeToggle(scroll, "Lock Target", false, 52)
+		targetToggle.Row.LayoutOrder = 52
+		sectionDiv(scroll, "MODIFIERS", 60)
+		local ignoreTeamToggle = makeToggle(scroll, "Ignore Team", false, 61)
+		ignoreTeamToggle.Row.LayoutOrder = 61
+		local wallCheckToggle = makeToggle(scroll, "Wall Check", true, 62)
+		wallCheckToggle.Row.LayoutOrder = 62
+		sectionDiv(scroll, "ANTI-VIEWER", 70)
+		local avToggle = makeToggle(scroll, "Anti-Viewer", false, 71)
+		avToggle.Row.LayoutOrder = 71
+		local avActions = { "Notify Only", "Disconnect Cam", "Teleport Away" }
+		local avActionRow, avActionBtn = makeDropdown(scroll, avActions, "Notify Only", 72)
+		avActionRow.LayoutOrder = 72
+		do
+			local lbl = avActionRow:FindFirstChildOfClass("TextLabel")
+			if lbl then
+				lbl.Text = "On Detect"
+			end
+		end
+		local avStatusRow = Instance.new("Frame", scroll)
+		avStatusRow.LayoutOrder = 73
+		avStatusRow.Size = UDim2.new(1, 0, 0, 18)
+		avStatusRow.BackgroundTransparency = 1
+		avStatusRow.BorderSizePixel = 0
+		local avStatusLbl = Instance.new("TextLabel", avStatusRow)
+		avStatusLbl.Size = UDim2.new(1, 0, 1, 0)
+		avStatusLbl.BackgroundTransparency = 1
+		avStatusLbl.Text = "spectator: none"
+		avStatusLbl.TextColor3 = P.FG_MUT
+		avStatusLbl.Font = Enum.Font.Code
+		avStatusLbl.TextSize = 10
+		avStatusLbl.TextXAlignment = Enum.TextXAlignment.Left
+		local spacer = Instance.new("Frame", scroll)
+		spacer.LayoutOrder = 99
+		spacer.Size = UDim2.new(1, 0, 0, 4)
+		spacer.BackgroundTransparency = 1
+		local fovRadius = 75
+		local smoothingEnabled = true
+		local smoothingFactor = 0.2
+		local PROJECTILE_SPEED = 600
+		local gravityEnabled = false
+		local playerTargetEnabled = false
+		local aiming = false
+		local ignoreTeamEnabled = false
+		local wallCheckEnabled = true
+		local wallCheckParams = RaycastParams.new()
+		wallCheckParams.FilterType = Enum.RaycastFilterType.Exclude
+		local activeESPs = {}
+		local velResolverEnabled = false
+		local SPOOF_CAP = 120
+		local partPrevPos = {}
+		local partObservedVel = {}
+		velResolverToggle.OnChanged(function(v)
+			velResolverEnabled = v
+			if not v then
+				partPrevPos = {}
+				partObservedVel = {}
+			end
+		end)
+		table.insert(
+			janitor,
+			velCapBox.FocusLost:Connect(function()
+				local v = tonumber(velCapBox.Text)
+				if v and v > 0 then
+					SPOOF_CAP = v
+				else
+					velCapBox.Text = tostring(SPOOF_CAP)
+				end
+			end)
+		)
+		fovSlider.Row:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() end)
+		table.insert(janitor, gravToggle.Button.MouseButton1Click:Connect(function() end))
+		gravToggle.OnChanged(function(v)
+			gravityEnabled = v
+		end)
+		smoothToggle.OnChanged(function(v)
+			smoothingEnabled = v
+		end)
+		ignoreTeamToggle.OnChanged(function(v)
+			ignoreTeamEnabled = v
+		end)
+		wallCheckToggle.OnChanged(function(v)
+			wallCheckEnabled = v
+		end)
+		targetToggle.OnChanged(function(v)
+			playerTargetEnabled = v
+			if v and selectedPlayerTarget then
+				statusLabel.Text = "targeting: " .. selectedPlayerTarget.Name
+			else
+				statusLabel.Text = "ready — hold toggle key to aim"
+			end
+		end)
+		table.insert(
+			janitor,
+			projSpeedBox.FocusLost:Connect(function()
+				local v = tonumber(projSpeedBox.Text)
+				if v and v > 0 then
+					PROJECTILE_SPEED = v
+				else
+					projSpeedBox.Text = tostring(PROJECTILE_SPEED)
+				end
+			end)
+		)
+		local FovCircle = nil
+		if Drawing and typeof(Drawing.new) == "function" then
+			FovCircle = Drawing.new("Circle")
+			FovCircle.Visible = false
+			FovCircle.Thickness = 0.5
+			FovCircle.NumSides = 64
+			FovCircle.Color = Color3.fromRGB(255, 255, 255)
+			FovCircle.Transparency = 0.7
+			FovCircle.Filled = false
+		end
+		local function isTeammate(player)
+			if not ignoreTeamEnabled or not player then
+				return false
+			end
+			if LocalPlayer.Team and player.Team and LocalPlayer.Team == player.Team then
+				return true
+			end
+			if LocalPlayer.TeamColor and player.TeamColor and LocalPlayer.TeamColor == player.TeamColor then
+				return true
+			end
+			return false
+		end
+		local function isPartVisible(targetPart)
+			if not LocalPlayer.Character or not targetPart or not targetPart.Parent then
+				return false
+			end
+			local tChar = targetPart:FindFirstAncestorOfClass("Model") or targetPart.Parent
+			wallCheckParams.FilterDescendantsInstances = { LocalPlayer.Character, tChar }
+			local result =
+				Workspace:Raycast(Camera.CFrame.Position, targetPart.Position - Camera.CFrame.Position, wallCheckParams)
+			return not result
+		end
+		local function manageESP(part, color, name)
+			if not part or not part.Parent then
+				return
+			end
+			if activeESPs[part] then
+				activeESPs[part].Color3 = color
+				activeESPs[part].Name = name
+				activeESPs[part].Adornee = part
+				activeESPs[part].Size = part.Size
+			else
+				local box = Instance.new("BoxHandleAdornment")
+				box.Name = name
+				box.Adornee = part
+				box.AlwaysOnTop = true
+				box.ZIndex = 10
+				box.Size = part.Size
+				box.Color3 = color
+				box.Transparency = 0.4
+				box.Parent = part
+				activeESPs[part] = box
+			end
+		end
+		local function clearESP(part)
+			if part then
+				if activeESPs[part] then
+					activeESPs[part]:Destroy()
+					activeESPs[part] = nil
+				end
+			else
+				for _, box in pairs(activeESPs) do
+					pcall(function()
+						box:Destroy()
+					end)
+				end
+				activeESPs = {}
+			end
+		end
+		local function getClosestTarget()
+			fovRadius = fovSlider.GetValue()
+			local mousePos = UserInputService:GetMouseLocation()
+			local minScore, closest = math.huge, nil
+			local aimPart = partDropdown.Text
+			for _, model in ipairs(getgenv().TargetIndex) do
+				if model and model.Parent then
+					local plr = Players:GetPlayerFromCharacter(model)
+					if not (plr and plr == LocalPlayer) and not (plr and isTeammate(plr)) then
+						local tp = model:FindFirstChild(aimPart)
+						if tp and (not wallCheckEnabled or isPartVisible(tp)) then
+							local pos, onScreen = Camera:WorldToViewportPoint(tp.Position)
+							if onScreen then
+								local dist = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
+								if dist <= fovRadius then
+									local hum = model:FindFirstChildOfClass("Humanoid")
+									local hp = hum and (hum.Health / math.max(hum.MaxHealth, 1)) * 10 or 0
+									local score = dist + hp
+									if score < minScore then
+										minScore = score
+										closest = model
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+			return closest
+		end
+		table.insert(
+			janitor,
+			UserInputService.InputBegan:Connect(function(input, processed)
+				if processed or toggleKeyBox:IsFocused() then
+					return
+				end
+				if input.KeyCode == Enum.KeyCode.V then
+					local target = LocalPlayer:GetMouse().Target
+					if target and target.Parent then
+						if target:IsDescendantOf(LocalPlayer.Character) then
+							statusLabel.Text = "cannot delete own character"
+							return
+						end
+						local modelAnc = target:FindFirstAncestorOfClass("Model")
+						if modelAnc and modelAnc ~= Workspace then
+							local n = modelAnc.Name
+							modelAnc:Destroy()
+							statusLabel.Text = "deleted model: " .. n
+						elseif target.Parent ~= Workspace then
+							local n = target.Name
+							target:Destroy()
+							statusLabel.Text = "deleted part: " .. n
+						else
+							statusLabel.Text = "cannot delete baseplate/map"
+						end
+					else
+						statusLabel.Text = "no target under mouse"
+					end
+				end
+				local key = toggleKeyBox.Text:upper()
+				if
+					(key == "MOUSEBUTTON2" and input.UserInputType == Enum.UserInputType.MouseButton2)
+					or (input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode.Name:upper() == key)
+				then
+					aiming = true
+					if FovCircle then
+						FovCircle.Visible = true
+					end
+				end
+			end)
+		)
+		table.insert(
+			janitor,
+			UserInputService.InputEnded:Connect(function(input)
+				local key = toggleKeyBox.Text:upper()
+				if
+					(key == "MOUSEBUTTON2" and input.UserInputType == Enum.UserInputType.MouseButton2)
+					or (input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode.Name:upper() == key)
+				then
+					aiming = false
+					if FovCircle then
+						FovCircle.Visible = false
+					end
+					clearESP()
+				end
+			end)
+		)
+		local currentTarget = nil
+		table.insert(
+			janitor,
+			RunService.RenderStepped:Connect(function(dt)
+				fovRadius = fovSlider.GetValue()
+				smoothingFactor = smoothSlider.GetValue()
+				if FovCircle and FovCircle.Visible then
+					FovCircle.Position = UserInputService:GetMouseLocation()
+					FovCircle.Radius = fovRadius
+				end
+				local targetValid = currentTarget
+					and currentTarget.Parent
+					and currentTarget:FindFirstChildOfClass("Humanoid")
+					and currentTarget:FindFirstChildOfClass("Humanoid").Health > 0
+				if aiming then
+					local fresh = getClosestTarget()
+					if fresh then
+						currentTarget = fresh
+					elseif not targetValid then
+						currentTarget = nil
+					end
+				else
+					currentTarget = nil
+				end
+				local targetModel, targetPlayer = nil, nil
+				local partsForESP = {}
+				if
+					playerTargetEnabled
+					and selectedPlayerTarget
+					and selectedPlayerTarget.Character
+					and selectedPlayerTarget ~= LocalPlayer
+					and not isTeammate(selectedPlayerTarget)
+				then
+					targetModel = selectedPlayerTarget.Character
+					targetPlayer = selectedPlayerTarget
+				elseif aiming and currentTarget then
+					targetModel = currentTarget
+					targetPlayer = Players:GetPlayerFromCharacter(targetModel)
+				end
+				local aimPart = targetModel and targetModel:FindFirstChild(partDropdown.Text)
+				if velResolverEnabled and aimPart and aimPart.Parent then
+					local curPos = aimPart.Position
+					local prevPos = partPrevPos[aimPart]
+					if prevPos and dt > 0 then
+						local delta = curPos - prevPos
+						local observedV = delta / dt
+						local reported = aimPart.AssemblyLinearVelocity
+						local reportedM = reported.Magnitude
+						local observedM = observedV.Magnitude
+						if reportedM > SPOOF_CAP and observedM < SPOOF_CAP then
+							partObservedVel[aimPart] = observedV
+						elseif reportedM > SPOOF_CAP * 3 then
+							partObservedVel[aimPart] = Vector3.zero
+						else
+							partObservedVel[aimPart] = reported
+						end
+					end
+					partPrevPos[aimPart] = curPos
+				end
+				if aiming and aimPart and targetModel then
+					if not wallCheckEnabled or isPartVisible(aimPart) then
+						table.insert(
+							partsForESP,
+							{ Part = aimPart, Color = Color3.fromRGB(255, 80, 80), Name = "AimbotESP" }
+						)
+						local vel
+						if velResolverEnabled then
+							vel = partObservedVel[aimPart] or Vector3.zero
+						else
+							vel = aimPart.AssemblyLinearVelocity
+						end
+						local dist = (Camera.CFrame.Position - aimPart.Position).Magnitude
+						local travelT = dist / math.max(PROJECTILE_SPEED, 1)
+						local predicted = aimPart.Position + vel * travelT
+						if gravityEnabled then
+							predicted = predicted + Vector3.new(0, 0.5 * Workspace.Gravity * travelT * travelT, 0)
+						end
+						if smoothingEnabled then
+							local curDir = Camera.CFrame.LookVector
+							local goalDir = (predicted - Camera.CFrame.Position).Unit
+							local angle = math.acos(math.clamp(curDir:Dot(goalDir), -1, 1))
+							if angle > 0.0001 then
+								local maxStep = 20 * dt * smoothingFactor
+								local t = math.min(1, maxStep / angle)
+								local newDir = curDir:Lerp(goalDir, t).Unit
+								Camera.CFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + newDir)
+							end
+						else
+							Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, predicted)
+						end
+						local velSrc = velResolverEnabled and "[vr] " or ""
+						statusLabel.Text = velSrc
+							.. "targeting: "
+							.. (targetPlayer and targetPlayer.Name or targetModel.Name)
+					else
+						statusLabel.Text = "target behind wall"
+						currentTarget = nil
+					end
+				elseif aiming then
+					statusLabel.Text = "no visible target in index"
+				elseif not aiming then
+					statusLabel.Text = "ready — hold toggle key to aim"
+				end
+				for part in pairs(activeESPs) do
+					local found = false
+					for _, d in ipairs(partsForESP) do
+						if d.Part == part then
+							found = true
+							break
+						end
+					end
+					if not found or not part.Parent then
+						clearESP(part)
+					end
+				end
+				for _, d in ipairs(partsForESP) do
+					manageESP(d.Part, d.Color, d.Name)
+				end
+			end)
+		)
+		table.insert(
+			janitor,
+			hClose.MouseButton1Click:Connect(function()
+				MainScreenGui:Destroy()
+			end)
+		)
+		local indexerUpdateSignal = Instance.new("BindableEvent")
+		table.insert(
+			janitor,
+			hExplorer.MouseButton1Click:Connect(function()
+				createExplorerWindow(statusLabel, indexerUpdateSignal)
+			end)
+		)
+		table.insert(
+			janitor,
+			Players.PlayerRemoving:Connect(function(plr)
+				if selectedPlayerTarget == plr then
+					selectedPlayerTarget = nil
+					playerDropdown.Text = "None"
+					if playerTargetEnabled then
+						playerTargetEnabled = false
+						targetToggle.SetState(false)
+					end
+				end
+			end)
+		)
+		task.spawn(function()
+			local function RebuildIndex()
+				if not getgenv().TargetScope or not getgenv().TargetScope.Parent then
+					getgenv().TargetScope = Workspace
+				end
+				local idx = {}
+				for _, desc in ipairs(getgenv().TargetScope:GetDescendants()) do
+					if desc:IsA("Model") and desc:FindFirstChildOfClass("Humanoid") then
+						table.insert(idx, desc)
+					end
+				end
+				getgenv().TargetIndex = idx
+			end
+			table.insert(janitor, indexerUpdateSignal.Event:Connect(RebuildIndex))
+			while task.wait(2) and MainScreenGui.Parent do
+				RebuildIndex()
+			end
+		end)
+		indexerUpdateSignal:Fire()
+		local AV_THRESHOLD = 120
+		local AV_DOT_THRESH = 0.92
+		local avEnabled = false
+		local avLastDetected = nil
+		avToggle.OnChanged(function(v)
+			avEnabled = v
+			if not v then
+				avStatusLbl.Text = "spectator: none"
+				avStatusLbl.TextColor3 = P.FG_MUT
+				avLastDetected = nil
+			end
+		end)
+		local function runAntiViewerAction(spectator)
+			local action = avActionBtn.Text
+			if action == "Notify Only" then
+				return
+			elseif action == "Disconnect Cam" then
+				local savedSubject = Camera.CameraSubject
+				local savedType = Camera.CameraType
+				Camera.CameraType = Enum.CameraType.Scriptable
+				Camera.CameraSubject = nil
+				task.delay(1.5, function()
+					Camera.CameraType = savedType
+					Camera.CameraSubject = savedSubject
+				end)
+			elseif action == "Teleport Away" then
+				local char = LocalPlayer.Character
+				local hrp = char and char:FindFirstChild("HumanoidRootPart")
+				if hrp then
+					local angle = math.random() * math.pi * 2
+					local offset = Vector3.new(math.cos(angle) * 20, 0, math.sin(angle) * 20)
+					hrp.CFrame = hrp.CFrame + offset
+				end
+			end
+		end
+		task.spawn(function()
+			while MainScreenGui.Parent do
+				task.wait(0.35)
+				if not avEnabled then
+					continue
+				end
+				local myChar = LocalPlayer.Character
+				local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+				if not myHRP then
+					continue
+				end
+				local myPos = myHRP.Position
+				local detected = nil
+				local bestScore = math.huge
+				for _, player in ipairs(Players:GetPlayers()) do
+					if player == LocalPlayer then
+						continue
+					end
+					local char = player.Character
+					if not char then
+						continue
+					end
+					local theirHRP = char:FindFirstChild("HumanoidRootPart")
+					if not theirHRP then
+						continue
+					end
+					local theirCam = workspace:FindFirstChild("Camera_" .. player.Name)
+						or (workspace.CurrentCamera.CameraSubject and workspace.CurrentCamera.CameraSubject:IsDescendantOf(
+							char
+						) and workspace.CurrentCamera)
+						or nil
+					local score = math.huge
+					if theirCam then
+						local vp, onScreen = theirCam:WorldToViewportPoint(myPos)
+						if onScreen then
+							local screenCenter = theirCam.ViewportSize / 2
+							score = (Vector2.new(vp.X, vp.Y) - screenCenter).Magnitude
+						end
+					else
+						local toUs = (myPos - theirHRP.Position).Unit
+						local dot = theirHRP.CFrame.LookVector:Dot(toUs)
+						if dot > AV_DOT_THRESH then
+							score = (1 - dot) * 100
+						end
+					end
+					if score < bestScore then
+						bestScore = score
+						if score < AV_THRESHOLD then
+							detected = player
+						end
+					end
+				end
+				if detected then
+					if detected ~= avLastDetected then
+						avLastDetected = detected
+						avStatusLbl.Text = "spectator: " .. detected.Name
+						avStatusLbl.TextColor3 = P.RED
+						runAntiViewerAction(detected)
+						local prev = statusLabel.Text
+						local prevC = statusLabel.TextColor3
+						statusLabel.Text = "!! spectating: " .. detected.Name
+						statusLabel.TextColor3 = P.RED
+						task.delay(2.5, function()
+							if statusLabel.Text:find("spectating") then
+								statusLabel.Text = prev
+								statusLabel.TextColor3 = prevC
+							end
+						end)
+					end
+				else
+					if avLastDetected then
+						avLastDetected = nil
+						avStatusLbl.Text = "spectator: none"
+						avStatusLbl.TextColor3 = P.FG_MUT
+					end
+				end
+			end
+		end)
+		if args and args[1] then
+			task.wait(0.1)
+			local name = args[1]
+			if name:lower() == "clear" or name:lower() == "reset" or name:lower() == "off" then
+				playerTargetEnabled = false
+				selectedPlayerTarget = nil
+				targetToggle.SetState(false)
+				playerDropdown.Text = "None"
+				statusLabel.Text = "ready — hold toggle key to aim"
+				if DoNotif then
+					DoNotif("Aimbot target lock cleared.", 2)
+				end
+			else
+				local found = Utilities and Utilities.findPlayer(name)
+				if found then
+					playerTargetEnabled = true
+					selectedPlayerTarget = found
+					targetToggle.SetState(true)
+					playerDropdown.Text = found.Name
+					statusLabel.Text = "targeting: " .. found.Name
+					if DoNotif then
+						DoNotif("Aimbot locked onto: " .. found.Name, 3)
+					end
+				else
+					if DoNotif then
+						DoNotif("Player '" .. name .. "' not found.", 3)
+					end
+				end
+			end
+		end
+	end)
+	if not success then
+		warn("Failed to load Aimbot GUI:", err)
+		if DoNotif then
+			DoNotif("Error loading Aimbot: " .. tostring(err), 5)
+		end
+		local gui = CoreGui:FindFirstChild("aim_addon")
+		if gui then
+			gui:Destroy()
+		end
+	end
+end
+RegisterCommand({
+	Name = "aimbot",
+	Aliases = {},
+	Description = "Loads the aimbot GUI. Optional: [player name] to lock target.",
+}, function(args)
+	if not game:GetService("CoreGui"):FindFirstChild("aim_addon") then
+		loadAimbotGUI(args)
+	else
+		if args and args[1] then
+			DoNotif("Aimbot is already open. Re-open to set a command-line target.", 4)
+		else
+			DoNotif("Aimbot GUI is already open.", 2)
+		end
+	end
+end)
 
 
 
-
---commands never go below this.
+--commands never go below this
 function processCommand(message)
 	if not (message:sub(1, #Prefix) == Prefix) then
 		return false
@@ -39380,7 +38236,7 @@ for moduleName, module in pairs(Modules) do
 		end)
 	end
 end
-local function CreateMobileCommandButton()
+local function CreateMobileCommandButton() -- mobile support
 	local UserInputService = game:GetService("UserInputService")
 	local CoreGui = game:GetService("CoreGui")
 	if not UserInputService.TouchEnabled then
@@ -39460,9 +38316,10 @@ else
 end
 task.spawn(function()
 	task.wait(1)
-end)
+end) -- end of main script
 
-local function detectEnvironment()
+
+local function detectEnvironment() -- env scanner
 	local env = {
 		executor = "Unknown",
 		functions = {},
@@ -39568,6 +38425,7 @@ local function detectEnvironment()
 	end
 	return env
 end
+
 local envInfo = detectEnvironment()
 print(string.rep("-", 40))
 print("  [ENV DETECT]")
@@ -39585,10 +38443,18 @@ print(
 		return count
 	end)()
 )
+
+
 if XENO_EXECUTOR or (identifyexecutor and identifyexecutor():lower():find("xeno")) then
 	print("[!] Xeno detected — module poisoning via getgc is restricted. Don't use a shit exploit!")
 end
+
+
+
 local dbg = debug
+
+
+
 local getgc = getgc or get_gc_objects
 local setupvalue = (dbg and dbg.setupvalue) or setupvalue
 local getupvalue = (dbg and dbg.getupvalue) or getupvalue
@@ -39614,1326 +38480,7 @@ return {
 
 
 
+-- addons optional below
 
---luna addon optional below
-
---[[if not Modules.AntiReset then
-    Modules.AntiReset = { State = { IsEnabled = false } }
-    function Modules.AntiReset:Enable()
-        if self.State.IsEnabled then return end
-        self.State.IsEnabled = true
-        pcall(function() if Modules.AntiVoid and not Modules.AntiVoid.State.IsEnabled then Modules.AntiVoid:Toggle() end end)
-        pcall(function() if Modules.AntiKill then Modules.AntiKill:Enable() end end)
-        DoNotif("Anti Reset: ON", 2)
-    end
-    function Modules.AntiReset:Disable()
-        if not self.State.IsEnabled then return end
-        self.State.IsEnabled = false
-        pcall(function() if Modules.AntiVoid and Modules.AntiVoid.State.IsEnabled then Modules.AntiVoid:Toggle() end end)
-        pcall(function() if Modules.AntiKill then Modules.AntiKill:Disable() end end)
-        DoNotif("Anti Reset: OFF", 2)
-    end
-    function Modules.AntiReset:Toggle()
-        if self.State.IsEnabled then self:Disable() else self:Enable() end
-    end
-end
-
--- AntiCFrameTeleport: blocks server-forced CFrame changes on HRP
-if not Modules.AntiCFrameTeleport then
-    Modules.AntiCFrameTeleport = { State = { IsEnabled = false, Connection = nil, LastPos = nil } }
-    function Modules.AntiCFrameTeleport:Toggle()
-        if self.State.IsEnabled then
-            self.State.IsEnabled = false
-            if self.State.Connection then self.State.Connection:Disconnect(); self.State.Connection = nil end
-            DoNotif("Anti Force-TP: OFF", 2)
-        else
-            self.State.IsEnabled = true
-            local function hookHRP(char)
-                if not char then return end
-                local hrp = char:FindFirstChild("HumanoidRootPart")
-                if not hrp then return end
-                self.State.LastPos = hrp.CFrame
-                self.State.Connection = game:GetService("RunService").Heartbeat:Connect(function()
-                    if not self.State.IsEnabled then return end
-                    local newHrp = char and char:FindFirstChild("HumanoidRootPart")
-                    if newHrp and self.State.LastPos then
-                        local dist = (newHrp.Position - self.State.LastPos.Position).Magnitude
-                        if dist > 50 then
-                            newHrp.CFrame = self.State.LastPos
-                        else
-                            self.State.LastPos = newHrp.CFrame
-                        end
-                    end
-                end)
-            end
-            hookHRP(LocalPlayer.Character)
-            LocalPlayer.CharacterAdded:Connect(function(c) task.wait(0.1); hookHRP(c) end)
-            DoNotif("Anti Force-TP: ON", 2)
-        end
-    end
-end
-
--- Chams: highlight player characters through walls via SelectionBox
-if not Modules.Chams then
-    Modules.Chams = { State = { IsEnabled = false, Objects = {} } }
-    function Modules.Chams:Toggle()
-        if self.State.IsEnabled then
-            self.State.IsEnabled = false
-            for _, obj in pairs(self.State.Objects) do pcall(function() obj:Destroy() end) end
-            self.State.Objects = {}
-            DoNotif("Chams: OFF", 2)
-        else
-            self.State.IsEnabled = true
-            local function addChams(player)
-                if player == LocalPlayer then return end
-                local function onChar(char)
-                    task.wait(0.5)
-                    if not self.State.IsEnabled then return end
-                    local hrp = char:FindFirstChild("HumanoidRootPart")
-                    if not hrp then return end
-                    local hl = Instance.new("Highlight")
-                    hl.Adornee = char
-                    hl.FillColor = Color3.fromRGB(255, 80, 80)
-                    hl.FillTransparency = 0.5
-                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                    hl.OutlineTransparency = 0
-                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                    hl.Parent = game:GetService("CoreGui")
-                    self.State.Objects[player] = hl
-                    player.CharacterRemoving:Connect(function()
-                        pcall(function() hl:Destroy() end)
-                        self.State.Objects[player] = nil
-                    end)
-                end
-                if player.Character then onChar(player.Character) end
-                player.CharacterAdded:Connect(onChar)
-            end
-            for _, p in ipairs(Players:GetPlayers()) do addChams(p) end
-            Players.PlayerAdded:Connect(addChams)
-            DoNotif("Chams: ON", 2)
-        end
-    end
-end
-
--- CharacterMorph: clone another player's appearance onto LocalPlayer
-if not Modules.CharacterMorph then
-    Modules.CharacterMorph = { State = { OrigDescription = nil } }
-    function Modules.CharacterMorph:Morph(input)
-        if not input or input == "" then return DoNotif("Enter a username or UserID.", 2) end
-        local ok, desc = pcall(function()
-            local uid = tonumber(input)
-            if not uid then
-                uid = game:GetService("Players"):GetUserIdFromNameAsync(input)
-            end
-            return game:GetService("Players"):GetHumanoidDescriptionFromUserId(uid)
-        end)
-        if ok and desc then
-            if not self.State.OrigDescription then
-                pcall(function()
-                    self.State.OrigDescription = game:GetService("Players"):GetHumanoidDescriptionFromUserId(LocalPlayer.UserId)
-                end)
-            end
-            local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if hum then
-                pcall(function() hum:ApplyDescription(desc) end)
-                DoNotif("Morphed to: " .. tostring(input), 2)
-            else
-                DoNotif("No humanoid found.", 2)
-            end
-        else
-            DoNotif("Failed to fetch avatar: " .. tostring(desc), 3)
-        end
-    end
-    function Modules.CharacterMorph:Revert()
-        if not self.State.OrigDescription then return DoNotif("No original appearance saved.", 2) end
-        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if hum then
-            pcall(function() hum:ApplyDescription(self.State.OrigDescription) end)
-            DoNotif("Avatar reverted.", 2)
-        else
-            DoNotif("No humanoid found.", 2)
-        end
-    end
-end
-
--- Gravity: client-sided workspace gravity control
-if not Modules.Gravity then
-    Modules.Gravity = { State = { IsEnabled = false, DefaultGravity = workspace.Gravity } }
-    function Modules.Gravity:Enable(value)
-        workspace.Gravity = value or 100
-        self.State.IsEnabled = true
-    end
-    function Modules.Gravity:Disable()
-        workspace.Gravity = self.State.DefaultGravity
-        self.State.IsEnabled = false
-    end
-end
-
-task.spawn(function()
-    local Luna
-    local ok, err = pcall(function()
-        Luna = loadstring(game:HttpGet(
-            "https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/Luna.lua", true
-        ))()
-    end)
-    if not ok or not Luna then
-        warn("[ZukaPanel/LunaUI] Luna failed to load:", tostring(err))
-        return
-    end
-    local Window = Luna:CreateWindow({
-        Name           = "Zuka's FunBox. v2",
-        Subtitle       = "by OverZuka",
-        LogoID         = "rbxassetid://7243158473",
-        LoadingEnabled = false,
-        ConfigSettings = { ConfigFolder = "ZukaPanelLuna" },
-        KeySystem      = false,
-    })
-
-    local PT = Window:CreateTab({ Name = "Player", Icon = "person", ImageSource = "Material", ShowTitle = true })
-
-    PT:CreateSection("Spectate")
-    PT:CreateLabel({ Text = "Select a player then hit Spectate", Style = 3 })
-    local _spectateTarget = nil
-    local _spectatePlayerOptions = {}
-    local function _refreshSpectateOptions()
-        _spectatePlayerOptions = {}
-        for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
-            if p ~= LocalPlayer then
-                table.insert(_spectatePlayerOptions, p.Name)
-            end
-        end
-        return _spectatePlayerOptions
-    end
-    _refreshSpectateOptions()
-    local _spectateDropdown = PT:CreateDropdown({
-        Name = "Target Player", Description = "Choose who to spectate",
-        Options = _refreshSpectateOptions(), CurrentOption = {}, MultipleOptions = false,
-        Callback = function(v)
-            _spectateTarget = type(v) == "table" and v[1] or v
-        end
-    }, "luna_spectate_target")
-    PT:CreateButton({ Name = "Spectate", Description = "Lock camera onto selected player",
-        Callback = function()
-            if not _spectateTarget or _spectateTarget == "" then
-                return DoNotif("Select a player first.", 2)
-            end
-            local target = game:GetService("Players"):FindFirstChild(_spectateTarget)
-            if target then
-                Modules.SpectateController:Enable(target)
-            else
-                DoNotif("Player not found — they may have left.", 3)
-            end
-        end })
-    PT:CreateButton({ Name = "Stop Spectating", Description = "Return camera to your own character",
-        Callback = function()
-            Modules.SpectateController:Disable()
-        end })
-    PT:CreateButton({ Name = "Refresh Player List", Description = "Update the dropdown with current players",
-        Callback = function()
-            _refreshSpectateOptions()
-            DoNotif("Player list refreshed.", 2)
-        end })
-
-    PT:CreateDivider()
-    PT:CreateSection("Teleport to Player")
-    PT:CreateLabel({ Text = "Silently teleport behind a target", Style = 3 })
-    local _tpPlayerTarget = nil
-    local _tpPlayerDropdown = PT:CreateDropdown({
-        Name = "Target Player", Description = "Who to teleport to",
-        Options = _refreshSpectateOptions(), CurrentOption = {}, MultipleOptions = false,
-        Callback = function(v)
-            _tpPlayerTarget = type(v) == "table" and v[1] or v
-        end
-    }, "luna_tp_player_target")
-    PT:CreateButton({ Name = "  TP To Player", Description = "Teleport directly behind selected player",
-        Callback = function()
-            if not _tpPlayerTarget or _tpPlayerTarget == "" then
-                return DoNotif("Select a player first.", 2)
-            end
-            local target = game:GetService("Players"):FindFirstChild(_tpPlayerTarget)
-            if not target or not target.Character then
-                return DoNotif("Player or character not found.", 3)
-            end
-            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            local tgtHrp = target.Character:FindFirstChild("HumanoidRootPart")
-            if hrp and tgtHrp then
-                hrp.CFrame = tgtHrp.CFrame * CFrame.new(0, 0, 3)
-                DoNotif("Teleported to " .. target.Name, 2)
-            else
-                DoNotif("Could not find character parts.", 3)
-            end
-        end })
-
-    PT:CreateDivider()
-    PT:CreateSection("Avatar Morph")
-    PT:CreateLabel({ Text = "Copy another player's avatar onto yours", Style = 3 })
-    local _morphInput = ""
-    PT:CreateInput({ Name = "Username or UserID", PlaceholderText = "e.g. Builderman or 156",
-        CurrentValue = "", Numeric = false, Enter = true,
-        Callback = function(v) _morphInput = v end }, "luna_morph_input")
-    PT:CreateButton({ Name = "Apply Morph", Description = "Load that user's avatar onto your character",
-        Callback = function()
-            if not _morphInput or _morphInput == "" then
-                return DoNotif("Enter a username or UserID first.", 2)
-            end
-            Modules.CharacterMorph:Morph(_morphInput)
-        end })
-    PT:CreateButton({ Name = "Revert Avatar", Description = "Restore your original appearance",
-        Callback = function()
-            Modules.CharacterMorph:Revert()
-        end })
-
-    local TP = Window:CreateTab({ Name = "Teleport", Icon = "near_me", ImageSource = "Material", ShowTitle = true })
-
-    TP:CreateSection("Waypoints")
-    TP:CreateLabel({ Text = "Save up to 10 named positions and tp back to them", Style = 3 })
-    local _waypointNameInput = ""
-    TP:CreateInput({ Name = "Waypoint Name", PlaceholderText = "e.g. base, spawn, loot",
-        CurrentValue = "", Numeric = false, Enter = true,
-        Callback = function(v) _waypointNameInput = v end }, "luna_wp_name")
-    TP:CreateButton({ Name = "Save Waypoint", Description = "Save your current position under that name",
-        Callback = function()
-            if not _waypointNameInput or _waypointNameInput == "" then
-                return DoNotif("Enter a waypoint name first.", 2)
-            end
-            Modules.Waypoint:Add(_waypointNameInput)
-        end })
-    TP:CreateButton({ Name = "TP to Waypoint", Description = "Teleport to the named waypoint",
-        Callback = function()
-            if not _waypointNameInput or _waypointNameInput == "" then
-                return DoNotif("Enter a waypoint name first.", 2)
-            end
-            Modules.Waypoint:Teleport(_waypointNameInput)
-        end })
-    TP:CreateButton({ Name = "Delete Waypoint", Description = "Remove that waypoint",
-        Callback = function()
-            if not _waypointNameInput or _waypointNameInput == "" then
-                return DoNotif("Enter a waypoint name first.", 2)
-            end
-            Modules.Waypoint:Remove(_waypointNameInput)
-        end })
-    TP:CreateButton({ Name = "List Waypoints", Description = "See all saved waypoints in a notification",
-        Callback = function() Modules.Waypoint:List() end })
-    TP:CreateButton({ Name = "Clear All Waypoints", Description = "Delete every saved waypoint",
-        Callback = function() Modules.Waypoint:Clear() end })
-
-    TP:CreateDivider()
-    TP:CreateSection("Coordinate Teleport")
-    TP:CreateLabel({ Text = "Jump to exact X, Y, Z coordinates", Style = 3 })
-    local _tpX, _tpY, _tpZ = 0, 5, 0
-    TP:CreateInput({ Name = "X", PlaceholderText = "0", CurrentValue = "0", Numeric = true, Enter = true,
-        Callback = function(v) _tpX = tonumber(v) or 0 end }, "luna_tp_x")
-    TP:CreateInput({ Name = "Y", PlaceholderText = "5", CurrentValue = "5", Numeric = true, Enter = true,
-        Callback = function(v) _tpY = tonumber(v) or 5 end }, "luna_tp_y")
-    TP:CreateInput({ Name = "Z", PlaceholderText = "0", CurrentValue = "0", Numeric = true, Enter = true,
-        Callback = function(v) _tpZ = tonumber(v) or 0 end }, "luna_tp_z")
-    TP:CreateButton({ Name = "Teleport to Coords", Description = "Move your character to the entered XYZ",
-        Callback = function()
-            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if not hrp then return DoNotif("No character found.", 3) end
-            hrp.CFrame = CFrame.new(_tpX, _tpY, _tpZ)
-            DoNotif(string.format("Teleported to (%.1f, %.1f, %.1f)", _tpX, _tpY, _tpZ), 2)
-        end })
-    TP:CreateButton({ Name = "Copy Current Coords", Description = "Copy your XYZ to clipboard",
-        Callback = function()
-            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if not hrp then return DoNotif("No character found.", 3) end
-            local p = hrp.Position
-            local str = string.format("%.2f, %.2f, %.2f", p.X, p.Y, p.Z)
-            if setclipboard then setclipboard(str) DoNotif("Copied: " .. str, 2)
-            else DoNotif(str, 4) end
-        end })
-
-    TP:CreateDivider()
-    TP:CreateSection("Quick Teleports")
-    TP:CreateButton({ Name = "TP to Spawn", Description = "Teleport to the map's spawn location",
-        Callback = function()
-            local spawn = workspace:FindFirstChildOfClass("SpawnLocation")
-            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if spawn and hrp then
-                hrp.CFrame = spawn.CFrame + Vector3.new(0, 4, 0)
-                DoNotif("Teleported to spawn.", 2)
-            else
-                DoNotif("No SpawnLocation found in workspace.", 3)
-            end
-        end })
-    TP:CreateButton({ Name = "TP to Map Center", Description = "Teleport to 0, 100, 0",
-        Callback = function()
-            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then hrp.CFrame = CFrame.new(0, 100, 0) DoNotif("Teleported to map center.", 2)
-            else DoNotif("No character found.", 3) end
-        end })
-    TP:CreateButton({ Name = "TP Up (Sky)", Description = "Shoot yourself up 2000 studs",
-        Callback = function()
-            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then hrp.CFrame = hrp.CFrame + Vector3.new(0, 2000, 0) DoNotif("Launched upwards.", 2)
-            else DoNotif("No character found.", 3) end
-        end })
-
-    local Anti = Window:CreateTab({ Name = "Anti+", Icon = "shield", ImageSource = "Material", ShowTitle = true })
-
-    Anti:CreateSection("Position & Physics")
-    Anti:CreateToggle({ Name = "Anti Reset",        Description = "Prevent death and void falls",         CurrentValue = false,
-        Callback = function(v) if v then Modules.AntiReset:Enable() else Modules.AntiReset:Disable() end end }, "anti_antireset")
-    Anti:CreateToggle({ Name = "Anti Void",         Description = "Prevent falling into the void",        CurrentValue = false,
-        Callback = function() Modules.AntiVoid:Toggle() end }, "anti_antivoid")
-    Anti:CreateToggle({ Name = "Anti Force-TP",     Description = "Block server CFrame teleports",        CurrentValue = false,
-        Callback = function() Modules.AntiCFrameTeleport:Toggle() end }, "anti_anticframetp")
-    Anti:CreateToggle({ Name = "Anti Trip",         Description = "Block ragdoll / fallingdown states",   CurrentValue = false,
-        Callback = function() Modules.AntiTrip:Toggle() end }, "anti_antitrip")
-    Anti:CreateToggle({ Name = "Anti Anchor",       Description = "Prevent your character being anchored", CurrentValue = false,
-        Callback = function(v) if v then Modules.AntiAnchor:Enable() else Modules.AntiAnchor:Disable() end end }, "anti_antianchor")
-    Anti:CreateToggle({ Name = "Anti Player Physics", Description = "Block physics manipulation by others", CurrentValue = false,
-        Callback = function() Modules.AntiPlayerPhysics:Toggle() end }, "anti_antiphysics")
-
-    Anti:CreateDivider()
-    Anti:CreateSection("Character Integrity")
-    Anti:CreateToggle({ Name = "Anti Kill",         Description = "Keep humanoid health above 0",         CurrentValue = false,
-        Callback = function(v) if v then Modules.AntiKill:Enable() else Modules.AntiKill:Disable() end end }, "anti_antikill")
-    Anti:CreateToggle({ Name = "Anti Sit",          Description = "Prevent being force-seated",           CurrentValue = false,
-        Callback = function(v) if v then Modules.AntiSit:Enable() else Modules.AntiSit:Disable() end end }, "anti_antisit")
-    Anti:CreateToggle({ Name = "Anti Attach",       Description = "Counter players latching onto you",    CurrentValue = false,
-        Callback = function(v) if v then Modules.AntiAttach:Enable() else Modules.AntiAttach:Disable() end end }, "anti_antiattach")
-    Anti:CreateToggle({ Name = "Anti Slap Gear",    Description = "Block slap gear from affecting you",   CurrentValue = false,
-        Callback = function() Modules.AntiSlapGear:Toggle() end }, "anti_antislapgear")
-    Anti:CreateToggle({ Name = "Humanoid Integrity", Description = "Lock humanoid stats against tampering", CurrentValue = false,
-        Callback = function() Modules.HumanoidIntegrity:Toggle() end }, "anti_humintegrity")
-
-    Anti:CreateDivider()
-    Anti:CreateSection("Session")
-    Anti:CreateToggle({ Name = "Anti AFK",          Description = "Prevent idle disconnect",              CurrentValue = false,
-        Callback = function() Modules.InternalAntiAfk:Toggle() end }, "anti_antiafk")
-    Anti:CreateToggle({ Name = "Fling Protection",  Description = "Prevent being flung by other players", CurrentValue = false,
-        Callback = function() Modules.FlingProtection:Toggle() end }, "anti_flingprot")
-
-    Anti:CreateDivider()
-    Anti:CreateButton({ Name = "✦  Enable All Anti", Description = "Turn on every toggle in this tab at once",
-        Callback = function()
-            pcall(function() Modules.AntiReset:Enable() end)
-            pcall(function() Modules.AntiVoid:Toggle() if not Modules.AntiVoid.State.IsEnabled then Modules.AntiVoid:Toggle() end end)
-            pcall(function() if not Modules.AntiCFrameTeleport.State.IsEnabled then Modules.AntiCFrameTeleport:Toggle() end end)
-            pcall(function() if not Modules.AntiTrip.State.IsEnabled then Modules.AntiTrip:Toggle() end end)
-            pcall(function() Modules.AntiAnchor:Enable() end)
-            pcall(function() if not Modules.AntiPlayerPhysics.State.IsEnabled then Modules.AntiPlayerPhysics:Toggle() end end)
-    Movement:CreateToggle({ Name = "Fly",           Description = "Toggle client-sided fly",       CurrentValue = false, Callback = function() Modules.Fly:Toggle() end }, "luna_fly")
-    Movement:CreateToggle({ Name = "NoClip",        Description = "Walk through walls",             CurrentValue = false, Callback = function() Modules.NoClip:Toggle() end }, "luna_noclip")
-    Movement:CreateToggle({ Name = "Infinite Jump", Description = "Jump repeatedly mid-air",        CurrentValue = false, Callback = function(v) if v then Modules.InfiniteJump:Enable() else Modules.InfiniteJump:Disable() end end }, "luna_infjump")
-    Movement:CreateToggle({ Name = "Anti Reset",    Description = "Prevent death and void falls",   CurrentValue = false, Callback = function() Modules.AntiReset:Toggle() end }, "luna_antireset")
-    Movement:CreateToggle({ Name = "Anti Sit",      Description = "Prevent being force-sat",        CurrentValue = false, Callback = function() Modules.AntiSit:Toggle() end }, "luna_antisit")
-    Movement:CreateDivider()
-    Movement:CreateSlider({ Name = "Walk Speed", Description = "Default: 16", Range = {0,500}, Increment = 1, CurrentValue = 18, Suffix = "studs/s",
-        Callback = function(v)
-            local h = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if h then h.WalkSpeed = v end
-            Modules.WalkSpeed.State.CurrentSpeed = v
-        end }, "luna_ws")
-    Movement:CreateSlider({ Name = "Fly Speed", Description = "Velocity while flying", Range = {10,500}, Increment = 5, CurrentValue = 60, Suffix = "",
-        Callback = function(v) Modules.Fly:SetSpeed(v) end }, "luna_flyspd")
-    Movement:CreateSlider({ Name = "Gravity", Description = "Default: 196  |  0 = restore", Range = {0,400}, Increment = 5, CurrentValue = 196, Suffix = "",
-        Callback = function(v) if v <= 0 then Modules.Gravity:Disable() else Modules.Gravity:Enable(v) end end }, "luna_grav")
-    local Visual = Window:CreateTab({ Name = "Visual", Icon = "visibility", ImageSource = "Material", ShowTitle = true })
-    Visual:CreateToggle({ Name = "Player ESP",     Description = "Highlight players through walls", CurrentValue = true, Callback = function() Modules.ESP:Toggle("players") end }, "luna_esp")
-    Visual:CreateToggle({ Name = "Chams",          Description = "See characters through walls",    CurrentValue = false, Callback = function() Modules.Chams:Toggle() end }, "luna_chams")
-    Visual:CreateToggle({ Name = "FullBright",     Description = "Max ambient, remove shadows",     CurrentValue = false, Callback = function(v) if v then Modules.FullBright:Enable() else Modules.FullBright:Disable() end end }, "luna_fb")
-    Visual:CreateToggle({ Name = "No Fog",         Description = "Remove client-sided fog",         CurrentValue = false, Callback = function() Modules.NoFog:Toggle() end }, "luna_nofog")
-    Visual:CreateToggle({ Name = "Lighting Lock",  Description = "Prevent game changing lighting",  CurrentValue = false, Callback = function() Modules.LightingLock:Toggle() end }, "luna_ll")
-    Visual:CreateToggle({ Name = "FPS Meter",      Description = "Show FPS counter on screen",      CurrentValue = false, Callback = function() Modules.FpsMeter:Toggle() end }, "luna_fps")
-    Visual:CreateDivider()
-    Visual:CreateSlider({ Name = "FOV Changer", Description = "Lock camera FOV  |  0 = reset", Range = {0,120}, Increment = 1, CurrentValue = 90, Suffix = "°",
-        Callback = function(v)
-            local cam = workspace.CurrentCamera
-            if not cam then return end
-            if v == 0 then
-                Modules.FovChanger.State.IsEnabled = false
-                if Modules.FovChanger.State.Connection then Modules.FovChanger.State.Connection:Disconnect() Modules.FovChanger.State.Connection = nil end
-                cam.FieldOfView = Modules.FovChanger.State.DefaultFov
-            else
-                Modules.FovChanger.State.TargetFov = v
-                if not Modules.FovChanger.State.Connection then
-                    Modules.FovChanger.State.Connection = game:GetService("RunService").RenderStepped:Connect(function()
-                        if cam and Modules.FovChanger.State.IsEnabled then cam.FieldOfView = Modules.FovChanger.State.TargetFov end
-                    end)
-                end
-                Modules.FovChanger.State.IsEnabled = true
-            end
-        end }, "luna_fov")
-        
-    local Utility = Window:CreateTab({ Name = "Utility", Icon = "build", ImageSource = "Material", ShowTitle = true })
-    Utility:CreateToggle({ Name = "Anti AFK",         Description = "Prevent idle disconnect",             CurrentValue = false, Callback = function() Modules.InternalAntiAfk:Toggle() end }, "luna_afk")
-    Utility:CreateToggle({ Name = "Fling Protection", Description = "Prevent being flung",                 CurrentValue = false, Callback = function() Modules.FlingProtection:Toggle() end }, "luna_fp")
-    Utility:CreateToggle({ Name = "Anti Attach",      Description = "Counter players latching onto you",   CurrentValue = false, Callback = function() Modules.AntiAttach:Toggle() end }, "luna_aa")
-    Utility:CreateToggle({ Name = "Anti Force-TP",    Description = "Block server CFrame teleports",       CurrentValue = false, Callback = function() Modules.AntiCFrameTeleport:Toggle() end }, "luna_atp")
-    Utility:CreateToggle({ Name = "Bypass Dev Products", Description = "Spoof purchase as completed",      CurrentValue = false, Callback = function(v) Modules.BypassDevProduct.State.Enabled = v DoNotif("Bypass DevProduct: "..(v and "ON" or "OFF"), 2) end }, "luna_bdp")
-    Utility:CreateToggle({ Name = "Bypass Gamepass",  Description = "Spoof UserOwnsGamePassAsync",         CurrentValue = false, Callback = function(v) Modules.BypassGamepass.State.Enabled = v DoNotif("Bypass Gamepass: "..(v and "ON" or "OFF"), 2) end }, "luna_bgp")
-    Utility:CreateToggle({ Name = "Respawn At Death", Description = "TP to death pos on respawn",          CurrentValue = false, Callback = function() Modules.RespawnAtDeath.Toggle() end }, "luna_rad")
-    Utility:CreateDivider()
-    Utility:CreateButton({ Name = "Open Command Bar", Description = "Toggle the Zuka command bar",  Callback = function() if Modules.CommandBar and Modules.CommandBar.Toggle then Modules.CommandBar:Toggle() end end })
-    Utility:CreateButton({ Name = "Command List",     Description = "View all available commands",  Callback = function() if Modules.CommandList and Modules.CommandList.Toggle then Modules.CommandList:Toggle() end end })
-    Utility:CreateButton({ Name = "Rejoin Server",    Description = "Rejoin current server",        Callback = function() if Modules.RejoinServer and Modules.RejoinServer.Rejoin then Modules.RejoinServer:Rejoin() end end })
-    Utility:CreateDivider()
-    Utility:CreateSection("Server")
-    Utility:CreateButton({ Name = "Server Hop — Low Pop",  Description = "Find a low population server",
-        Callback = function()
-            if Modules.ServerHopper then Modules.ServerHopper:Hop("Low")
-            else DoNotif("ServerHopper module not found.", 2) end
-        end })
-    Utility:CreateButton({ Name = "Server Hop — High Pop", Description = "Find a high population server",
-        Callback = function()
-            if Modules.ServerHopper then Modules.ServerHopper:Hop("High")
-            else DoNotif("ServerHopper module not found.", 2) end
-        end })
-    Utility:CreateButton({ Name = "Copy Place ID", Description = "Copy current game PlaceId to clipboard",
-        Callback = function()
-            local id = tostring(game.PlaceId)
-            if setclipboard then setclipboard(id) DoNotif("Copied PlaceId: " .. id, 2)
-            else DoNotif("setclipboard not supported by your executor.", 3) end
-        end })
-    Utility:CreateDivider()
-    Utility:CreateSection("Chat")
-    local LS = Window:CreateTab({ Name = "Loadstrings", Icon = "code", ImageSource = "Material", ShowTitle = true })
-    local function ls(url, msg) pcall(loadstringCmd, url, msg) end
-    LS:CreateSection("Tools & Utilities")
-  --  LS:CreateButton({ Name = "Zex / Dex+",          Description = "Updated Dex Explorer",                    Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/Zex.lua", "Loading Zex..") end })
-  --  LS:CreateButton({ Name = "Ghidra",               Description = "HEX Overseer — better than all",         Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/HEXOverseer.lua", "Loading..") end })
-  --  LS:CreateButton({ Name = "Rem",                  Description = "In-game exploit creation kit",           Callback = function() ls("https://e-vil.com/anbu/rem.lua", "Loading Rem.") end })
-    LS:CreateButton({ Name = "Teleporter / Game Finder", Description = "Game Universe UI",                   Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/GameFinder.lua", "stolen from nameless-admin") end })
-    LS:CreateButton({ Name = "Improved Btools",      Description = "Upgraded GUI for btools",                Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/buildtools.lua", "Loading Revamped Btools Gui") end })
-    LS:CreateButton({ Name = "Stats Lock",           Description = "Edit and lock your properties",          Callback = function() ls("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/statlock.lua", "Loading Stats..") end })
-    LS:CreateButton({ Name = "Copy Console",         Description = "Copy errors from the console",           Callback = function() ls("https://raw.githubusercontent.com/scriptlisenbe-stack/luaprojectse3/refs/heads/main/consolecopy.lua", "Copy Console Activated.") end })
-    LS:CreateButton({ Name = "No Anim",              Description = "Pause/remove all player animations",     Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/animationremover.lua", "Loading..") end })
-    LS:CreateButton({ Name = "Zuka Hub",             Description = "Load the Zuka Hub",                      Callback = function() ls("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/ZukaHub.lua", "Loading Zuka's Hub...") end })
-    LS:CreateButton({ Name = "ConvertR6",            Description = "R15 → R6 converter (WIP)",               Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/r15tor6.lua", "Loading, Wait a sec.") end })
-    LS:CreateButton({ Name = "Line of Sight Logger", Description = "Log players looking at you",             Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/LineOfSightLogger.lua", "Loading...") end })
-    LS:CreateButton({ Name = "Z Spy",                Description = "Simple spy rework — beta",               Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/executor_scripts/SimpleSpyRework.lua", "in beta...") end })
-    LS:CreateButton({ Name = "Creepy Anim GUI",      Description = "Uncanny animation GUI",                  Callback = function() ls("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/uncannyanim.lua", "Loaded GUI") end })
-    LS:CreateButton({ Name = "Walk Void",            Description = "Stop falling into the void",             Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/WalkVoid.lua", "You are now safe from falling into the void.") end })
-    LS:CreateButton({ Name = "Reach Fix",            Description = "Make equipped tool invisible w/ reach",  Callback = function() ls("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/InvisibleEquippedTool.lua", "Fixed") end })
-    LS:CreateButton({ Name = "Wall Walk (WIP)",      Description = "Work in progress",                       Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/WorkINPro.lua", "Anti Gay Shield Activated.") end })
-    LS:CreateButton({ Name = "Remove Forcefield",    Description = "Client-side forcefield remover",         Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/removeforcefield.txt", "Loading..") end })
-    LS:CreateButton({ Name = "Remove Adonis Anti-Cheat",        Description = "Says no to Adonis",                      Callback = function() ls("https://raw.githubusercontent.com/idioticanisgae-pixel/fourfortyfivepmsundaymarch29build/refs/heads/main/Client.lua", "Loading..") end })
-    LS:CreateSection("Combat & Weapons")
-    LS:CreateButton({ Name = "Auto Fling",           Description = "Pwned flinger",                          Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/Ultimatefling.lua", "Loaded!") end })
-    LS:CreateButton({ Name = "Touch Fling GUI",      Description = "Simple touch fling GUI",                 Callback = function() ls("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/SimpleTouchFlingGui.lua", "Loaded") end })
-    LS:CreateButton({ Name = "Sword Bot",            Description = "Auto sword fighter — use E and R",       Callback = function() ls("https://raw.githubusercontent.com/bloxtech1/luaprojects2/refs/heads/main/swordnpc", "Bot loaded.") end })
-   -- LS:CreateButton({ Name = "CSGO Bhop",            Description = "Bhop movement",                          Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/phoon.lua", "Loading") end })
-    LS:CreateButton({ Name = "Doom Hammer",          Description = "For dumb bossfights",                    Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/doomshammer.lua", "Loading..") end })
-    LS:CreateButton({ Name = "TP to Swords",         Description = "Sword grabber for bossfight games",      Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/SwordGrabberBossfightGame.lua", "Loading..") end })
-    --LS:CreateButton({ Name = "Lag Server",           Description = "Server payload (WIP)",                   Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/gamelagger.lua", "Loading..") end })
-    LS:CreateSection("Game Specific")
-    LS:CreateSection("► Zombie Game")
-    LS:CreateButton({ Name = "ZG — Sniper",          Description = "Zombie Game",                            Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/sniperZG.lua", "Loading..") end })
-    LS:CreateButton({ Name = "Z Fucker",             Description = "ZL series",                              Callback = function() ls("https://raw.githubusercontent.com/osukfcdays/zlfucker/refs/heads/main/main.luau", "Loading, Wait a sec.") end })
-    LS:CreateButton({ Name = "ZG — Shotgun",         Description = "Zombie Game",                            Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/ShotgunMinigunScriptWorking.lua", "Loading..") end })
-    LS:CreateButton({ Name = "ZG — No Acid Rain",    Description = "Zombie Game",                            Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/AntiAcidRainLag.lua", "Loading...") end })
-    LS:CreateButton({ Name = "ZG — No Cooldowns",    Description = "Zombie Game",                            Callback = function() ls("https://raw.githubusercontent.com/legalize8ga-maker/Scripts/refs/heads/main/NocooldownsZombieUpd3.txt", "Loading Cooldownremover...") end })
-    LS:CreateButton({ Name = "ZG — Shovel Anim",     Description = "Zombie Game",                            Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/ShovelAnimation.lua", "Loading Shovel.") end })
-    LS:CreateButton({ Name = "ZG — Box ESP",         Description = "Zombie Game basic ESP",                  Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/BasicEsp.lua", "Loading Box esp") end })
-    LS:CreateButton({ Name = "ZG — Melee x2",        Description = "Zombie Infection Game",                  Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/MeleeDamagex2.lua", "Loading..") end })
-    LS:CreateSection("► Protect The House")
-    LS:CreateButton({ Name = "PTHM — Gun Lagger",    Description = "Protect The House from Monsters",        Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/Lagger.lua", "Loading..") end })
-    LS:CreateButton({ Name = "PTHM — Gun Lagger 2",  Description = "Protect The House — machine gun",        Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/machinegun.lua", "Loading..") end })
-   -- LS:CreateButton({ Name = "PTHM — P-Launcher",    Description = "Protect The House — projectile lagger",  Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/GameLaggerPlauncher.lua", "Loading Modification") end })
-   -- LS:CreateButton({ Name = "PTHM — Pumpkin",       Description = "Protect The House — rapid fire pumpkin", Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/RAPIDFIREPumpkinlauncher.lua", "Loading") end })
-    LS:CreateSection("► Backrooms")
-    LS:CreateButton({ Name = "Backrooms Gun Modifier",      Description = "For Backrooms",                     Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/BackroomsWeaponEditor.lua", "Loaded") end })
-    --LS:CreateButton({ Name = "God Weapons W Teamkill",      Description = "For Backrooms",                              Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/opbasckrooms.lua", "Loaded") end })
-  --  LS:CreateButton({ Name = "God Weapons W Semi-AUto",     Description = "Semi-Auto Version",       Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/PatchedGuns.lua", "Guns Patched.") end })
-   -- LS:CreateButton({ Name = "Fling Gun (Backrooms)",       Description = "For Backrooms",                             Callback = function() ls("https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/flingergunspatch.lua", "Loading, Wait a sec.") end })
-    LS:CreateSection("► Other Games")
-    LS:CreateButton({ Name = "WOS — No Dash CD",     Description = "World of Stands — removes dash cooldown", Callback = function() ls("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/WOS.lua", "Loading, Wait a sec.") end })
-        local Aimbot = {
-        Enabled = false,
-        IsAiming = false,
-        CurrentTarget = nil,
-        VelocityHistory = {},
-        TargetIndex = {},
-        LastIndexUpdate = 0,
-        FOVCircle = nil,
-        ESPObjects = {},
-        ToggleKey = Enum.UserInputType.MouseButton2,
-        AimPart = "HumanoidRootPart",
-        FOVRadius = 70,
-        ShowFOVCircle = true,
-        SmoothingEnabled = true,
-        SmoothingFactor = 0.6,
-        DistanceBasedSmoothing = true,
-        WallCheckEnabled = false,
-        IgnoreTeam = false,
-        StickyTarget = true,
-        PredictionEnabled = false,
-        PredictionMultiplier = 1.0,
-        HitboxPriority = false,
-        UpdateRate = 0.5,
-        PredictionSamples = 3,
-        StickyDistanceMultiplier = 1.5,
-        UsePIDController = false,
-        UseAdvancedScoring = true,
-        AimRandomization = false,
-        RandomizationMin = 0.92,
-        RandomizationMax = 0.98,
-        HealthPriority = 0.3,
-        DistancePriority = 0.2,
-    }
-    local DeleteTool = {
-        Enabled = false,
-        DeleteMode = "Part",
-        MaxDistance = 500,
-        IgnorePlayers = true,
-        IgnoreTerrain = true,
-        ShowHighlight = false,
-        DeleteBind = Enum.KeyCode.V,
-        DeletedParts = {},
-        CurrentHighlight = nil,
-    }
-    local HITBOX_PRIORITIES = {
-        {Name = "Head"},
-        {Name = "UpperTorso"},
-        {Name = "HumanoidRootPart"},
-        {Name = "Torso"},
-        {Name = "LowerTorso"},
-    }
-    local PID = {}
-    PID.__index = PID
-    function PID:new(kp, ki, kd)
-        return setmetatable({ kp=kp or 0.5, ki=ki or 0.1, kd=kd or 0.2,
-            prev_error=0, integral=0, dt=1/60 }, PID)
-    end
-    function PID:calculate(setpoint, measurement)
-        local error = setpoint - measurement
-        self.integral = math.clamp(self.integral + error * self.dt, -10, 10)
-        local derivative = (error - self.prev_error) / self.dt
-        self.prev_error = error
-        return self.kp * error + self.ki * self.integral + self.kd * derivative
-    end
-    function PID:reset() self.prev_error = 0; self.integral = 0 end
-    local pitchPID = PID:new(0.4, 0.08, 0.15)
-    local yawPID   = PID:new(0.4, 0.08, 0.15)
-    local _RunService     = game:GetService("RunService")
-    local _UserInput      = game:GetService("UserInputService")
-    local _Camera         = workspace.CurrentCamera
-    local _Players        = game:GetService("Players")
-    local _LocalPlayer    = _Players.LocalPlayer
-    local wallParams      = RaycastParams.new()
-    wallParams.FilterType = Enum.RaycastFilterType.Exclude
-    local function updateTargetIndex(force)
-        local now = tick()
-        if not force and (now - Aimbot.LastIndexUpdate) < Aimbot.UpdateRate then return end
-        Aimbot.LastIndexUpdate = now
-        Aimbot.TargetIndex = {}
-        for _, d in ipairs(workspace:GetDescendants()) do
-            if d:IsA("Model") then
-                local h = d:FindFirstChildOfClass("Humanoid")
-                if h and h.Health > 0 then table.insert(Aimbot.TargetIndex, d) end
-            end
-        end
-    end
-    local function isTeammate(player)
-        if not Aimbot.IgnoreTeam or not player then return false end
-        return (LocalPlayer.Team and player.Team and LocalPlayer.Team == player.Team)
-            or (LocalPlayer.TeamColor and player.TeamColor and LocalPlayer.TeamColor == player.TeamColor)
-    end
-    local function isVisible(part)
-        if not Aimbot.WallCheckEnabled then return true end
-        if not _LocalPlayer.Character or not part or not part.Parent then return false end
-        local tChar = part:FindFirstAncestorOfClass("Model") or part.Parent
-        wallParams.FilterDescendantsInstances = {_LocalPlayer.Character, tChar}
-        return not workspace:Raycast(_Camera.CFrame.Position, part.Position - _Camera.CFrame.Position, wallParams)
-    end
-    local function getHitbox(model)
-        if not Aimbot.HitboxPriority then return model:FindFirstChild(Aimbot.AimPart) end
-        for _, h in ipairs(HITBOX_PRIORITIES) do
-            local p = model:FindFirstChild(h.Name)
-            if p and isVisible(p) then return p end
-        end
-        for _, h in ipairs(HITBOX_PRIORITIES) do
-            local p = model:FindFirstChild(h.Name)
-            if p then return p end
-        end
-    end
-    local function getScore(model, part, screenDist)
-        if not Aimbot.UseAdvancedScoring then return screenDist end
-        local score = 1000 / (screenDist + 1)
-        local hum = model:FindFirstChildOfClass("Humanoid")
-        if hum then score = score * (1 - (hum.Health / hum.MaxHealth) * Aimbot.HealthPriority) end
-        if _LocalPlayer.Character and _LocalPlayer.Character.PrimaryPart then
-            local dist = (_LocalPlayer.Character.PrimaryPart.Position - part.Position).Magnitude
-            score = score * (1 + (1 / (1 + dist / 1000)) * Aimbot.DistancePriority)
-        end
-        return score + math.random() * 10
-    end
-    local function getTarget()
-        local mousePos = _UserInput:GetMouseLocation()
-        local bestScore = -math.huge
-        local bestModel, bestPart = nil, nil
-        if Aimbot.StickyTarget and Aimbot.CurrentTarget and Aimbot.CurrentTarget.Parent then
-            local part = getHitbox(Aimbot.CurrentTarget)
-            if part then
-                local pos, onScreen = _Camera:WorldToViewportPoint(part.Position)
-                if onScreen then
-                    local dist = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
-                    if dist <= Aimbot.FOVRadius * Aimbot.StickyDistanceMultiplier then
-                        local score = getScore(Aimbot.CurrentTarget, part, dist) * 1.3
-                        if score > bestScore then bestScore = score; bestModel = Aimbot.CurrentTarget; bestPart = part end
-                    end
-                end
-            end
-        end
-        for _, model in ipairs(Aimbot.TargetIndex) do
-            if model and model.Parent then
-                local player = _Players:GetPlayerFromCharacter(model)
-                if not (player and (player == _LocalPlayer or isTeammate(player))) then
-                    local part = getHitbox(model)
-                    if part then
-                        local pos, onScreen = _Camera:WorldToViewportPoint(part.Position)
-                        if onScreen then
-                            local dist = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
-                            if dist <= Aimbot.FOVRadius then
-                                local score = getScore(model, part, dist)
-                                if score > bestScore then bestScore = score; bestModel = model; bestPart = part end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        return bestModel, bestPart
-    end
-    local function predict(part)
-        if not Aimbot.PredictionEnabled then return part.Position end
-        local vel = part.AssemblyLinearVelocity or part.Velocity or Vector3.zero
-        table.insert(Aimbot.VelocityHistory, vel)
-        if #Aimbot.VelocityHistory > Aimbot.PredictionSamples then table.remove(Aimbot.VelocityHistory, 1) end
-        local avg = Vector3.zero
-        for _, v in ipairs(Aimbot.VelocityHistory) do avg = avg + v end
-        avg = avg / #Aimbot.VelocityHistory
-        local dist = (_Camera.CFrame.Position - part.Position).Magnitude
-        return part.Position + avg * (dist / 2000 * Aimbot.PredictionMultiplier)
-    end
-    local function aimAt(part, dt)
-        if not part or not part.Parent then return false end
-        local predicted = predict(part)
-        if Aimbot.UsePIDController then
-            local screenPos = _Camera:WorldToViewportPoint(predicted)
-            local mouse = _UserInput:GetMouseLocation()
-            local dx = screenPos.X - mouse.X
-            local dy = screenPos.Y - mouse.Y
-            if Aimbot.AimRandomization then
-                local r = Aimbot.RandomizationMin + math.random() * (Aimbot.RandomizationMax - Aimbot.RandomizationMin)
-                dx = dx * r; dy = dy * r
-            end
-            local pc = math.clamp(pitchPID:calculate(0, dy), -2, 2)
-            local yc = math.clamp(yawPID:calculate(0, dx), -2, 2)
-            _Camera.CFrame = _Camera.CFrame * CFrame.Angles(math.rad(-pc * 0.01), math.rad(-yc * 0.01), 0)
-        else
-            local goal = CFrame.lookAt(_Camera.CFrame.Position, predicted)
-            if Aimbot.SmoothingEnabled then
-                local dist = (_Camera.CFrame.Position - part.Position).Magnitude
-                local norm = math.clamp((dist - 10) / 290, 0, 1)
-                local smooth = Aimbot.SmoothingFactor * (1 - norm * 0.5)
-                if Aimbot.AimRandomization then
-                    smooth = smooth * (Aimbot.RandomizationMin + math.random() * (Aimbot.RandomizationMax - Aimbot.RandomizationMin))
-                end
-                _Camera.CFrame = _Camera.CFrame:Lerp(goal, math.clamp(1 - (1 - smooth)^(60 * dt), 0, 1))
-            else
-                _Camera.CFrame = goal
-            end
-        end
-        return true
-    end
-    local function setESP(part, col)
-        if not part or not part.Parent then return end
-        if Aimbot.ESPObjects[part] then Aimbot.ESPObjects[part].Color3 = col; return end
-        local box = Instance.new("BoxHandleAdornment")
-        box.Adornee = part; box.AlwaysOnTop = true; box.ZIndex = 10
-        box.Size = part.Size; box.Color3 = col; box.Transparency = 0.4
-        box.Parent = part
-        Aimbot.ESPObjects[part] = box
-    end
-    local function clearESP(part)
-        if part then
-            if Aimbot.ESPObjects[part] then pcall(function() Aimbot.ESPObjects[part]:Destroy() end) Aimbot.ESPObjects[part] = nil end
-        else
-            for _, v in pairs(Aimbot.ESPObjects) do pcall(function() v:Destroy() end) end
-            Aimbot.ESPObjects = {}
-        end
-    end
-    local function getPartUnderCursor()
-        local mouse = _UserInput:GetMouseLocation()
-        local ray = _Camera:ViewportPointToRay(mouse.X, mouse.Y)
-        local params = RaycastParams.new()
-        params.FilterType = Enum.RaycastFilterType.Blacklist
-        params.FilterDescendantsInstances = {_LocalPlayer.Character, _Camera}
-        params.IgnoreWater = true
-        local result = workspace:Raycast(ray.Origin, ray.Direction * DeleteTool.MaxDistance, params)
-        if result and result.Instance then
-            if DeleteTool.IgnorePlayers then
-                local m = result.Instance:FindFirstAncestorOfClass("Model")
-                if m and m:FindFirstChild("Humanoid") then return nil end
-            end
-            if DeleteTool.IgnoreTerrain and result.Instance:IsA("Terrain") then return nil end
-            return result.Instance
-        end
-    end
-    local function doDelete(part)
-        if not part then return DoNotif("Nothing under cursor.", 2) end
-        local target = part
-        if DeleteTool.DeleteMode == "Model" then target = part:FindFirstAncestorOfClass("Model") or part
-        elseif DeleteTool.DeleteMode == "Descendants" then target = part.Parent or part end
-        table.insert(DeleteTool.DeletedParts, { Name = target.Name })
-        pcall(function() target:Destroy() end)
-        DoNotif("Deleted: " .. target.Name, 2)
-    end
-    if Drawing and typeof(Drawing.new) == "function" then
-        Aimbot.FOVCircle = Drawing.new("Circle")
-        Aimbot.FOVCircle.Visible = false
-        Aimbot.FOVCircle.Thickness = 0.5
-        Aimbot.FOVCircle.NumSides = 64
-        Aimbot.FOVCircle.Color = Color3.fromRGB(255, 255, 255)
-        Aimbot.FOVCircle.Transparency = 0.6
-        Aimbot.FOVCircle.Filled = false
-    end
-    local _aimbotConnections = {}
-    table.insert(_aimbotConnections, _RunService.RenderStepped:Connect(function(dt)
-        if Aimbot.FOVCircle then
-            Aimbot.FOVCircle.Position = _UserInput:GetMouseLocation()
-            Aimbot.FOVCircle.Radius = Aimbot.FOVRadius
-            Aimbot.FOVCircle.Visible = Aimbot.ShowFOVCircle and Aimbot.Enabled and Aimbot.IsAiming
-        end
-        updateTargetIndex()
-        if Aimbot.Enabled and Aimbot.IsAiming then
-            local model, part = getTarget()
-            if model ~= Aimbot.CurrentTarget then pitchPID:reset(); yawPID:reset() end
-            Aimbot.CurrentTarget = model
-            if model and part then
-                if aimAt(part, dt) then setESP(part, Color3.fromRGB(255, 80, 80)) else clearESP() end
-                for p in pairs(Aimbot.ESPObjects) do if p ~= part then clearESP(p) end end
-            else
-                clearESP(); Aimbot.VelocityHistory = {}; pitchPID:reset(); yawPID:reset()
-            end
-        else
-            Aimbot.CurrentTarget = nil; Aimbot.VelocityHistory = {}
-            clearESP(); pitchPID:reset(); yawPID:reset()
-        end
-        if DeleteTool.Enabled and DeleteTool.ShowHighlight then
-            local p = getPartUnderCursor()
-            if p then
-                if DeleteTool.CurrentHighlight then pcall(function() DeleteTool.CurrentHighlight:Destroy() end) end
-                local hl = Instance.new("Highlight")
-                hl.Adornee = p; hl.FillColor = Color3.fromRGB(255,0,0)
-                hl.FillTransparency = 0.5; hl.OutlineTransparency = 0
-                hl.Parent = p; DeleteTool.CurrentHighlight = hl
-            elseif DeleteTool.CurrentHighlight then
-                pcall(function() DeleteTool.CurrentHighlight:Destroy() end)
-                DeleteTool.CurrentHighlight = nil
-            end
-        end
-    end))
-    table.insert(_aimbotConnections, _UserInput.InputBegan:Connect(function(input, gp)
-        if gp then return end
-        if DeleteTool.Enabled and input.KeyCode == DeleteTool.DeleteBind then doDelete(getPartUnderCursor()) end
-        if Aimbot.Enabled and input.UserInputType == Aimbot.ToggleKey then Aimbot.IsAiming = true end
-    end))
-    table.insert(_aimbotConnections, _UserInput.InputEnded:Connect(function(input)
-        if input.UserInputType == Aimbot.ToggleKey then
-            Aimbot.IsAiming = false; clearESP(); pitchPID:reset(); yawPID:reset()
-        end
-    end))
-    updateTargetIndex(true)
-    local AB = Window:CreateTab({ Name = "Aimbot", Icon = "gps_fixed", ImageSource = "Material", ShowTitle = true })
-    AB:CreateSection("Controls")
-    AB:CreateToggle({ Name = "Enable Aimbot", Description = "Hold RMB to aim",
-        CurrentValue = true, Callback = function(v)
-            Aimbot.Enabled = v
-            if not v then Aimbot.IsAiming = false; clearESP() end
-            DoNotif("Aimbot: " .. (v and "ON" or "OFF"), 2)
-        end }, "luna_ab_enabled")
-    AB:CreateLabel({ Text = " Hold Right Mouse Button to lock on", Style = 3 })
-    AB:CreateSlider({ Name = "FOV Radius", Range = {50,500}, Increment = 5, CurrentValue = 120, Suffix = "px",
-        Callback = function(v) Aimbot.FOVRadius = v end }, "luna_ab_fov")
-    AB:CreateSlider({ Name = "Smoothness", Range = {0.05,1.0}, Increment = 0.01, CurrentValue = 0.6,
-        Callback = function(v) Aimbot.SmoothingFactor = v end }, "luna_ab_smooth")
-    AB:CreateDropdown({ Name = "Aim Part", Options = {"Head","UpperTorso","HumanoidRootPart","Torso","LowerTorso"},
-        CurrentOption = {"HumanoidRootPart"}, MultipleOptions = false,
-        Callback = function(v) Aimbot.AimPart = type(v)=="table" and v[1] or v end }, "luna_ab_part")
-    AB:CreateSection("Checks")
-    AB:CreateToggle({ Name = "Ignore Team", Description = "Skip teammates", CurrentValue = false,
-        Callback = function(v) Aimbot.IgnoreTeam = v end }, "luna_ab_team")
-    AB:CreateToggle({ Name = "Wall Check", Description = "Only target visible players", CurrentValue = false,
-        Callback = function(v) Aimbot.WallCheckEnabled = v end }, "luna_ab_wall")
-    AB:CreateSection("Advanced")
-    AB:CreateToggle({ Name = "Hitbox Priority", Description = "Auto-pick best visible hitbox", CurrentValue = true,
-        Callback = function(v) Aimbot.HitboxPriority = v end }, "luna_ab_hbp")
-    AB:CreateToggle({ Name = "Sticky Target", Description = "Maintain lock on current target", CurrentValue = true,
-        Callback = function(v) Aimbot.StickyTarget = v end }, "luna_ab_sticky")
-    AB:CreateToggle({ Name = "Prediction", Description = "Lead moving targets", CurrentValue = true,
-        Callback = function(v) Aimbot.PredictionEnabled = v end }, "luna_ab_pred")
-    AB:CreateSlider({ Name = "Prediction Multiplier", Range = {0.1,3.0}, Increment = 0.1, CurrentValue = 1.0,
-        Callback = function(v) Aimbot.PredictionMultiplier = v end }, "luna_ab_predmult")
-    AB:CreateToggle({ Name = "PID Controller", Description = "Human-like aim movement (buggy)", CurrentValue = false,
-        Callback = function(v)
-            Aimbot.UsePIDController = v
-            if v then pitchPID:reset(); yawPID:reset() end
-            DoNotif("PID: " .. (v and "ON" or "OFF"), 2)
-        end }, "luna_ab_pid")
-    AB:CreateToggle({ Name = "Advanced Scoring", Description = "Multi-factor target priority", CurrentValue = true,
-        Callback = function(v) Aimbot.UseAdvancedScoring = v end }, "luna_ab_scoring")
-    AB:CreateToggle({ Name = "Aim Randomization", Description = "Slight randomness for realism", CurrentValue = false,
-        Callback = function(v) Aimbot.AimRandomization = v end }, "luna_ab_rand")
-    AB:CreateSection("Visuals")
-    AB:CreateToggle({ Name = "Show FOV Circle", Description = "Draw FOV ring while aiming", CurrentValue = true,
-        Callback = function(v) Aimbot.ShowFOVCircle = v end }, "luna_ab_fovcircle")
-    AB:CreateColorPicker({ Name = "FOV Color", Color = Color3.fromRGB(255,255,255),
-        Callback = function(c) if Aimbot.FOVCircle then Aimbot.FOVCircle.Color = c end end }, "luna_ab_fovcol")
-    local DT = Window:CreateTab({ Name = "Delete Tool", Icon = "delete", ImageSource = "Material", ShowTitle = true })
-    DT:CreateSection("Delete Tool")
-    DT:CreateToggle({ Name = "Enable", Description = "Activate part deletion", CurrentValue = true,
-        Callback = function(v) DeleteTool.Enabled = v; DoNotif("Delete Tool: " .. (v and "ON" or "OFF"), 2) end }, "luna_dt_enabled")
-    DT:CreateLabel({ Text = " Press keybind to delete part under cursor", Style = 3 })
-    DT:CreateKeybind({ Name = "Delete Keybind", CurrentKeybind = "V", HoldToInteract = false,
-        Callback = function(k)
-            local ok, val = pcall(function() return Enum.KeyCode[k] end)
-            if ok then DeleteTool.DeleteBind = val; DoNotif("Delete key: " .. k, 2) end
-        end }, "luna_dt_bind")
-    DT:CreateDropdown({ Name = "Delete Mode", Options = {"Part","Model","Descendants"},
-        CurrentOption = {"Part"}, MultipleOptions = false,
-        Callback = function(v) DeleteTool.DeleteMode = type(v)=="table" and v[1] or v end }, "luna_dt_mode")
-    DT:CreateSection("Options")
-    DT:CreateSlider({ Name = "Max Distance", Range = {50,2000}, Increment = 10, CurrentValue = 500, Suffix = "st",
-        Callback = function(v) DeleteTool.MaxDistance = v end }, "luna_dt_dist")
-    DT:CreateToggle({ Name = "Ignore Players", CurrentValue = true,
-        Callback = function(v) DeleteTool.IgnorePlayers = v end }, "luna_dt_igplr")
-    DT:CreateToggle({ Name = "Ignore Terrain", CurrentValue = true,
-        Callback = function(v) DeleteTool.IgnoreTerrain = v end }, "luna_dt_igterr")
-    DT:CreateToggle({ Name = "Show Highlight", Description = "Red outline on target part", CurrentValue = false,
-        Callback = function(v) DeleteTool.ShowHighlight = v end }, "luna_dt_hl")
-    DT:CreateSection("History")
-    local dtHistLabel = DT:CreateLabel({ Text = "Deleted: 0 parts", Style = 1 })
-    DT:CreateButton({ Name = "Clear History", Callback = function()
-        DeleteTool.DeletedParts = {}
-        pcall(function() dtHistLabel:Set("Deleted: 0 parts") end)
-        DoNotif("History cleared.", 2)
-    end })
-    table.insert(_aimbotConnections, game:GetService("RunService").Heartbeat:Connect(function()
-        pcall(function() dtHistLabel:Set("Deleted: " .. #DeleteTool.DeletedParts .. " parts") end)
-    end))
-    local Settings = Window:CreateTab({ Name = "Settings", Icon = "settings", ImageSource = "Material", ShowTitle = true })
-    local Poison = Window:CreateTab({ Name = "Mod Poison", Icon = "bug_report", ImageSource = "Material", ShowTitle = true })
-    local Info = Window:CreateTab({ Name = "Info", Icon = "info", ImageSource = "Material", ShowTitle = true })
-    Info:CreateSection("Game")
-    local _MPS = game:GetService("MarketplaceService")
-    local _gameNameLabel    = Info:CreateLabel({ Text = "Game: fetching...", Style = 1 })
-    local _placeIdLabel     = Info:CreateLabel({ Text = "Place ID: " .. tostring(game.PlaceId), Style = 2 })
-    local _jobIdLabel       = Info:CreateLabel({ Text = "Job ID: " .. tostring(game.JobId), Style = 2 })
-    local _placeVerLabel    = Info:CreateLabel({ Text = "Version: " .. tostring(game.PlaceVersion), Style = 2 })
-    local _serverSizeLabel  = Info:CreateLabel({ Text = "Server Players: ...", Style = 2 })
-    local _pingLabel        = Info:CreateLabel({ Text = "Ping: ...", Style = 2 })
-    local _fpsInfoLabel     = Info:CreateLabel({ Text = "FPS: ...", Style = 2 })
-    task.spawn(function()
-        local ok, info = pcall(function()
-            return _MPS:GetProductInfo(game.PlaceId, Enum.InfoType.Asset)
-        end)
-        pcall(function()
-            _gameNameLabel:Set("Game: " .. (ok and info and info.Name or "Unknown"))
-        end)
-    end)
-    Info:CreateSection("You")
-    local _lpNameLabel      = Info:CreateLabel({ Text = "Name: " .. LocalPlayer.Name, Style = 1 })
-    local _lpDisplayLabel   = Info:CreateLabel({ Text = "Display: " .. LocalPlayer.DisplayName, Style = 2 })
-    local _lpIdLabel        = Info:CreateLabel({ Text = "User ID: " .. tostring(LocalPlayer.UserId), Style = 2 })
-    local _lpAccAgeLabel    = Info:CreateLabel({ Text = "Account Age: " .. tostring(LocalPlayer.AccountAge) .. " days", Style = 2 })
-    local _lpTeamLabel      = Info:CreateLabel({ Text = "Team: None", Style = 2 })
-    local _lpHealthLabel    = Info:CreateLabel({ Text = "Health: ...", Style = 2 })
-    local _lpSpeedLabel     = Info:CreateLabel({ Text = "WalkSpeed: ...", Style = 2 })
-    local _lpPosLabel       = Info:CreateLabel({ Text = "Position: ...", Style = 2 })
-    Info:CreateSection("Players In Server")
-    local _playerCountLabel = Info:CreateLabel({ Text = "Count: " .. tostring(#_Players:GetPlayers()), Style = 1 })
-    local _playerListLabel  = Info:CreateLabel({ Text = "...", Style = 2 })
-    Info:CreateSection("Copy")
-    Info:CreateButton({ Name = "Copy Place ID", Description = "Copy to clipboard",
-        Callback = function()
-            if setclipboard then setclipboard(tostring(game.PlaceId)); DoNotif("Copied Place ID", 2)
-            else DoNotif("setclipboard not supported.", 2) end
-        end })
-    Info:CreateButton({ Name = "Copy Job ID", Description = "Copy server Job ID",
-        Callback = function()
-            if setclipboard then setclipboard(tostring(game.JobId)); DoNotif("Copied Job ID", 2)
-            else DoNotif("setclipboard not supported.", 2) end
-        end })
-    Info:CreateButton({ Name = "Copy User ID", Description = "Copy your User ID",
-        Callback = function()
-            if setclipboard then setclipboard(tostring(LocalPlayer.UserId)); DoNotif("Copied User ID", 2)
-            else DoNotif("setclipboard not supported.", 2) end
-        end })
-    Info:CreateButton({ Name = "Copy Position", Description = "Copy your current XYZ",
-        Callback = function()
-            local char = LocalPlayer.Character
-            local hrp = char and char:FindFirstChild("HumanoidRootPart")
-            if hrp and setclipboard then
-                local p = hrp.Position
-                local str = string.format("%.2f, %.2f, %.2f", p.X, p.Y, p.Z)
-                setclipboard(str); DoNotif("Copied: " .. str, 2)
-            else DoNotif("No character / setclipboard not supported.", 2) end
-        end })
-    local _infoUpdateAccum = 0
-    table.insert(_aimbotConnections, _RunService.Heartbeat:Connect(function(dt)
-        _infoUpdateAccum = _infoUpdateAccum + dt
-        if _infoUpdateAccum < 0.5 then return end
-        _infoUpdateAccum = 0
-        pcall(function()
-            local stats = game:GetService("Stats")
-            local ping = stats.Network.ServerStatsItem["Data Ping"]:GetValue()
-            local fps = math.floor(1 / dt)
-            _pingLabel:Set("Ping: " .. math.floor(ping) .. " ms")
-            _fpsInfoLabel:Set("FPS: " .. fps)
-            _serverSizeLabel:Set("Server Players: " .. tostring(#_Players:GetPlayers()) .. " / " .. tostring(_Players.MaxPlayers))
-        end)
-        pcall(function()
-            local char = LocalPlayer.Character
-            local hum = char and char:FindFirstChildOfClass("Humanoid")
-            local hrp = char and char:FindFirstChild("HumanoidRootPart")
-            if hum then
-                _lpHealthLabel:Set(string.format("Health: %.1f / %.1f", hum.Health, hum.MaxHealth))
-                _lpSpeedLabel:Set("WalkSpeed: " .. tostring(hum.WalkSpeed))
-            end
-            if hrp then
-                local p = hrp.Position
-                _lpPosLabel:Set(string.format("Position: %.1f, %.1f, %.1f", p.X, p.Y, p.Z))
-            end
-            _lpTeamLabel:Set("Team: " .. (LocalPlayer.Team and LocalPlayer.Team.Name or "None"))
-        end)
-        pcall(function()
-            local plrs = _Players:GetPlayers()
-            _playerCountLabel:Set("Count: " .. tostring(#plrs))
-            local names = {}
-            for _, p in ipairs(plrs) do
-                local char = p.Character
-                local hum = char and char:FindFirstChildOfClass("Humanoid")
-                local hp = hum and string.format("%.0f hp", hum.Health) or "dead"
-                table.insert(names, p.Name .. " [" .. hp .. "]")
-            end
-            _playerListLabel:Set(table.concat(names, "\n"))
-        end)
-    end))
-    Poison:CreateSection("require() Hooks")
-    Poison:CreateToggle({ Name = "Hook require()", Description = "Log all require() calls to console",
-        CurrentValue = false, Callback = function(v)
-            if v then
-                if getgenv().__PoisonHook then
-                    return DoNotif("Hook already active.", 2)
-                end
-                local oldRequire = require
-                getgenv().__PoisonHook = oldRequire
-                getgenv().require = function(mod)
-                    local ok, result = pcall(oldRequire, mod)
-                    local name = pcall(function() return mod.Name end) and mod.Name or tostring(mod)
-                    if ok then
-                        print("[Poison] require -> " .. tostring(name))
-                        return result
-                    else
-                        warn("[Poison] require FAILED -> " .. tostring(name))
-                        return {}
-                    end
-                end
-                DoNotif("require() hook active. Check F9.", 2)
-            else
-                if getgenv().__PoisonHook then
-                    getgenv().require = getgenv().__PoisonHook
-                    getgenv().__PoisonHook = nil
-                    DoNotif("require() restored.", 2)
-                end
-            end
-        end }, "luna_reqhook")
-    Poison:CreateDivider()
-    Poison:CreateSection("Module Patching")
-    Poison:CreateInput({ Name = "Target Module Name", Description = "Exact name of the ModuleScript to poison",
-        PlaceholderText = "e.g. DataStore2, RoundManager",
-        CurrentValue = "", Numeric = false, MaxCharacters = 64, Enter = true,
-        Callback = function(text)
-            getgenv().__PoisonTarget = text
-            DoNotif("Target set: " .. text, 2)
-        end }, "luna_poisontarget")
-    Poison:CreateButton({ Name = "Poison Target Module", Description = "Make require() return empty table for target",
-        Callback = function()
-            local target = getgenv().__PoisonTarget
-            if not target or target == "" then
-                return DoNotif("Set a target module name first.", 3)
-            end
-            if not getgenv().__PoisonHook then
-                -- hook if not already active
-                local oldRequire = require
-                getgenv().__PoisonHook = oldRequire
-                getgenv().require = function(mod)
-                    local name = ""
-                    pcall(function() name = mod.Name end)
-                    if name == getgenv().__PoisonTarget then
-                        warn("[Poison] Blocked: " .. name)
-                        return setmetatable({}, {
-                            __index    = function() return function() end end,
-                            __newindex = function() end,
-                            __call     = function() return {} end
-                        })
-                    end
-                    return oldRequire(mod)
-                end
-            end
-            DoNotif("Poisoned: " .. target .. " — returns blank proxy.", 3)
-        end })
-    Poison:CreateButton({ Name = "Restore require()", Description = "Unhook and restore original require",
-        Callback = function()
-            if getgenv().__PoisonHook then
-                getgenv().require = getgenv().__PoisonHook
-                getgenv().__PoisonHook = nil
-                getgenv().__PoisonTarget = nil
-                DoNotif("require() fully restored.", 2)
-            else
-                DoNotif("No hook active.", 2)
-            end
-        end })
-    Poison:CreateDivider()
-    Poison:CreateSection("Presets")
-    Poison:CreateButton({ Name = "Poison AntiCheat Modules", Description = "Blank common AC module names",
-        Callback = function()
-            local targets = {"AntiCheat", "Anticheat", "AC", "SecurityManager", "KickManager", "DetectionService"}
-            local oldRequire = getgenv().__PoisonHook or require
-            if not getgenv().__PoisonHook then getgenv().__PoisonHook = require end
-            local proxy = setmetatable({}, {
-                __index    = function() return function() end end,
-                __newindex = function() end,
-                __call     = function() return {} end
-            })
-            getgenv().require = function(mod)
-                local name = ""
-                pcall(function() name = mod.Name end)
-                for _, t in ipairs(targets) do
-                    if name == t then
-                        warn("[Poison] AC module blocked: " .. name)
-                        return proxy
-                    end
-                end
-                return oldRequire(mod)
-            end
-            DoNotif("AC preset active — " .. #targets .. " targets poisoned.", 3)
-        end })
-        
-    Settings:CreateInput({ Name = "Command Prefix", Description = "Change your prefix  (default: ;)",
-        PlaceholderText = "Single char e.g.  ;  !  .", CurrentValue = Prefix or ";",
-        Numeric = false, MaxCharacters = 1, Enter = true,
-        Callback = function(Text)
-            if Text and #Text == 1 then getgenv().Prefix = Text DoNotif("Prefix changed to: "..Text, 2)
-            else DoNotif("Prefix must be exactly one character.", 3) end
-        end }, "luna_prefix")
-    Settings:CreateDivider()
-    Settings:CreateSection("Appearance")
-    -- Each theme has three ColorSequence stops (start, mid, end) matching how
-    -- Luna.ThemeGradient works internally. Single-color themes just repeat one color.
-    local THEME_COLORS = {
-        ["Cyan Classic"]  = { Color3.fromRGB(0,   200, 255), Color3.fromRGB(0,   255, 220), Color3.fromRGB(0,   180, 255) },
-        ["Purple Dream"]  = { Color3.fromRGB(160, 60,  255), Color3.fromRGB(200, 100, 255), Color3.fromRGB(130, 50,  220) },
-        ["Neon Pink"]     = { Color3.fromRGB(255, 0,   120), Color3.fromRGB(255, 80,  180), Color3.fromRGB(220, 0,   100) },
-        ["Toxic Green"]   = { Color3.fromRGB(0,   220, 80),  Color3.fromRGB(50,  255, 100), Color3.fromRGB(0,   180, 60)  },
-        ["Blood Red"]     = { Color3.fromRGB(220, 20,  20),  Color3.fromRGB(255, 60,  40),  Color3.fromRGB(180, 10,  10)  },
-        ["Ocean Blue"]    = { Color3.fromRGB(20,  100, 255), Color3.fromRGB(50,  160, 255), Color3.fromRGB(10,  80,  220) },
-        ["Golden Sunset"] = { Color3.fromRGB(255, 160, 0),   Color3.fromRGB(255, 200, 50),  Color3.fromRGB(220, 120, 0)   },
-        ["Midnight"]      = { Color3.fromRGB(80,  80,  160), Color3.fromRGB(110, 110, 190), Color3.fromRGB(60,  60,  130) },
-        ["Monochrome"]    = { Color3.fromRGB(180, 180, 180), Color3.fromRGB(220, 220, 220), Color3.fromRGB(150, 150, 150) },
-        ["Crimson Gold"]  = { Color3.fromRGB(200, 20,  40),  Color3.fromRGB(255, 180, 0),   Color3.fromRGB(180, 10,  30)  },
-        ["Aqua Mint"]     = { Color3.fromRGB(0,   220, 180), Color3.fromRGB(80,  255, 200), Color3.fromRGB(0,   180, 150) },
-        ["Void Purple"]   = { Color3.fromRGB(60,  0,   120), Color3.fromRGB(130, 40,  200), Color3.fromRGB(40,  0,   90)  },
-    }
-    local themeNames = {}
-    for name in pairs(THEME_COLORS) do table.insert(themeNames, name) end
-    table.sort(themeNames)
-    local savedTheme = "Cyan Classic"
-    pcall(function()
-        if readfile and isfile("ZukaPanel_Theme.txt") then
-            local v = readfile("ZukaPanel_Theme.txt")
-            if THEME_COLORS[v] then savedTheme = v end
-        end
-    end)
-    -- Applies the theme immediately by writing Luna.ThemeGradient and pinging
-    -- LunaUI.ThemeRemote — every slider/toggle subscribed to that remote will
-    -- re-read Luna.ThemeGradient and update its UIGradient colour on the spot.
-    local function applyLunaTheme(choice)
-        local cols = THEME_COLORS[choice]
-        if not cols then return end
-        pcall(function()
-            Luna.ThemeGradient = ColorSequence.new{
-                ColorSequenceKeypoint.new(0.00, cols[1]),
-                ColorSequenceKeypoint.new(0.50, cols[2]),
-                ColorSequenceKeypoint.new(1.00, cols[3]),
-            }
-            local LunaUI = (gethui and gethui():FindFirstChild("Luna UI"))
-                        or game:GetService("CoreGui"):FindFirstChild("Luna UI")
-            if LunaUI and LunaUI:FindFirstChild("ThemeRemote") then
-                LunaUI.ThemeRemote.Value = not LunaUI.ThemeRemote.Value
-            end
-        end)
-    end
-    -- Apply saved theme immediately when the panel loads
-    applyLunaTheme(savedTheme)
-    Settings:CreateDropdown({ Name = "Theme Preset", Description = "Changes live instantly",
-        Options = themeNames,
-        CurrentOption = {savedTheme},
-        MultipleOptions = false,
-        Callback = function(selected)
-            local choice = type(selected) == "table" and selected[1] or selected
-            if not THEME_COLORS[choice] then return DoNotif("Unknown theme.", 2) end
-            applyLunaTheme(choice)
-            pcall(function()
-                if writefile then writefile("ZukaPanel_Theme.txt", choice) end
-            end)
-            DoNotif("Theme: " .. choice, 2)
-        end }, "luna_theme")
-    Settings:CreateDivider()
-    Settings:CreateSection("UI")
-    Settings:CreateKeybind({ Name = "Toggle UI Keybind", Description = "Keybind to show/hide the panel",
-        CurrentKeybind = "RightShift", HoldToInteract = false,
-        Callback = function(keybind)
-            DoNotif("UI toggle key set to: " .. tostring(keybind), 2)
-        end }, "luna_togglekey")
-    Settings:CreateButton({ Name = "Clear Saved Settings", Description = "Wipe all saved Luna flags",
-        Callback = function()
-            if Window and Window.ClearFlags then
-                Window:ClearFlags()
-                DoNotif("Saved flags cleared. Rejoin to reset UI state.", 3)
-            else
-                -- fallback: manually nil known flags
-                local flags = {"luna_fly","luna_noclip","luna_infjump","luna_antireset","luna_antisit",
-                    "luna_ws","luna_flyspd","luna_grav","luna_esp","luna_chams","luna_fb",
-                    "luna_nofog","luna_ll","luna_fps","luna_fov","luna_afk","luna_fp",
-                    "luna_aa","luna_atp","luna_bdp","luna_bgp","luna_rad","luna_chatfix"}
-                DoNotif("Flags reset (" .. #flags .. " entries). Rejoin to apply.", 3)
-            end
-        end })
-    Settings:CreateButton({ Name = "Credits", Description = "By @OverZuka",
-        Callback = function() DoNotif("We're so back!'", 3) end })
-    -- ░░ SCRIPTS TAB ░░
-    local Scripts = Window:CreateTab({ Name = "Scripts", Icon = "code", ImageSource = "Material", ShowTitle = true })
-    Scripts:CreateSection("Extras")
-    Scripts:CreateLabel({ Text = "These will change the most.", Style = 3 })
-    Scripts:CreateDivider()
-
-    local function RunScript(url)
-        if not url or url == "" then DoNotif("No URL set for this slot.", 2) return end
-        local ok, err = pcall(function() loadstring(game:HttpGet(url, true))() end)
-        if not ok then DoNotif("Script error: " .. tostring(err), 3) end
-    end
-
-    Scripts:CreateSection("Adonis Counter v2")
-    local Script1_URL = "https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/counter.lua"
-    Scripts:CreateInput({ Name = "1", PlaceholderText = "OverZuka", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script1_URL = v end }, "luna_script1_url")
-    Scripts:CreateButton({ Name = "Execute", Description = "Executes an anticheat counter for adonis", Callback = function() RunScript(Script1_URL) end })
-
-    Scripts:CreateSection("WRD Deobfuscator WIP")
-    local Script2_URL = "https://pastebin.com/raw/7Yw5BCnQ"
-    Scripts:CreateInput({ Name = "Deobfuscator", PlaceholderText = "Can Cause Crashes", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script2_URL = v end }, "luna_script2_url")
-    Scripts:CreateButton({ Name = "Execute", Description = "Loads Zuka's Lifter.'", Callback = function() RunScript(Script2_URL) end })
-
-    Scripts:CreateSection("Updated SimpleSpy")
-    local Script3_URL = "https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/executor_scripts/SimpleSpyRework.lua"
-    Scripts:CreateInput({ Name = "Remote Spy", PlaceholderText = "Everyones favorite", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script3_URL = v end }, "luna_script3_url")
-    Scripts:CreateButton({ Name = "Execute", Description = "Working as of now", Callback = function() RunScript(Script3_URL) end })
-
-    Scripts:CreateSection("Cframe Spoofer")
-    local Script4_URL = "https://raw.githubusercontent.com/zukatech1/Main-Repo/refs/heads/main/Cframe.lua"
-    Scripts:CreateInput({ Name = "Position/Hitbox Changer", PlaceholderText = "A better Desync", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script4_URL = v end }, "luna_script4_url")
-    Scripts:CreateButton({ Name = "Execute", Description = "Pretty fun to use.", Callback = function() RunScript(Script4_URL) end })
-
-    Scripts:CreateSection("Part Flinger V2 FE")
-    local Script5_URL = "https://pastebin.com/raw/QHKAksQz"
-    Scripts:CreateInput({ Name = "Ultimate Fling WIP", PlaceholderText = "Might be buggy", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script5_URL = v end }, "luna_script5_url")
-    Scripts:CreateButton({ Name = " Execute", Description = "Really FUN to use", Callback = function() RunScript(Script5_URL) end })
-
-    Scripts:CreateSection("Placeholder")
-    local Script6_URL = ""
-    Scripts:CreateInput({ Name = "Script 6 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script6_URL = v end }, "luna_script6_url")
-    Scripts:CreateButton({ Name = "  Run Script 6", Description = "Executes loadstring on Script 6 URL", Callback = function() RunScript(Script6_URL) end })
-
-    Scripts:CreateSection("Placeholder")
-    local Script7_URL = ""
-    Scripts:CreateInput({ Name = "Script 7 URL", PlaceholderText = "Paste raw script URL here", CurrentValue = "", Numeric = false, Enter = true, Callback = function(v) Script7_URL = v end }, "luna_script7_url")
-    Scripts:CreateButton({ Name = "  Run Script 7", Description = "Executes loadstring on Script 7 URL", Callback = function() RunScript(Script7_URL) end })
-
-    Scripts:CreateDivider()
-    Scripts:CreateButton({ Name = "Run All? Will crash your game", Description = "Runs every slot that has a URL set",
-        Callback = function()
-            local urls = {Script1_URL,Script2_URL,Script3_URL,Script4_URL,Script5_URL,
-                          Script6_URL,Script7_URL}
-            local ran = 0
-            for _, url in ipairs(urls) do
-                if url and url ~= "" then RunScript(url) ran = ran + 1 end
-            end
-            DoNotif("Ran " .. ran .. " script(s).", 2)
-        end })
-
-        local RC = Window:CreateTab({ Name = "Reach", Icon = "open_with", ImageSource = "Material", ShowTitle = true })
-    RC:CreateSection("Tool Reach")
-    RC:CreateLabel({ Text = " Equip a tool first, then apply reach", Style = 3 })
-    RC:CreateToggle({ Name = "Reach GUI", Description = "Open the part selector GUI",
-        CurrentValue = false, Callback = function(v)
-            if Modules.ReachController then
-                if v then Modules.ReachController:Enable()
-                else Modules.ReachController:Disable() end
-            else DoNotif("ReachController not found.", 2) end
-        end }, "luna_reach_gui")
-    RC:CreateDivider()
-    RC:CreateSection("Quick Apply")
-    RC:CreateSlider({ Name = "Reach Size", Description = "Size to apply on next set",
-        Range = {1, 200}, Increment = 1, CurrentValue = 20, Suffix = " st",
-        Callback = function(v)
-            getgenv().__ReachSize = v
-        end }, "luna_reach_size")
-    RC:CreateDropdown({ Name = "Reach Type", Description = "Directional = length only, Box = all axes",
-        Options = {"directional", "box"}, CurrentOption = {"directional"}, MultipleOptions = false,
-        Callback = function(v)
-            getgenv().__ReachType = type(v) == "table" and v[1] or v
-        end }, "luna_reach_type")
-    RC:CreateButton({ Name = "Apply to Equipped Tool", Description = "Opens part selector with current settings",
-        Callback = function()
-            local char = LocalPlayer.Character
-            if not char then return DoNotif("No character.", 2) end
-            local tool = char:FindFirstChildOfClass("Tool")
-            if not tool then return DoNotif("No tool equipped.", 2) end
-            local size = getgenv().__ReachSize or 20
-            local rtype = getgenv().__ReachType or "directional"
-            if Modules.Reach and Modules.Reach.Apply then
-                Modules.Reach:Apply(rtype, size)
-            elseif Modules.ReachController then
-                Modules.ReachController:Enable()
-                DoNotif("Using legacy ReachController — set size in the GUI.", 2)
-            else
-                DoNotif("No reach module found.", 2)
-            end
-        end })
-    RC:CreateButton({ Name = "Reset Reach", Description = "Restore tool to original size",
-        Callback = function()
-            if Modules.Reach and Modules.Reach.Reset then
-                Modules.Reach:Reset()
-            elseif Modules.ReachController then
-                Modules.ReachController:Disable()
-            else
-                DoNotif("No reach module found.", 2)
-            end
-        end })
-    RC:CreateDivider()
-    RC:CreateSection("Status")
-    local _reachStatusLabel = RC:CreateLabel({ Text = "Active: No", Style = 2 })
-    local _reachToolLabel   = RC:CreateLabel({ Text = "Tool: None", Style = 2 })
-    local _reachPartLabel   = RC:CreateLabel({ Text = "Part: None", Style = 2 })
-    table.insert(_aimbotConnections, _RunService.Heartbeat:Connect(function()
-        pcall(function()
-            if Modules.Reach and Modules.Reach.State then
-                local s = Modules.Reach.State
-                _reachStatusLabel:Set("Active: " .. (s.IsEnabled and "Yes" or "No"))
-                _reachToolLabel:Set("Tool: " .. (s.PersistentToolName or "None"))
-                _reachPartLabel:Set("Part: " .. (s.PersistentPartName or "None"))
-            elseif Modules.ReachController then
-                _reachStatusLabel:Set("Active: " .. (Modules.ReachController.State and Modules.ReachController.State.IsEnabled and "Yes" or "Unknown"))
-                _reachToolLabel:Set("Tool: via ReachController GUI")
-                _reachPartLabel:Set("Part: via ReachController GUI")
-            end
-        end)
-    end))
-end)]]
 
 --loadstring(game:HttpGet(" "))()
