@@ -7,6 +7,7 @@ local playerGui = plr:WaitForChild("PlayerGui")
 local workspace = game:GetService("Workspace")
 local CFG = {
 	Title = "Better Auto Farmer",
+	BossesFolder = "Bosses",   -- change this if the folder has a different name
 	RefreshRate = 1.5,
 	PanelW = 320,
 	ItemHeight = 50,
@@ -71,7 +72,6 @@ local cycleConn = nil
 local cycleIndex = 1
 local cycleTimer = 0
 local alertsEnabled = false
-local alertWatchConn = nil
 local orbitAngle = 0
 local reattachWatchConn = nil
 local currentItems = {}
@@ -134,7 +134,7 @@ local function getHpColor(ratio)
 	end
 end
 local function getBossChildren()
-	local folder = workspace:FindFirstChild("Bosses")
+	local folder = workspace:FindFirstChild(CFG.BossesFolder)
 	return folder and folder:GetChildren() or {}
 end
 local function getFilteredSorted()
@@ -161,8 +161,15 @@ local function getFilteredSorted()
 end
 local function addEsp(bossObj)
 	local name = bossObj.Name
+	local root = getRootPart(bossObj)
+	-- If entry exists but adornee is dead (boss respawned), remove and re-add
 	if espHighlights[name] then
-		return
+		local entry = espHighlights[name]
+		local h = entry.highlight
+		if h and h.Parent and h.Adornee and h.Adornee.Parent then
+			return -- still valid
+		end
+		removeEsp(name) -- stale, rebuild below
 	end
 	-- Highlight (fill + outline glow)
 	local h = Instance.new("Highlight")
@@ -177,13 +184,13 @@ local function addEsp(bossObj)
 	local root = getRootPart(bossObj)
 	local bb = Instance.new("BillboardGui")
 	bb.Name = "_BossPanelESPLabel"
-	bb.Size = UDim2.new(0, 120, 0, 40)
+	bb.Size = UDim2.new(0, 130, 0, 52)
 	bb.StudsOffset = Vector3.new(0, 4, 0)
 	bb.AlwaysOnTop = true
 	bb.Adornee = root or bossObj
 	bb.Parent = playerGui
 	local nameLbl = Instance.new("TextLabel")
-	nameLbl.Size = UDim2.new(1, 0, 0.6, 0)
+	nameLbl.Size = UDim2.new(1, 0, 0.5, 0)
 	nameLbl.BackgroundTransparency = 1
 	nameLbl.Text = name
 	nameLbl.TextColor3 = CFG.EspFill
@@ -198,8 +205,8 @@ local function addEsp(bossObj)
 	local hum = getHumanoid(bossObj)
 	local hpLbl = Instance.new("TextLabel")
 	hpLbl.Name = "_hpLbl"
-	hpLbl.Size = UDim2.new(1, 0, 0.4, 0)
-	hpLbl.Position = UDim2.new(0, 0, 0.6, 0)
+	hpLbl.Size = UDim2.new(0.6, 0, 0.3, 0)
+	hpLbl.Position = UDim2.new(0, 0, 0.5, 0)
 	hpLbl.BackgroundTransparency = 1
 	hpLbl.Text = hum and (math.floor(hum.Health) .. "/" .. math.floor(hum.MaxHealth)) or "?"
 	hpLbl.TextColor3 = hum and getHpColor(hum.MaxHealth > 0 and math.clamp(hum.Health/hum.MaxHealth,0,1) or 0) or CFG.SubTextColor
@@ -209,6 +216,21 @@ local function addEsp(bossObj)
 	hpLbl.TextStrokeColor3 = Color3.new(0, 0, 0)
 	hpLbl.ZIndex = 2
 	hpLbl.Parent = bb
+	-- Distance sub-label
+	local distLbl = Instance.new("TextLabel")
+	distLbl.Name = "_distLbl"
+	distLbl.Size = UDim2.new(0.4, 0, 0.3, 0)
+	distLbl.Position = UDim2.new(0.6, 0, 0.5, 0)
+	distLbl.BackgroundTransparency = 1
+	distLbl.Text = root and (tostring(getDistance(root)) .. " st") or "?"
+	distLbl.TextColor3 = Color3.fromRGB(100, 180, 255)
+	distLbl.Font = Enum.Font.Code
+	distLbl.TextSize = 10
+	distLbl.TextStrokeTransparency = 0
+	distLbl.TextStrokeColor3 = Color3.new(0, 0, 0)
+	distLbl.TextXAlignment = Enum.TextXAlignment.Right
+	distLbl.ZIndex = 2
+	distLbl.Parent = bb
 	espHighlights[name] = { highlight = h, billboard = bb }
 end
 local function removeEsp(name)
@@ -225,7 +247,11 @@ local function removeEsp(name)
 	end
 end
 local function clearAllEsp()
+	local names = {}
 	for name in pairs(espHighlights) do
+		table.insert(names, name)
+	end
+	for _, name in ipairs(names) do
 		removeEsp(name)
 	end
 end
@@ -336,13 +362,13 @@ local function doTP(targetRoot)
 	end)
 end
 local function stopReattachWatch()
-	_G._bossPanelReattachName = nil
 	if reattachWatchConn then
 		pcall(function()
 			reattachWatchConn:Disconnect()
 		end)
 		reattachWatchConn = nil
 	end
+	_G._bossPanelReattachName = nil
 end
 local function startReattachWatch(bossName)
 	_G._bossPanelReattachName = bossName
@@ -351,7 +377,7 @@ local function startReattachWatch(bossName)
 			reattachWatchConn:Disconnect()
 		end)
 	end
-	local folder = workspace:FindFirstChild("Bosses")
+	local folder = workspace:FindFirstChild(CFG.BossesFolder)
 	if not folder then
 		return
 	end
@@ -435,7 +461,7 @@ end
 local function startAlerts()
 	stopAlerts()
 	alertsEnabled = true
-	local folder = workspace:FindFirstChild("Bosses")
+	local folder = workspace:FindFirstChild(CFG.BossesFolder)
 	if not folder then
 		return
 	end
@@ -524,9 +550,11 @@ do
 	s.Parent = MiniBtn
 end
 local miniDragging, miniDragStart, miniStartPos = false, nil, nil
+local miniDidDrag = false
 MiniBtn.InputBegan:Connect(function(inp)
 	if inp.UserInputType == Enum.UserInputType.MouseButton1 then
 		miniDragging = true
+		miniDidDrag = false
 		miniDragStart = inp.Position
 		miniStartPos = MiniBtn.Position
 	end
@@ -1004,7 +1032,7 @@ local function makeItem(bossObj, layoutOrder)
 		nameXOff = 64
 	end
 	local nameBtn = Instance.new("TextButton")
-	nameBtn.Size = UDim2.new(1, -175, 0, 20)
+	nameBtn.Size = UDim2.new(1, -162, 0, 20)
 	nameBtn.Position = UDim2.new(0, nameXOff, 0, 4)
 	nameBtn.BackgroundTransparency = 1
 	nameBtn.Text = name
@@ -1026,8 +1054,9 @@ local function makeItem(bossObj, layoutOrder)
 	distLabel.TextXAlignment = Enum.TextXAlignment.Left
 	distLabel.ZIndex = 5
 	distLabel.Parent = row
+	-- HP bar: lives in left info zone, ends before button strip
 	local hpBg = Instance.new("Frame")
-	hpBg.Size = UDim2.new(1, -175, 0, 5)
+	hpBg.Size = UDim2.new(1, -162, 0, 5)
 	hpBg.Position = UDim2.new(0, 74, 0, 30)
 	hpBg.BackgroundColor3 = CFG.HpBarBg
 	hpBg.BorderSizePixel = 0
@@ -1050,10 +1079,14 @@ local function makeItem(bossObj, layoutOrder)
 	hpLabel.TextXAlignment = Enum.TextXAlignment.Left
 	hpLabel.ZIndex = 5
 	hpLabel.Parent = row
-	local tpBtn = makeBtn(row, "TP", CFG.BtnTP, -168, 34)
-	local attBtn = makeBtn(row, "ATT", CFG.BtnAttach, -130, 36)
-	local ignBtn = makeBtn(row, isIgnored and "UNIGN" or "IGN", isIgnored and CFG.BtnIgnoreON or CFG.BtnIgnore, -90, 44)
-	local snapBtn = makeBtn(row, "SN", Color3.fromRGB(50, 50, 65), -42, 36)
+	-- Button strip: 4 buttons packed into the right 156px, 6px gap from edge
+	-- Layout from right: [SN 30] [IGN 38] [ATT 34] [TP 30] with 4px gaps
+	-- Total = 30+4+38+4+34+4+30 = 144px, strip starts at 320-150 = 170
+	local tpBtn  = makeBtn(row, "TP",  CFG.BtnTP,     -152, 30)
+	local attBtn = makeBtn(row, "ATT", CFG.BtnAttach, -114, 34)
+	local ignBtn = makeBtn(row, isIgnored and "UNIGN" or "IGN",
+		isIgnored and CFG.BtnIgnoreON or CFG.BtnIgnore, -76, 38)
+	local snapBtn = makeBtn(row, "SN", Color3.fromRGB(50, 50, 65), -34, 28)
 	if _G._bossPanelAttachTarget and root and _G._bossPanelAttachTarget == root then
 		attBtn.BackgroundColor3 = cycleEnabled and CFG.CycleColor or CFG.BtnAttachON
 		attBtn.Text = cycleEnabled and "CYC" or "STOP"
@@ -1201,7 +1234,7 @@ refreshAll = function()
 			c:Destroy()
 		end
 	end
-	local folder = workspace:FindFirstChild("Bosses")
+	local folder = workspace:FindFirstChild(CFG.BossesFolder)
 	if not folder then
 		CountBadge.Text = "!"
 		CountBadge.BackgroundColor3 = Color3.fromRGB(180, 80, 40)
@@ -1307,7 +1340,7 @@ RunService.Heartbeat:Connect(function()
 			if bb and bb.Parent then
 				local hpLbl = bb:FindFirstChild("_hpLbl")
 				-- find the boss object to get fresh HP
-				local folder = workspace:FindFirstChild("Bosses")
+				local folder = workspace:FindFirstChild(CFG.BossesFolder)
 				local bossObj = folder and folder:FindFirstChild(name)
 				if bossObj and hpLbl then
 					local hum = getHumanoid(bossObj)
@@ -1315,6 +1348,11 @@ RunService.Heartbeat:Connect(function()
 						local ratio = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
 						hpLbl.Text = math.floor(hum.Health) .. "/" .. math.floor(hum.MaxHealth)
 						hpLbl.TextColor3 = getHpColor(ratio)
+					end
+					local distLbl = bb:FindFirstChild("_distLbl")
+					local root2 = getRootPart(bossObj)
+					if distLbl and root2 then
+						distLbl.Text = tostring(getDistance(root2)) .. " st"
 					end
 				end
 			end
@@ -1359,6 +1397,9 @@ UserInputService.InputChanged:Connect(function(inp)
 		end
 		if miniDragging then
 			local d = inp.Position - miniDragStart
+			if math.abs(d.X) > 3 or math.abs(d.Y) > 3 then
+				miniDidDrag = true
+			end
 			MiniBtn.Position = UDim2.new(
 				miniStartPos.X.Scale,
 				miniStartPos.X.Offset + d.X,
@@ -1376,7 +1417,8 @@ MinimizeBtn.MouseButton1Click:Connect(function()
 	MiniBtn.Position = MainFrame.Position
 end)
 MiniBtn.MouseButton1Click:Connect(function()
-	if miniDragging then
+	if miniDidDrag then
+		miniDidDrag = false
 		return
 	end
 	isMinimized = false
@@ -1543,7 +1585,7 @@ end)
 applyFx(CFG.FxMode)
 refreshAll()
 print(
-	string.format("[BossesPanel v4.0] Loaded — toggle key: %s | open panel to expand", tostring(CFG.ToggleKey.Name))
+	string.format("[BossesPanel v4.1] Loaded — toggle key: %s | open panel to expand", tostring(CFG.ToggleKey.Name))
 ) -- end
 
 
@@ -1565,6 +1607,7 @@ local function solveEquation(question)
 	q = q:gsub("[xX]", "*")
 	q = q:gsub("[%(%)%[%]]", "")
 	q = q:gsub("%s+", " "):match("^%s*(.-)%s*$")
+	-- tokenize into numbers and operators
 	local tokens = {}
 	for tok in q:gmatch("[%+%-%*/]?%s*%-?%d+%.?%d*") do
 		local op, num = tok:match("^([%+%-%*/])%s*(%-?%d+%.?%d*)$")
@@ -1578,31 +1621,38 @@ local function solveEquation(question)
 			end
 		end
 	end
-	if #tokens == 0 then
-		return nil
-	end
-	local result = tokens[1]
-	if type(result) ~= "number" then
-		return nil
-	end
+	if #tokens == 0 then return nil end
+	if type(tokens[1]) ~= "number" then return nil end
+	-- pass 1: resolve * and / in-place
 	local i = 2
 	while i <= #tokens do
 		local op = tokens[i]
-		local rhs = tokens[i + 1]
-		if type(op) ~= "string" or type(rhs) ~= "number" then
-			break
+		if op == "*" or op == "/" then
+			local lhs = tokens[i - 1]
+			local rhs = tokens[i + 1]
+			if type(lhs) ~= "number" or type(rhs) ~= "number" then break end
+			if op == "/" and rhs == 0 then return nil end
+			local val = op == "*" and lhs * rhs or lhs / rhs
+			-- replace the 3 slots (lhs, op, rhs) with the result
+			table.remove(tokens, i + 1)
+			table.remove(tokens, i)
+			tokens[i - 1] = val
+			-- don't advance i, recheck same position
+		else
+			i = i + 2
 		end
+	end
+	-- pass 2: resolve + and -
+	local result = tokens[1]
+	i = 2
+	while i <= #tokens do
+		local op = tokens[i]
+		local rhs = tokens[i + 1]
+		if type(op) ~= "string" or type(rhs) ~= "number" then break end
 		if op == "+" then
 			result = result + rhs
 		elseif op == "-" then
 			result = result - rhs
-		elseif op == "*" then
-			result = result * rhs
-		elseif op == "/" then
-			if rhs == 0 then
-				return nil
-			end
-			result = result / rhs
 		end
 		i = i + 2
 	end
