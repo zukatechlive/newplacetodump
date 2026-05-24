@@ -126,7 +126,7 @@ SC.Scale = 1;
 M_S.Parent = M;
 M_S.Thickness = 1;
 M_S.Transparency = 0.2;
-M_S.Color = Color3.fromRGB(0, 60, 60);});
+M_S.Color = Color3.fromRGB(0, 60, 60);
 T.Name = "T";
 T.Parent = M;
 T.BackgroundColor3 = Color3.fromRGB(14, 16, 20);
@@ -188,6 +188,16 @@ BTN_AUTO.Text = "AutoHop: Off";
 BTN_AUTO.TextColor3 = Color3.fromRGB(180, 195, 190);
 BTN_AUTO.TextSize = fontSizeSecondary;
 BTN_AUTO.LayoutOrder = 3;
+local BTN_FIND = Instance.new("TextButton");
+BTN_FIND.Name = "BTN_FIND";
+BTN_FIND.Parent = BH;
+BTN_FIND.BackgroundColor3 = Color3.fromRGB(16, 22, 22);
+BTN_FIND.Size = UDim2.new(0, 52, 0, buttonHeight);
+BTN_FIND.Font = Enum.Font.Code;
+BTN_FIND.Text = "FIND";
+BTN_FIND.TextColor3 = Color3.fromRGB(0, 200, 160);
+BTN_FIND.TextSize = fontSizeSecondary;
+BTN_FIND.LayoutOrder = 4;
 BTN_X.Name = "BTN_X";
 BTN_X.Parent = BH;
 BTN_X.BackgroundColor3 = Color3.fromRGB(160, 30, 40);
@@ -196,14 +206,14 @@ BTN_X.Font = Enum.Font.Code;
 BTN_X.Text = "X";
 BTN_X.TextColor3 = Color3.fromRGB(255, 255, 255);
 BTN_X.TextSize = fontSizeSecondary;
-BTN_X.LayoutOrder = 4;
+BTN_X.LayoutOrder = 5;
 BTN_X.BackgroundColor3 = Color3.fromRGB(160, 30, 40);
 BTN_X.Size = UDim2.new(0, buttonXWidth, 0, buttonHeight);
 BTN_X.Font = Enum.Font.Code;
 BTN_X.Text = "X";
 BTN_X.TextColor3 = Color3.fromRGB(255, 255, 255);
 BTN_X.TextSize = fontSizeSecondary;
-BTN_X.LayoutOrder = 4;
+BTN_X.LayoutOrder = 5;
 SB.Name = "SB";
 SB.Parent = M;
 SB.BackgroundColor3 = Color3.fromRGB(12, 13, 17);
@@ -451,6 +461,7 @@ hv(BTN_X, BTN_X.BackgroundColor3, Color3.fromRGB(190, 50, 60));
 hv(SORT, SORT.BackgroundColor3, Color3.fromRGB(20, 38, 38));
 hv(BTN_TP, BTN_TP.BackgroundColor3, Color3.fromRGB(0, 150, 210));
 hv(BTN_CP, BTN_CP.BackgroundColor3, Color3.fromRGB(0, 160, 90));
+hv(BTN_FIND, BTN_FIND.BackgroundColor3, Color3.fromRGB(20, 36, 32));
 local function drag(ui, bar)
 	bar = bar or ui;
 	local dr, di, ds, sp;
@@ -964,13 +975,10 @@ local function mk(pl, idx)
 		s.Transparency = 0.8
 	end
 	f.Visible = false
-
 	local txt = f.ROW_TXT
 	local bar = f.ROW_B
-
 	local isCurrent = pl.PlaceId == game.PlaceId
 	local pinned = isFav(pl.PlaceId)
-
 	txt.Text = pl.Name
 	txt.TextYAlignment = Enum.TextYAlignment.Center
 	txt.ZIndex = 5
@@ -980,19 +988,16 @@ local function mk(pl, idx)
 			ch.ZIndex = 5
 		end
 	end
-
 	local rowTop = Instance.new("Frame")
 	rowTop.Name = "ROW_TOP"
 	rowTop.Parent = bar
 	rowTop.BackgroundTransparency = 1
 	rowTop.Size = UDim2.new(1, 0, 0, buttonHeight)
-
 	local rowBot = Instance.new("Frame")
 	rowBot.Name = "ROW_BOT"
 	rowBot.Parent = bar
 	rowBot.BackgroundTransparency = 1
 	rowBot.Size = UDim2.new(1, 0, 0, buttonHeight)
-
 	local rt = Instance.new("UIListLayout")
 	rt.Parent = rowTop
 	rt.FillDirection = Enum.FillDirection.Horizontal
@@ -1000,7 +1005,6 @@ local function mk(pl, idx)
 	rt.HorizontalAlignment = Enum.HorizontalAlignment.Right
 	rt.VerticalAlignment = Enum.VerticalAlignment.Center
 	rt.SortOrder = Enum.SortOrder.LayoutOrder
-
 	local rb2 = Instance.new("UIListLayout")
 	rb2.Parent = rowBot
 	rb2.FillDirection = Enum.FillDirection.Horizontal
@@ -1008,7 +1012,6 @@ local function mk(pl, idx)
 	rb2.HorizontalAlignment = Enum.HorizontalAlignment.Right
 	rb2.VerticalAlignment = Enum.VerticalAlignment.Center
 	rb2.SortOrder = Enum.SortOrder.LayoutOrder
-
 	local btp = bar.BTN_TP
 	local bcp = bar.BTN_CP
 	btp.Parent = rowTop
@@ -1017,7 +1020,6 @@ local function mk(pl, idx)
 	bcp.LayoutOrder = 5
 	btp.Size = UDim2.new(0, buttonTpWidth, 0, buttonHeight)
 	bcp.Size = UDim2.new(0, buttonCpWidth, 0, buttonHeight)
-
 	local bpin = Instance.new("TextButton")
 	bpin.Name = "BTN_PIN"
 	bpin.Parent = rowTop
@@ -1031,7 +1033,6 @@ local function mk(pl, idx)
 	bpin.ZIndex = 5
 		hv(bpin, bpin.BackgroundColor3, Color3.fromRGB(20, 32, 32))
 	hv(bcp, bcp.BackgroundColor3, Color3.fromRGB(0, 160, 90))
-
 	local bsrv = Instance.new("TextButton")
 	bsrv.Name = "BTN_SRV"
 	bsrv.Parent = rowBot
@@ -1043,7 +1044,6 @@ local function mk(pl, idx)
 	bsrv.TextSize = fontSizeSecondary
 	bsrv.LayoutOrder = 4
 	bsrv.ZIndex = 5
-	
 	local hdr = Instance.new("Frame")
 	hdr.Name = "EXP_HDR"
 	hdr.Parent = f
@@ -1052,7 +1052,6 @@ local function mk(pl, idx)
 	hdr.Size = UDim2.new(1, (-innerPadding) * 2, 0, expHeaderHeight)
 	hdr.Visible = false
 	hdr.ZIndex = 7
-
 	local hl = Instance.new("TextLabel")
 	hl.Parent = hdr
 	hl.BackgroundTransparency = 1
@@ -1064,7 +1063,6 @@ local function mk(pl, idx)
 	hl.TextXAlignment = Enum.TextXAlignment.Left
 	hl.TextColor3 = Color3.fromRGB(200, 210, 205)
 	hl.ZIndex = 7
-
 	local hclose = Instance.new("TextButton")
 	hclose.Parent = hdr
 	hclose.BackgroundColor3 = Color3.fromRGB(16, 22, 22)
@@ -1076,7 +1074,6 @@ local function mk(pl, idx)
 	hclose.TextColor3 = Color3.fromRGB(180, 195, 190)
 	hclose.ZIndex = 7
 		hv(hclose, hclose.BackgroundColor3, Color3.fromRGB(20, 32, 32))
-
 	local exp = Instance.new("Frame")
 	exp.Name = "EXP"
 	exp.Parent = f
@@ -1089,7 +1086,6 @@ local function mk(pl, idx)
 		local exps = Instance.new("UIStroke", exp)
 	exps.Color = Color3.fromRGB(30, 42, 48)
 	exps.Transparency = 0.45
-
 	local slist = Instance.new("ScrollingFrame")
 	slist.Parent = exp
 	slist.BackgroundTransparency = 1
@@ -1102,7 +1098,6 @@ local function mk(pl, idx)
 	local slyt = Instance.new("UIListLayout", slist)
 	slyt.Padding = UDim.new(0, innerPadding / 2)
 	slyt.SortOrder = Enum.SortOrder.LayoutOrder
-
 	local ssp = Instance.new("TextLabel")
 	ssp.Parent = exp
 	ssp.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -1115,7 +1110,6 @@ local function mk(pl, idx)
 	ssp.TextSize = 22
 	ssp.ZIndex = 8
 	ssp.Visible = false
-
 	local semp = Instance.new("TextLabel")
 	semp.Parent = exp
 	semp.BackgroundTransparency = 1
@@ -1127,12 +1121,10 @@ local function mk(pl, idx)
 	semp.Position = UDim2.new(0.5, 0, 1, (-innerPadding) / 2)
 	semp.ZIndex = 7
 	semp.Visible = false
-
 	local brj
 	local badv
 	local bsm
 	local bfull
-
 	if isCurrent then
 		f.BackgroundColor3 = Color3.fromRGB(10, 28, 28)
 		if s then
@@ -1146,13 +1138,11 @@ local function mk(pl, idx)
 		btp.TextColor3 = Color3.fromRGB(20, 24, 28)
 		btp.ZIndex = 5
 		hv(btp, cya, cya, true)
-
 		local ylw = Color3.fromRGB(248, 196, 84)
 		bsrv.BackgroundColor3 = ylw
 		bsrv.TextColor3 = Color3.fromRGB(30, 26, 20)
 		bsrv.AutoButtonColor = false
 		hv(bsrv, ylw, ylw, true)
-
 		brj = Instance.new("TextButton")
 		brj.Name = "BTN_RJ"
 		brj.Parent = rowTop
@@ -1165,7 +1155,6 @@ local function mk(pl, idx)
 		brj.LayoutOrder = 2
 		brj.ZIndex = 5
 				hv(brj, brj.BackgroundColor3, Color3.fromRGB(0, 150, 210))
-
 		badv = Instance.new("TextButton")
 		badv.Name = "BTN_ADV"
 		badv.Parent = rowTop
@@ -1178,7 +1167,6 @@ local function mk(pl, idx)
 		badv.LayoutOrder = 3
 		badv.ZIndex = 5
 				hv(badv, badv.BackgroundColor3, Color3.fromRGB(0, 170, 120))
-
 		bsm = Instance.new("TextButton")
 		bsm.Name = "BTN_SMALLEST"
 		bsm.Parent = rowBot
@@ -1191,7 +1179,6 @@ local function mk(pl, idx)
 		bsm.LayoutOrder = 6
 		bsm.ZIndex = 5
 				hv(bsm, bsm.BackgroundColor3, Color3.fromRGB(0, 140, 100))
-
 		bfull = Instance.new("TextButton")
 		bfull.Name = "BTN_FULLEST"
 		bfull.Parent = rowBot
@@ -1207,7 +1194,6 @@ local function mk(pl, idx)
 	else
 		hv(btp, btp.BackgroundColor3, Color3.fromRGB(0, 150, 210))
 		hv(bsrv, bsrv.BackgroundColor3, Color3.fromRGB(20, 32, 38))
-
 		local badv2 = Instance.new("TextButton")
 		badv2.Name = "BTN_ADV_PLACE"
 		badv2.Parent = rowTop
@@ -1224,7 +1210,6 @@ local function mk(pl, idx)
 			advHopPlace(pl.PlaceId)
 		end)
 	end
-
 	local it = {
 		f = f,
 		n = pl.Name,
@@ -1241,7 +1226,6 @@ local function mk(pl, idx)
 		pinBtn = bpin
 	}
 	table.insert(rows, it)
-
 	bpin.MouseButton1Click:Connect(function()
 		pinned = not pinned
 		it.pinned = pinned
@@ -1250,33 +1234,28 @@ local function mk(pl, idx)
 		bpin.TextColor3 = pinned and Color3.fromRGB(0, 212, 200) or Color3.fromRGB(180, 195, 190)
 		apply()
 	end)
-
 	if bsm then
 		bsm.MouseButton1Click:Connect(function()
 			hopByPlayers("SMALL")
 		end)
 	end
-
 	if bfull then
 		bfull.MouseButton1Click:Connect(function()
 			hopByPlayers("FULL")
 		end)
 	end
-
 	f.MouseEnter:Connect(function()
 		tw(f, 0.12, nil, nil, {BackgroundTransparency = 0.1}):Play()
 		if s then
 			tw(s, 0.15, nil, nil, {Transparency = isCurrent and 0.28 or 0.45}):Play()
 		end
 	end)
-
 	f.MouseLeave:Connect(function()
 		tw(f, 0.18, nil, nil, {BackgroundTransparency = 0.18}):Play()
 		if s then
 			tw(s, 0.2, nil, nil, {Transparency = isCurrent and 0.35 or 0.6}):Play()
 		end
 	end)
-
 	btp.MouseButton1Click:Connect(function()
 		if isCurrent then
 			local ok, e = pcall(function()
@@ -1298,7 +1277,6 @@ local function mk(pl, idx)
 			end
 		end
 	end)
-
 	if brj then
 		brj.MouseButton1Click:Connect(function()
 			local ok, e = pcall(function()
@@ -1311,13 +1289,11 @@ local function mk(pl, idx)
 			end
 		end)
 	end
-
 	if badv then
 		badv.MouseButton1Click:Connect(function()
 			advHop()
 		end)
 	end
-
 	bcp.MouseButton1Click:Connect(function()
 		if setclipboard then
 			setclipboard(tostring(pl.PlaceId))
@@ -1326,7 +1302,6 @@ local function mk(pl, idx)
 			note("Clipboard unavailable", 3, "Game Finder")
 		end
 	end)
-
 	bsrv.MouseButton1Click:Connect(function()
 		if it.expOpen then
 			closeRow(it)
@@ -1347,14 +1322,12 @@ local function mk(pl, idx)
 			srvFetch(pl.PlaceId, it)
 		end
 	end)
-
 	hclose.MouseButton1Click:Connect(function()
 		closeRow(it)
 		if openRow == it then
 			openRow = nil
 		end
 	end)
-
 	task.delay(idx * 0.012, function()
 		f.Visible = true
 		f.BackgroundTransparency = 0.24
@@ -1487,6 +1460,511 @@ local function canvas()
 		end;
 	end);
 end;
+local finderOpen   = false
+local finderActive = false
+local finderConn   = nil
+local FP = Instance.new("Frame")
+FP.Name       = "FINDER_PANEL"
+FP.Parent     = M
+FP.BackgroundColor3 = Color3.fromRGB(11, 14, 17)
+FP.BorderSizePixel  = 0
+FP.Size       = UDim2.new(1, 0, 0, 0)
+FP.Position   = UDim2.new(0, 0, 0, titleBarHeight)
+FP.ClipsDescendants = true
+FP.ZIndex     = 10
+local FP_S = Instance.new("UIStroke", FP)
+FP_S.Color     = Color3.fromRGB(0, 50, 45)
+FP_S.Thickness = 1
+local FP_PANEL_H = IsOnMobile and 220 or 200
+local FP_HDR = Instance.new("Frame")
+FP_HDR.Parent           = FP
+FP_HDR.BackgroundColor3 = Color3.fromRGB(13, 18, 20)
+FP_HDR.BorderSizePixel  = 0
+FP_HDR.Size             = UDim2.new(1, 0, 0, IsOnMobile and 28 or 24)
+FP_HDR.ZIndex           = 11
+local FP_TTL = Instance.new("TextLabel")
+FP_TTL.Parent               = FP_HDR
+FP_TTL.BackgroundTransparency = 1
+FP_TTL.Position             = UDim2.new(0, paddingBase, 0, 0)
+FP_TTL.Size                 = UDim2.new(1, -paddingBase, 1, 0)
+FP_TTL.Font                 = Enum.Font.Code
+FP_TTL.TextSize             = fontSizeSecondary
+FP_TTL.TextColor3           = Color3.fromRGB(0, 200, 160)
+FP_TTL.TextXAlignment       = Enum.TextXAlignment.Left
+FP_TTL.Text                 = "-- player finder  |  enter display name to scan"
+FP_TTL.ZIndex               = 12
+local FP_HDR_H = IsOnMobile and 28 or 24
+local FP_INPUT_H = IsOnMobile and 36 or 30
+local FP_BTN_H   = IsOnMobile and 32 or 26
+local FP_LOG_H   = FP_PANEL_H - FP_HDR_H - FP_INPUT_H - FP_BTN_H - paddingBase * 4
+local FP_INPUT = Instance.new("TextBox")
+FP_INPUT.Parent             = FP
+FP_INPUT.BackgroundColor3   = Color3.fromRGB(12, 16, 18)
+FP_INPUT.BorderSizePixel    = 0
+FP_INPUT.Position           = UDim2.new(0, paddingBase, 0, FP_HDR_H + paddingBase)
+FP_INPUT.Size               = UDim2.new(1, -paddingBase * 2, 0, FP_INPUT_H)
+FP_INPUT.Font               = Enum.Font.Code
+FP_INPUT.TextSize           = fontSizeMain
+FP_INPUT.TextColor3         = Color3.fromRGB(210, 220, 215)
+FP_INPUT.PlaceholderText    = "display name (e.g. coolkid123)"
+FP_INPUT.PlaceholderColor3  = Color3.fromRGB(70, 85, 80)
+FP_INPUT.Text               = ""
+FP_INPUT.ClearTextOnFocus   = false
+FP_INPUT.TextXAlignment     = Enum.TextXAlignment.Left
+FP_INPUT.ZIndex             = 11
+local FP_INPUT_PAD = Instance.new("UIPadding", FP_INPUT)
+FP_INPUT_PAD.PaddingLeft  = UDim.new(0, paddingBase)
+FP_INPUT_PAD.PaddingRight = UDim.new(0, paddingBase)
+local FP_INPUT_S = Instance.new("UIStroke", FP_INPUT)
+FP_INPUT_S.Color     = Color3.fromRGB(30, 48, 44)
+FP_INPUT_S.Thickness = 1
+local FP_BTNROW = Instance.new("Frame")
+FP_BTNROW.Parent             = FP
+FP_BTNROW.BackgroundTransparency = 1
+FP_BTNROW.Position           = UDim2.new(0, paddingBase, 0, FP_HDR_H + paddingBase + FP_INPUT_H + paddingBase)
+FP_BTNROW.Size               = UDim2.new(1, -paddingBase * 2, 0, FP_BTN_H)
+FP_BTNROW.ZIndex             = 11
+local FP_BTNROW_LYT = Instance.new("UIListLayout", FP_BTNROW)
+FP_BTNROW_LYT.FillDirection      = Enum.FillDirection.Horizontal
+FP_BTNROW_LYT.Padding            = UDim.new(0, innerPadding)
+FP_BTNROW_LYT.HorizontalAlignment = Enum.HorizontalAlignment.Left
+FP_BTNROW_LYT.VerticalAlignment  = Enum.VerticalAlignment.Center
+FP_BTNROW_LYT.SortOrder          = Enum.SortOrder.LayoutOrder
+local FP_START = Instance.new("TextButton")
+FP_START.Parent             = FP_BTNROW
+FP_START.BackgroundColor3   = Color3.fromRGB(0, 90, 70)
+FP_START.Size               = UDim2.new(0, 80, 1, 0)
+FP_START.Font               = Enum.Font.Code
+FP_START.TextSize           = fontSizeSecondary
+FP_START.TextColor3         = Color3.fromRGB(210, 220, 215)
+FP_START.Text               = "[>] scan"
+FP_START.ZIndex             = 12
+FP_START.LayoutOrder        = 1
+local FP_STOP = Instance.new("TextButton")
+FP_STOP.Parent             = FP_BTNROW
+FP_STOP.BackgroundColor3   = Color3.fromRGB(100, 20, 20)
+FP_STOP.Size               = UDim2.new(0, 70, 1, 0)
+FP_STOP.Font               = Enum.Font.Code
+FP_STOP.TextSize           = fontSizeSecondary
+FP_STOP.TextColor3         = Color3.fromRGB(210, 220, 215)
+FP_STOP.Text               = "[x] stop"
+FP_STOP.ZIndex             = 12
+FP_STOP.LayoutOrder        = 2
+FP_STOP.Active             = false
+local FP_STATUS = Instance.new("TextLabel")
+FP_STATUS.Parent               = FP_BTNROW
+FP_STATUS.BackgroundTransparency = 1
+FP_STATUS.Size                 = UDim2.new(1, -160, 1, 0)
+FP_STATUS.Font                 = Enum.Font.Code
+FP_STATUS.TextSize             = fontSizeSecondary - 2
+FP_STATUS.TextColor3           = Color3.fromRGB(80, 110, 100)
+FP_STATUS.TextXAlignment       = Enum.TextXAlignment.Left
+FP_STATUS.TextTruncate         = Enum.TextTruncate.AtEnd
+FP_STATUS.Text                 = "idle"
+FP_STATUS.ZIndex               = 12
+FP_STATUS.LayoutOrder          = 3
+local FP_LOG_Y = FP_HDR_H + paddingBase + FP_INPUT_H + paddingBase + FP_BTN_H + paddingBase
+local FP_LOG = Instance.new("ScrollingFrame")
+FP_LOG.Parent              = FP
+FP_LOG.BackgroundColor3    = Color3.fromRGB(9, 12, 14)
+FP_LOG.BorderSizePixel     = 0
+FP_LOG.Position            = UDim2.new(0, paddingBase, 0, FP_LOG_Y)
+FP_LOG.Size                = UDim2.new(1, -paddingBase * 2, 0, FP_LOG_H)
+FP_LOG.CanvasSize          = UDim2.new(0, 0, 0, 0)
+FP_LOG.AutomaticCanvasSize = Enum.AutomaticSize.Y
+FP_LOG.ScrollBarThickness  = 3
+FP_LOG.ScrollBarImageColor3 = Color3.fromRGB(0, 140, 110)
+FP_LOG.ZIndex              = 11
+local FP_LOG_S = Instance.new("UIStroke", FP_LOG)
+FP_LOG_S.Color     = Color3.fromRGB(20, 40, 36)
+FP_LOG_S.Thickness = 1
+local FP_LOG_LYT = Instance.new("UIListLayout", FP_LOG)
+FP_LOG_LYT.SortOrder = Enum.SortOrder.LayoutOrder
+FP_LOG_LYT.Padding  = UDim.new(0, 2)
+local FP_LOG_PAD = Instance.new("UIPadding", FP_LOG)
+FP_LOG_PAD.PaddingTop    = UDim.new(0, 4)
+FP_LOG_PAD.PaddingBottom = UDim.new(0, 4)
+FP_LOG_PAD.PaddingLeft   = UDim.new(0, 4)
+FP_LOG_PAD.PaddingRight  = UDim.new(0, 4)
+local PF_SAVE_FILE = "gf_found_players.json"
+local function pfLoadSaved()
+    if not (isfile and readfile) then return {} end
+    local ok, raw = pcall(readfile, PF_SAVE_FILE)
+    if not ok or not raw or raw == "" then return {} end
+    local dok, data = pcall(function() return HS:JSONDecode(raw) end)
+    if not dok or type(data) ~= "table" then return {} end
+    return data
+end
+local function pfSaveEntry(entry)
+    if not writefile then return end
+    local saved = pfLoadSaved()
+    for _, e in ipairs(saved) do
+        if e.userId == entry.userId then return end
+    end
+    table.insert(saved, 1, entry)
+    if #saved > 50 then saved[51] = nil end
+    pcall(writefile, PF_SAVE_FILE, HS:JSONEncode(saved))
+end
+local function pfDeleteEntry(userId)
+    if not (writefile and isfile and readfile) then return end
+    local saved = pfLoadSaved()
+    for i, e in ipairs(saved) do
+        if e.userId == userId then
+            table.remove(saved, i)
+            break
+        end
+    end
+    pcall(writefile, PF_SAVE_FILE, HS:JSONEncode(saved))
+end
+local finderLogCount = 0
+local function fpLog(msg, col)
+    finderLogCount += 1
+    local lbl = Instance.new("TextLabel")
+    lbl.Parent               = FP_LOG
+    lbl.BackgroundTransparency = 1
+    lbl.Size                 = UDim2.new(1, 0, 0, fontSizeSecondary + 4)
+    lbl.Font                 = Enum.Font.Code
+    lbl.TextSize             = fontSizeSecondary - 1
+    lbl.TextColor3           = col or Color3.fromRGB(140, 160, 155)
+    lbl.TextXAlignment       = Enum.TextXAlignment.Left
+    lbl.TextTruncate         = Enum.TextTruncate.AtEnd
+    lbl.Text                 = msg
+    lbl.ZIndex               = 12
+    lbl.LayoutOrder          = finderLogCount
+    task.defer(function()
+        FP_LOG.CanvasPosition = Vector2.new(0, math.max(0, FP_LOG_LYT.AbsoluteContentSize.Y - FP_LOG.AbsoluteSize.Y))
+    end)
+end
+local function fpClearLog()
+    for _, c in ipairs(FP_LOG:GetChildren()) do
+        if c:IsA("TextLabel") or c:IsA("Frame") then c:Destroy() end
+    end
+    finderLogCount = 0
+end
+local matchCount = 0
+local function fpMatch(displayName, username, userId, jobId, fromSave)
+    matchCount += 1
+    finderLogCount += 1
+    local ROW_H = fontSizeSecondary * 2 + 16
+    local row = Instance.new("Frame")
+    row.Parent             = FP_LOG
+    row.BackgroundColor3   = fromSave
+        and Color3.fromRGB(10, 22, 30)
+        or  Color3.fromRGB(10, 30, 25)
+    row.BorderSizePixel    = 0
+    row.Size               = UDim2.new(1, 0, 0, ROW_H)
+    row.ZIndex             = 12
+    row.LayoutOrder        = finderLogCount
+    local rowS = Instance.new("UIStroke", row)
+    rowS.Color     = fromSave and Color3.fromRGB(0, 60, 100) or Color3.fromRGB(0, 100, 80)
+    rowS.Thickness = 1
+    local info = Instance.new("TextLabel")
+    info.Parent               = row
+    info.BackgroundTransparency = 1
+    info.Position             = UDim2.new(0, 6, 0, 2)
+    info.Size                 = UDim2.new(1, -6, 0, fontSizeSecondary + 2)
+    info.Font                 = Enum.Font.Code
+    info.TextSize             = fontSizeSecondary
+    info.TextColor3           = fromSave
+        and Color3.fromRGB(80, 180, 220)
+        or  Color3.fromRGB(0, 212, 170)
+    info.TextXAlignment       = Enum.TextXAlignment.Left
+    info.TextTruncate         = Enum.TextTruncate.AtEnd
+    info.Text                 = (fromSave and "[s] " or "[+] ") .. username
+        .. "  (id: " .. tostring(userId) .. ")"
+    info.ZIndex               = 13
+    local sub = Instance.new("TextLabel")
+    sub.Parent               = row
+    sub.BackgroundTransparency = 1
+    sub.Position             = UDim2.new(0, 6, 0, fontSizeSecondary + 5)
+    sub.Size                 = UDim2.new(1, -6, 0, fontSizeSecondary)
+    sub.Font                 = Enum.Font.Code
+    sub.TextSize             = fontSizeSecondary - 2
+    sub.TextColor3           = Color3.fromRGB(90, 120, 130)
+    sub.TextXAlignment       = Enum.TextXAlignment.Left
+    sub.TextTruncate         = Enum.TextTruncate.AtEnd
+    sub.Text                 = "    display: " .. displayName
+        .. (fromSave and "  [saved]" or "")
+    sub.ZIndex               = 13
+    local BTN_Y = ROW_H - (fontSizeSecondary + 4) - 3
+    local BTN_H = fontSizeSecondary + 2
+    local BTN_W_SM = 46
+    local BTN_W_MD = 56
+    local btnX = 6
+    local function makeCardBtn(txt, bgCol, borderCol, w, xOff)
+        local b = Instance.new("TextButton")
+        b.Parent           = row
+        b.BackgroundColor3 = bgCol
+        b.BorderSizePixel  = 0
+        b.Position         = UDim2.new(0, xOff, 0, BTN_Y)
+        b.Size             = UDim2.new(0, w, 0, BTN_H)
+        b.Font             = Enum.Font.Code
+        b.TextSize         = fontSizeSecondary - 3
+        b.TextColor3       = Color3.fromRGB(190, 210, 205)
+        b.Text             = txt
+        b.ZIndex           = 13
+        local s = Instance.new("UIStroke", b)
+        s.Color     = borderCol
+        s.Thickness = 1
+        return b
+    end
+    local cpBtn = makeCardBtn("cp id", Color3.fromRGB(14, 36, 30), Color3.fromRGB(0, 70, 55), BTN_W_SM, btnX)
+    cpBtn.MouseButton1Click:Connect(function()
+        if setclipboard then
+            setclipboard(tostring(userId))
+            note("Copied: " .. tostring(userId), 2, "Player Finder")
+        end
+    end)
+    btnX = btnX + BTN_W_SM + 4
+    local joinBtn = makeCardBtn("join", Color3.fromRGB(12, 30, 50), Color3.fromRGB(0, 60, 110), BTN_W_SM, btnX)
+    if jobId and jobId ~= "" then
+        joinBtn.TextColor3 = Color3.fromRGB(80, 180, 220)
+        joinBtn.MouseButton1Click:Connect(function()
+            note("Joining " .. username .. "...", 3, "Player Finder")
+            pcall(function()
+                TPX:TeleportToPlaceInstance(game.PlaceId, jobId, LP)
+            end)
+        end)
+    else
+        joinBtn.TextColor3 = Color3.fromRGB(55, 70, 70)
+        joinBtn.BackgroundColor3 = Color3.fromRGB(10, 16, 20)
+        Instance.new("UIStroke", joinBtn).Color = Color3.fromRGB(25, 38, 40)
+        joinBtn.Active = false
+    end
+    btnX = btnX + BTN_W_SM + 4
+    local forgetBtn = makeCardBtn("forget", Color3.fromRGB(36, 12, 12), Color3.fromRGB(90, 20, 20), BTN_W_MD, btnX)
+    forgetBtn.TextColor3 = Color3.fromRGB(200, 100, 100)
+    forgetBtn.MouseButton1Click:Connect(function()
+        pfDeleteEntry(userId)
+        row:Destroy()
+        note("Removed " .. username .. " from saved list", 2, "Player Finder")
+    end)
+    if not fromSave then
+        pfSaveEntry({
+            displayName = displayName,
+            username    = username,
+            userId      = userId,
+            jobId       = jobId or "",
+            savedAt     = os.time(),
+        })
+    end
+    task.defer(function()
+        FP_LOG.CanvasPosition = Vector2.new(0, math.max(0, FP_LOG_LYT.AbsoluteContentSize.Y - FP_LOG.AbsoluteSize.Y))
+    end)
+end
+local function fpLoadAndRender()
+    local saved = pfLoadSaved()
+    if #saved == 0 then return end
+    fpLog("-- " .. #saved .. " saved player(s) from previous sessions --",
+        Color3.fromRGB(60, 90, 110))
+    for _, e in ipairs(saved) do
+        fpMatch(
+            e.displayName or "?",
+            e.username    or "?",
+            e.userId      or 0,
+            e.jobId ~= "" and e.jobId or nil,
+            true
+        )
+    end
+    fpLog("-- live scan results will appear below --",
+        Color3.fromRGB(50, 75, 90))
+end
+local function finderSetStatus(msg, col)
+    FP_STATUS.Text       = msg
+    FP_STATUS.TextColor3 = col or Color3.fromRGB(80, 110, 100)
+end
+local function finderStop()
+    finderActive = false
+    if finderConn then
+        pcall(function() finderConn:Disconnect() end)
+        finderConn = nil
+    end
+    FP_START.Active           = true
+    FP_START.BackgroundColor3 = Color3.fromRGB(0, 90, 70)
+    FP_STOP.Active            = false
+    FP_STOP.BackgroundColor3  = Color3.fromRGB(40, 16, 16)
+    finderSetStatus("stopped", Color3.fromRGB(120, 80, 60))
+end
+local function scanCurrentServer(targetDisplay)
+    local td = targetDisplay:lower()
+    local found = {}
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LP and plr.DisplayName:lower() == td then
+            table.insert(found, {dn = plr.DisplayName, un = plr.Name, id = plr.UserId})
+        end
+    end
+    return found
+end
+local function getServerList()
+    local servers = {}
+    local url = string.format(
+        "https://games.roproxy.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=100",
+        game.PlaceId
+    )
+    local ok, resp = pcall(function() return game:HttpGetAsync(url) end)
+    if not ok or type(resp) ~= "string" or #resp == 0 then
+        local url2 = string.format(
+            "https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=100",
+            game.PlaceId
+        )
+        ok, resp = pcall(function() return game:HttpGetAsync(url2) end)
+        if not ok then return servers end
+    end
+    local decOk, js = pcall(function() return HS:JSONDecode(resp) end)
+    if not decOk or type(js) ~= "table" or type(js.data) ~= "table" then return servers end
+    for _, srv in ipairs(js.data) do
+        if type(srv) == "table" and srv.id and srv.id ~= game.JobId and srv.playing < srv.maxPlayers then
+            table.insert(servers, srv.id)
+        end
+    end
+    return servers
+end
+local function startFinder()
+    local targetDisplay = FP_INPUT.Text
+    if targetDisplay == "" or targetDisplay:gsub("%s", "") == "" then
+        fpLog("[!] enter a display name first", Color3.fromRGB(200, 160, 60))
+        return
+    end
+    finderActive = true
+    matchCount   = 0
+    fpClearLog()
+    FP_START.Active           = false
+    FP_START.BackgroundColor3 = Color3.fromRGB(0, 50, 38)
+    FP_STOP.Active            = true
+    FP_STOP.BackgroundColor3  = Color3.fromRGB(120, 24, 24)
+    fpLog("scanning for display name: "" .. targetDisplay .. """, Color3.fromRGB(0, 200, 160))
+    fpLog("-- checking current server first...", Color3.fromRGB(70, 100, 90))
+    finderSetStatus("scanning...", Color3.fromRGB(0, 180, 140))
+    local here = scanCurrentServer(targetDisplay)
+    if #here > 0 then
+        fpLog("[+] found " .. #here .. " match(es) in THIS server:", Color3.fromRGB(0, 212, 170))
+        for _, m in ipairs(here) do
+            fpMatch(m.dn, m.un, m.id, game.JobId)
+        end
+        note("Found in this server: " .. here[1].un, 3, "Player Finder")
+    else
+        fpLog("-- not in current server, fetching server list...", Color3.fromRGB(70, 100, 90))
+    end
+    task.spawn(function()
+        local servers = getServerList()
+        if not finderActive then return end
+        if #servers == 0 then
+            fpLog("[!] no other servers available to scan", Color3.fromRGB(200, 130, 60))
+            finderSetStatus("no servers", Color3.fromRGB(180, 100, 40))
+            finderStop()
+            return
+        end
+        fpLog("-- " .. #servers .. " servers to scan via hop", Color3.fromRGB(70, 100, 90))
+        fpLog("-- hopping will teleport you. stop to cancel.", Color3.fromRGB(70, 100, 90))
+        if #here > 0 then
+            fpLog("-- matches found locally. hop anyway to find more? press [>] scan again.", Color3.fromRGB(100, 140, 130))
+            finderStop()
+            return
+        end
+        local tried = 0
+        local td = targetDisplay:lower()
+        local function hopNext()
+            if not finderActive then return end
+            if tried >= #servers then
+                fpLog("-- all " .. #servers .. " servers scanned, none matched", Color3.fromRGB(160, 120, 60))
+                finderSetStatus("done -- not found", Color3.fromRGB(160, 100, 40))
+                note("Player not found in any scanned server", 4, "Player Finder")
+                finderStop()
+                return
+            end
+            tried += 1
+            local srvId = servers[tried]
+            finderSetStatus("hop " .. tried .. "/" .. #servers, Color3.fromRGB(0, 160, 120))
+            fpLog(">> hopping to server " .. tried .. "/" .. #servers, Color3.fromRGB(60, 90, 80))
+            _G._pf_target = td
+            local ok, e = pcall(function()
+                TPX:TeleportToPlaceInstance(game.PlaceId, srvId, LP)
+            end)
+            if not ok then
+                fpLog("[!] teleport failed: " .. tostring(e), Color3.fromRGB(200, 80, 60))
+                task.wait(1)
+                hopNext()
+            end
+        end
+        if _G._pf_target and _G._pf_target ~= "" then
+            local prevTarget = _G._pf_target
+            local prevFound = scanCurrentServer(prevTarget)
+            if #prevFound > 0 then
+                fpLog("[+] target found in this server (resumed from hop):", Color3.fromRGB(0, 212, 170))
+                for _, m in ipairs(prevFound) do
+                    fpMatch(m.dn, m.un, m.id, game.JobId)
+                end
+                note("Found: " .. prevFound[1].un .. " (id: " .. prevFound[1].id .. ")", 5, "Player Finder")
+                _G._pf_target = nil
+                finderStop()
+                return
+            end
+        end
+        hopNext()
+    end)
+end
+local function toggleFinder()
+    finderOpen = not finderOpen
+    if finderOpen then
+        FP.Size = UDim2.new(1, 0, 0, FP_PANEL_H)
+        SB.Position    = UDim2.new(0, paddingBase, 0, titleBarHeight + FP_PANEL_H + innerPadding)
+        C.Position     = UDim2.new(0, paddingBase, 0, titleBarHeight + FP_PANEL_H + searchBarHeight + innerPadding * 2)
+        C.Size         = UDim2.new(1, (-paddingBase) * 2, 1, -(titleBarHeight + FP_PANEL_H + searchBarHeight + innerPadding * 3))
+        BTN_FIND.TextColor3       = Color3.fromRGB(0, 212, 170)
+        BTN_FIND.BackgroundColor3 = Color3.fromRGB(0, 50, 40)
+        FP_INPUT:CaptureFocus()
+        if finderLogCount == 0 then
+            fpLoadAndRender()
+        end
+    else
+        FP.Size = UDim2.new(1, 0, 0, 0)
+        SB.Position = UDim2.new(0, paddingBase, 0, titleBarHeight + innerPadding)
+        C.Position  = UDim2.new(0, paddingBase, 0, titleBarHeight + searchBarHeight + innerPadding * 2)
+        C.Size      = UDim2.new(1, (-paddingBase) * 2, 1, -(titleBarHeight + searchBarHeight + innerPadding * 3))
+        BTN_FIND.TextColor3       = Color3.fromRGB(0, 200, 160)
+        BTN_FIND.BackgroundColor3 = Color3.fromRGB(16, 22, 22)
+        if finderActive then finderStop() end
+    end
+end
+BTN_FIND.MouseButton1Click:Connect(function()
+    rp(BTN_FIND)
+    toggleFinder()
+end)
+FP_START.MouseButton1Click:Connect(function()
+    if not finderActive then
+        startFinder()
+    end
+end)
+FP_STOP.MouseButton1Click:Connect(function()
+    if finderActive then
+        finderStop()
+        fpLog("-- scan stopped by user", Color3.fromRGB(160, 100, 60))
+    end
+end)
+FP_INPUT.FocusLost:Connect(function(enterPressed)
+    if enterPressed and not finderActive then
+        startFinder()
+    end
+end)
+if _G._pf_target and _G._pf_target ~= "" then
+    local prevTarget = _G._pf_target
+    task.defer(function()
+        toggleFinder()
+        fpLog("-- resumed from hop, checking for: [" .. prevTarget .. "]", Color3.fromRGB(0, 180, 140))
+        local found = scanCurrentServer(prevTarget)
+        if #found > 0 then
+            fpLog("[+] found " .. #found .. " match(es):", Color3.fromRGB(0, 212, 170))
+            for _, m in ipairs(found) do
+                fpMatch(m.dn, m.un, m.id, game.JobId)
+            end
+            note("Found: " .. found[1].un .. "  id: " .. found[1].id, 6, "Player Finder")
+            _G._pf_target = nil
+        else
+            fpLog("-- not here, re-scan or enter new display name", Color3.fromRGB(120, 90, 60))
+            FP_INPUT.Text = prevTarget
+        end
+    end)
+end
 pickSize();
 applySize(true);
 M.Position = UDim2.new(0.5, 0, 0.5 - normSize.Y.Scale / 2, 0);
