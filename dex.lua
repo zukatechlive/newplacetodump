@@ -9019,7 +9019,7 @@ websocket and print it into the console.
 stay safe whoever reads this. and always
 trust your instincts when running scripts.
 
-]]
+
 
 
 do 
@@ -9084,7 +9084,7 @@ do
 	end
 	http_request = safeRequest
 	request = safeRequest
-end
+end]]
 
 --[[ 
 
