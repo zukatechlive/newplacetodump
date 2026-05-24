@@ -5,8 +5,6 @@ local TweenService = game:GetService("TweenService")
 local plr = Players.LocalPlayer
 local playerGui = plr:WaitForChild("PlayerGui")
 local workspace = game:GetService("Workspace")
-
-
 local CFG = {
 	Title = "Bosses",
 	RefreshRate = 1.5,
@@ -221,15 +219,47 @@ local function clearActiveAttach()
 		activeAttachBtn = nil
 	end
 end
-local function startAttach(targetRoot)
+local function startAttach(targetRoot, bossName)
 	stopAttach()
 	_G._bossPanelAttachTarget = targetRoot
+	if bossName then
+		_G._bossPanelReattachName = bossName
+	end
 	orbitAngle = 0
 	_G._bossPanelAttachConn = RunService.Heartbeat:Connect(function(dt)
 		local char = plr.Character
 		local myHRP = char and char:FindFirstChild("HumanoidRootPart")
-		if not myHRP or not targetRoot or not targetRoot.Parent then
+		if not myHRP then
+			return
+		end
+		if not targetRoot or not targetRoot.Parent then
+			local deadName = _G._bossPanelReattachName
 			stopAttach()
+			if deadName and not cycleEnabled then
+				notify("[!] " .. deadName .. " gone -- watching for respawn", 3)
+				startReattachWatch(deadName)
+			elseif deadName and cycleEnabled then
+				notify("[!] " .. deadName .. " gone -- cycling next", 2)
+				task.defer(function()
+					local bosses = getFilteredSorted()
+					if #bosses == 0 then
+						return
+					end
+					cycleIndex = cycleIndex % #bosses + 1
+					local next = bosses[cycleIndex]
+					if next then
+						local root = getRootPart(next)
+						if root then
+							startAttach(root, next.Name)
+							startReattachWatch(next.Name)
+							notify("Cycle [skip] -> " .. next.Name, 2)
+							if isOpen then
+								task.defer(refreshAll)
+							end
+						end
+					end
+				end)
+			end
 			return
 		end
 		pcall(function()
@@ -282,8 +312,11 @@ local function startReattachWatch(bossName)
 			task.wait(0.25)
 			local root = getRootPart(child)
 			if root then
-				startAttach(root)
-				notify("Re-attached → " .. child.Name, 3)
+				startAttach(root, child.Name)
+				notify("[+] Re-attached -> " .. child.Name, 3)
+				if isOpen then
+					task.defer(refreshAll)
+				end
 			end
 		end
 	end)
@@ -321,8 +354,9 @@ local function startCycle()
 			local root = getRootPart(boss)
 			if root then
 				clearActiveAttach()
-				startAttach(root)
-				notify("Cycle → " .. boss.Name, 2)
+				startAttach(root, boss.Name)
+				startReattachWatch(boss.Name)
+				notify("Cycle -> " .. boss.Name, 2)
 				if isOpen then
 					task.defer(refreshAll)
 				end
@@ -334,8 +368,9 @@ local function startCycle()
 		local root = getRootPart(bosses[1])
 		if root then
 			clearActiveAttach()
-			startAttach(root)
-			notify("Auto-Cycle: ON → " .. bosses[1].Name, 3)
+			startAttach(root, bosses[1].Name)
+			startReattachWatch(bosses[1].Name)
+			notify("Auto-Cycle: ON -> " .. bosses[1].Name, 3)
 		end
 	end
 end
@@ -381,7 +416,7 @@ local function checkHpAlerts(children)
 	end
 end
 local function printSnapshot(bossObj)
-	print("── Snapshot: " .. bossObj:GetFullName() .. " ──")
+	print("info: " .. bossObj:GetFullName() .. " ──")
 	local function recurse(obj, indent)
 		for _, child in ipairs(obj:GetChildren()) do
 			local info = child.Name .. "  [" .. child.ClassName .. "]"
@@ -410,9 +445,6 @@ local function printSnapshot(bossObj)
 		end
 	end
 	recurse(bossObj, "  ")
-	print(
-		"──────────────────────────────────────────"
-	)
 	notify("Snapshot printed: " .. bossObj.Name, 2)
 end
 if playerGui:FindFirstChild("BossesPanelGui") then
@@ -953,12 +985,12 @@ local function makeItem(bossObj, layoutOrder)
 			notify("Attach: OFF", 2)
 		else
 			clearActiveAttach()
-			startAttach(r)
+			startAttach(r, name)
 			startReattachWatch(name)
 			attBtn.BackgroundColor3 = CFG.BtnAttachON
 			attBtn.Text = "STOP"
 			activeAttachBtn = attBtn
-			notify("Attaching → " .. name, 3)
+			notify("Attaching -> " .. name, 3)
 		end
 	end)
 	ignBtn.MouseButton1Click:Connect(function()
@@ -1269,8 +1301,9 @@ SkipBtn.MouseButton1Click:Connect(function()
 	local root = getRootPart(boss)
 	if root then
 		clearActiveAttach()
-		startAttach(root)
-		notify("Skip → " .. boss.Name, 2)
+		startAttach(root, boss.Name)
+		startReattachWatch(boss.Name)
+		notify("Skip -> " .. boss.Name, 2)
 		if isOpen then
 			refreshAll()
 		end
@@ -1294,7 +1327,7 @@ ModeBtn.MouseButton1Click:Connect(function()
 	attachMode = MODES[(idx % #MODES) + 1]
 	applyModeBtn()
 	if _G._bossPanelAttachTarget then
-		startAttach(_G._bossPanelAttachTarget)
+		startAttach(_G._bossPanelAttachTarget, _G._bossPanelReattachName)
 	end
 	notify("Attach Mode: " .. MODELABELS[attachMode], 2)
 end)
@@ -1339,6 +1372,7 @@ print(
 	string.format("[BossesPanel v4.0] Loaded — toggle key: %s | open panel to expand", tostring(CFG.ToggleKey.Name))
 ) -- end
 
+
 -- auto answer math questions addon
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextChatService = game:GetService("TextChatService")
@@ -1346,7 +1380,7 @@ local MathQuizQuestion = ReplicatedStorage:WaitForChild("MathQuizQuestion")
 local MathQuizWinner = ReplicatedStorage:WaitForChild("MathQuizWinner")
 
 
-local ANSWER_DELAY = 1
+local ANSWER_DELAY = 1.7
 local quizActive = false
 local function solveEquation(question)
 	local q = question
