@@ -1,332 +1,474 @@
-local Players         = game:GetService("Players")
-local TweenService    = game:GetService("TweenService")
-local UserInputService= game:GetService("UserInputService")
-local RunService      = game:GetService("RunService")
-local CoreGui         = game:GetService("CoreGui")
-local StarterGui      = game:GetService("StarterGui")
-local LocalPlayer     = Players.LocalPlayer
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local StarterGui = game:GetService("StarterGui")
+local LocalPlayer = Players.LocalPlayer
+
+
 local function DoNotif(msg, duration)
-    pcall(function()
-        StarterGui:SetCore("SendNotification", {
-            Title    = "BetterMovement",
-            Text     = msg,
-            Duration = duration or 3,
-        })
-    end)
+	pcall(function()
+		StarterGui:SetCore("SendNotification", {
+			Title = "BetterMovement",
+			Text = msg,
+			Duration = duration or 3,
+		})
+	end)
 end
 local ShiftLock = {
-    State = {
-        IsEnabled   = false,
-        IsLocked    = false,
-        UI          = {},
-        Connections = {},
-        Originals   = {},
-    },
-    Config = {
-        Icons = {
-            On  = "rbxasset://textures/ui/mouseLock_on.png",
-            Off = "rbxasset://textures/ui/mouseLock_off.png",
-        },
-        CameraOffset = Vector3.new(2.2, 0, 0),
-        Smoothing    = 0.1,
-        ToggleKey    = Enum.KeyCode.LeftAlt,
-    },
+	State = {
+		IsEnabled = false,
+		IsLocked = false,
+		UI = {},
+		Connections = {},
+		Originals = {},
+	},
+	Config = {
+		Icons = {
+			On = "rbxasset://textures/ui/mouseLock_on.png",
+			Off = "rbxasset://textures/ui/mouseLock_off.png",
+		},
+		CameraOffset = Vector3.new(2.2, 0, 0),
+		Smoothing = 0.1,
+		ToggleKey = Enum.KeyCode.LeftAlt,
+	},
 }
 function ShiftLock:_makeDraggable(guiObject, dragHandle)
-    local dragging = false
-    local dragStart, startPos
-    dragHandle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-            dragging  = true
-            dragStart = input.Position
-            startPos  = guiObject.Position
-            local changedConn
-            changedConn = input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                    changedConn:Disconnect()
-                end
-            end)
-        end
-    end)
-    local moveConn = UserInputService.InputChanged:Connect(function(input)
-        if dragging and (
-            input.UserInputType == Enum.UserInputType.MouseMovement or
-            input.UserInputType == Enum.UserInputType.Touch
-        ) then
-            local delta = input.Position - dragStart
-            guiObject.Position = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + delta.X,
-                startPos.Y.Scale, startPos.Y.Offset + delta.Y
-            )
-        end
-    end)
-    return moveConn
+	local dragging = false
+	local dragStart, startPos
+	dragHandle.InputBegan:Connect(function(input)
+		if
+			input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch
+		then
+			dragging = true
+			dragStart = input.Position
+			startPos = guiObject.Position
+			local changedConn
+			changedConn = input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+					changedConn:Disconnect()
+				end
+			end)
+		end
+	end)
+	local moveConn = UserInputService.InputChanged:Connect(function(input)
+		if
+			dragging
+			and (
+				input.UserInputType == Enum.UserInputType.MouseMovement
+				or input.UserInputType == Enum.UserInputType.Touch
+			)
+		then
+			local delta = input.Position - dragStart
+			guiObject.Position =
+				UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+		end
+	end)
+	return moveConn
 end
 function ShiftLock:_updateLogic()
-    local char   = LocalPlayer.Character
-    local hum    = char and char:FindFirstChildOfClass("Humanoid")
-    local hrp    = char and char:FindFirstChild("HumanoidRootPart")
-    local camera = workspace.CurrentCamera
-    if not (hum and hrp and camera and hum.Health > 0) then return end
-    if self.State.IsLocked then
-        local lookVector = camera.CFrame.LookVector
-        local flatVector = Vector3.new(lookVector.X, 0, lookVector.Z)
-        if flatVector.Magnitude > 1e-4 then
-            hrp.CFrame = hrp.CFrame:Lerp(CFrame.lookAt(hrp.Position, hrp.Position + flatVector.Unit), 0.65)
-        end
-        hum.CameraOffset = hum.CameraOffset:Lerp(self.Config.CameraOffset, self.Config.Smoothing)
-        if UserInputService.MouseBehavior ~= Enum.MouseBehavior.LockCenter then
-            UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-        end
-    else
-        if hum.CameraOffset.Magnitude > 0.01 then
-            hum.CameraOffset = hum.CameraOffset:Lerp(Vector3.zero, self.Config.Smoothing)
-        end
-    end
+	local char = LocalPlayer.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	local camera = workspace.CurrentCamera
+	if not (hum and hrp and camera and hum.Health > 0) then
+		return
+	end
+	if self.State.IsLocked then
+		local lookVector = camera.CFrame.LookVector
+		local flatVector = Vector3.new(lookVector.X, 0, lookVector.Z)
+		if flatVector.Magnitude > 1e-4 then
+			hrp.CFrame = hrp.CFrame:Lerp(CFrame.lookAt(hrp.Position, hrp.Position + flatVector.Unit), 0.65)
+		end
+		hum.CameraOffset = hum.CameraOffset:Lerp(self.Config.CameraOffset, self.Config.Smoothing)
+		if UserInputService.MouseBehavior ~= Enum.MouseBehavior.LockCenter then
+			UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+		end
+	else
+		if hum.CameraOffset.Magnitude > 0.01 then
+			hum.CameraOffset = hum.CameraOffset:Lerp(Vector3.zero, self.Config.Smoothing)
+		end
+	end
 end
 function ShiftLock:_setLockState(newState)
-    local char = LocalPlayer.Character
-    local hum  = char and char:FindFirstChildOfClass("Humanoid")
-    if newState and hum and hum.Sit then return end
-    self.State.IsLocked = newState
-    if newState then
-        if hum then
-            self.State.Originals.AutoRotate = hum.AutoRotate
-            hum.AutoRotate = false
-        end
-    else
-        if hum and self.State.Originals.AutoRotate ~= nil then
-            hum.AutoRotate = self.State.Originals.AutoRotate
-        end
-        UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-    end
-    local ui = self.State.UI
-    if ui.Button then
-        local targetColor = newState and Color3.fromRGB(0, 255, 200) or Color3.fromRGB(0, 140, 255)
-        local targetBg    = newState and Color3.fromRGB(20, 35, 30)  or Color3.fromRGB(25, 25, 30)
-        TweenService:Create(ui.Stroke, TweenInfo.new(0.2), {Color = targetColor, Thickness = newState and 3 or 2}):Play()
-        TweenService:Create(ui.Button, TweenInfo.new(0.2), {BackgroundColor3 = targetBg}):Play()
-        ui.Icon.Image = newState and self.Config.Icons.On or self.Config.Icons.Off
-    end
+	local char = LocalPlayer.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if newState and hum and hum.Sit then
+		return
+	end
+	self.State.IsLocked = newState
+	if newState then
+		if hum then
+			self.State.Originals.AutoRotate = hum.AutoRotate
+			hum.AutoRotate = false
+		end
+	else
+		if hum and self.State.Originals.AutoRotate ~= nil then
+			hum.AutoRotate = self.State.Originals.AutoRotate
+		end
+		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+	end
+	local ui = self.State.UI
+	if ui.Button then
+		local targetColor = newState and Color3.fromRGB(0, 255, 200) or Color3.fromRGB(0, 140, 255)
+		local targetBg = newState and Color3.fromRGB(20, 35, 30) or Color3.fromRGB(25, 25, 30)
+		TweenService:Create(ui.Stroke, TweenInfo.new(0.2), { Color = targetColor, Thickness = newState and 3 or 2 })
+			:Play()
+		TweenService:Create(ui.Button, TweenInfo.new(0.2), { BackgroundColor3 = targetBg }):Play()
+		ui.Icon.Image = newState and self.Config.Icons.On or self.Config.Icons.Off
+	end
 end
 function ShiftLock:Enable()
-    if self.State.IsEnabled then return end
-    self.State.IsEnabled = true
-    local ui = self.State.UI
-    ui.ScreenGui              = Instance.new("ScreenGui", CoreGui)
-    ui.ScreenGui.Name         = "ForensicShiftLock_V2"
-    ui.ScreenGui.ResetOnSpawn = false
-    ui.Button                 = Instance.new("ImageButton", ui.ScreenGui)
-    ui.Button.Size            = UDim2.fromOffset(55, 55)
-    ui.Button.Position        = UDim2.new(1, -75, 1, -150)
-    ui.Button.BackgroundColor3= Color3.fromRGB(25, 25, 30)
-    Instance.new("UICorner", ui.Button).CornerRadius = UDim.new(1, 0)
-    ui.Stroke                 = Instance.new("UIStroke", ui.Button)
-    ui.Stroke.Color           = Color3.fromRGB(0, 140, 255)
-    ui.Stroke.Thickness       = 2
-    ui.Icon                   = Instance.new("ImageLabel", ui.Button)
-    ui.Icon.Size              = UDim2.fromScale(0.6, 0.6)
-    ui.Icon.Position          = UDim2.fromScale(0.2, 0.2)
-    ui.Icon.BackgroundTransparency = 1
-    ui.Icon.Image             = self.Config.Icons.Off
-    self.State.Connections.Drag  = self:_makeDraggable(ui.Button, ui.Button)
-    self.State.Connections.Main  = RunService.RenderStepped:Connect(function()
-        self:_updateLogic()
-    end)
-    self.State.Connections.Input = UserInputService.InputBegan:Connect(function(input, gpe)
-        if not gpe and input.KeyCode == self.Config.ToggleKey then
-            self:_setLockState(not self.State.IsLocked)
-        end
-    end)
-    ui.Button.Activated:Connect(function()
-        self:_setLockState(not self.State.IsLocked)
-    end)
-    self:_setLockState(true)
-    DoNotif("Shift Lock ON. Press Alt to toggle.", 3)
+	if self.State.IsEnabled then
+		return
+	end
+	self.State.IsEnabled = true
+	local ui = self.State.UI
+	ui.ScreenGui = Instance.new("ScreenGui", CoreGui)
+	ui.ScreenGui.Name = "ForensicShiftLock_V2"
+	ui.ScreenGui.ResetOnSpawn = false
+	ui.Button = Instance.new("ImageButton", ui.ScreenGui)
+	ui.Button.Size = UDim2.fromOffset(55, 55)
+	ui.Button.Position = UDim2.new(1, -75, 1, -150)
+	ui.Button.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+	Instance.new("UICorner", ui.Button).CornerRadius = UDim.new(1, 0)
+	ui.Stroke = Instance.new("UIStroke", ui.Button)
+	ui.Stroke.Color = Color3.fromRGB(0, 140, 255)
+	ui.Stroke.Thickness = 2
+	ui.Icon = Instance.new("ImageLabel", ui.Button)
+	ui.Icon.Size = UDim2.fromScale(0.6, 0.6)
+	ui.Icon.Position = UDim2.fromScale(0.2, 0.2)
+	ui.Icon.BackgroundTransparency = 1
+	ui.Icon.Image = self.Config.Icons.Off
+	self.State.Connections.Drag = self:_makeDraggable(ui.Button, ui.Button)
+	self.State.Connections.Main = RunService.RenderStepped:Connect(function()
+		self:_updateLogic()
+	end)
+	self.State.Connections.Input = UserInputService.InputBegan:Connect(function(input, gpe)
+		if not gpe and input.KeyCode == self.Config.ToggleKey then
+			self:_setLockState(not self.State.IsLocked)
+		end
+	end)
+	ui.Button.Activated:Connect(function()
+		self:_setLockState(not self.State.IsLocked)
+	end)
+	self:_setLockState(true)
+	DoNotif("Shift Lock ON. Press Alt to toggle.", 3)
 end
 function ShiftLock:Disable()
-    if not self.State.IsEnabled then return end
-    self:_setLockState(false)
-    for _, conn in pairs(self.State.Connections) do conn:Disconnect() end
-    if self.State.UI.ScreenGui then self.State.UI.ScreenGui:Destroy() end
-    self.State.IsEnabled = false
-    table.clear(self.State.Connections)
-    self.State.UI = {}
-    DoNotif("Shift Lock disabled.", 2)
+	if not self.State.IsEnabled then
+		return
+	end
+	self:_setLockState(false)
+	for _, conn in pairs(self.State.Connections) do
+		conn:Disconnect()
+	end
+	if self.State.UI.ScreenGui then
+		self.State.UI.ScreenGui:Destroy()
+	end
+	self.State.IsEnabled = false
+	table.clear(self.State.Connections)
+	self.State.UI = {}
+	DoNotif("Shift Lock disabled.", 2)
 end
 function ShiftLock:Toggle()
-    if self.State.IsEnabled then self:Disable() else self:Enable() end
+	if self.State.IsEnabled then
+		self:Disable()
+	else
+		self:Enable()
+	end
 end
 ShiftLock:Enable()
 local Strengthen = {
-    State = {
-        Enabled            = true,
-        Density            = 50,
-        OriginalProperties = {},
-    },
+	State = {
+		Enabled = true,
+		Density = 50,
+		OriginalProperties = {},
+	},
 }
 function Strengthen:ApplyToCharacter(char)
-    table.clear(self.State.OriginalProperties)
-    for _, part in ipairs(char:GetDescendants()) do
-        if part:IsA("BasePart") then
-            self.State.OriginalProperties[part] = part.CustomPhysicalProperties
-            part.CustomPhysicalProperties = PhysicalProperties.new(self.State.Density, 0.3, 0.5, 0, 0)
-        end
-    end
+	table.clear(self.State.OriginalProperties)
+	for _, part in ipairs(char:GetDescendants()) do
+		if part:IsA("BasePart") then
+			self.State.OriginalProperties[part] = part.CustomPhysicalProperties
+			part.CustomPhysicalProperties = PhysicalProperties.new(self.State.Density, 0.3, 0.5, 0, 0)
+		end
+	end
 end
 function Strengthen:RevertForCharacter()
-    local char = LocalPlayer.Character
-    if not char then return end
-    for part, originalProps in pairs(self.State.OriginalProperties) do
-        if part and part.Parent and part:IsDescendantOf(char) then
-            part.CustomPhysicalProperties = originalProps
-        end
-    end
-    table.clear(self.State.OriginalProperties)
+	local char = LocalPlayer.Character
+	if not char then
+		return
+	end
+	for part, originalProps in pairs(self.State.OriginalProperties) do
+		if part and part.Parent and part:IsDescendantOf(char) then
+			part.CustomPhysicalProperties = originalProps
+		end
+	end
+	table.clear(self.State.OriginalProperties)
 end
 function Strengthen:Toggle(args)
-    local char = LocalPlayer.Character
-    if not char then return DoNotif("Character not found.", 3) end
-    local newDensity = args and tonumber(args[1])
-    if newDensity and newDensity > 0 then
-        self.State.Density = newDensity
-        DoNotif("Strengthen density set to " .. self.State.Density, 2)
-    end
-    if self.State.Enabled then
-        self:RevertForCharacter()
-        self.State.Enabled = false
-        DoNotif("Strengthen OFF. Physics restored.", 2)
-    else
-        self:ApplyToCharacter(char)
-        self.State.Enabled = true
-        DoNotif("Strengthen ON at density " .. self.State.Density, 2)
-    end
+	local char = LocalPlayer.Character
+	if not char then
+		return DoNotif("Character not found.", 3)
+	end
+	local newDensity = args and tonumber(args[1])
+	if newDensity and newDensity > 0 then
+		self.State.Density = newDensity
+		DoNotif("Strengthen density set to " .. self.State.Density, 2)
+	end
+	if self.State.Enabled then
+		self:RevertForCharacter()
+		self.State.Enabled = false
+		DoNotif("Strengthen OFF. Physics restored.", 2)
+	else
+		self:ApplyToCharacter(char)
+		self.State.Enabled = true
+		DoNotif("Strengthen ON at density " .. self.State.Density, 2)
+	end
 end
-local WALK_SPEED      = 24
-local JUMP_POWER      = 60
-local HIP_HEIGHT_BONUS= 0.15
+local WALK_SPEED = 24
+local JUMP_POWER = 60
+local HIP_HEIGHT_BONUS = 0.15
 local function applyMovementStats(char)
-    local hum = char:WaitForChild("Humanoid", 10)
-    if not hum then return end
-    hum.WalkSpeed = WALK_SPEED
-    hum.JumpPower = JUMP_POWER
-    if not hum:GetAttribute("_OriginalHipHeight") then
-        hum:SetAttribute("_OriginalHipHeight", hum.HipHeight)
-    end
-    hum.HipHeight = hum:GetAttribute("_OriginalHipHeight") + HIP_HEIGHT_BONUS
-    if Strengthen.State.Enabled then
-        Strengthen:ApplyToCharacter(char)
-    end
-    if ShiftLock.State.IsEnabled then
-        task.delay(0.1, function()
-            ShiftLock:_setLockState(true)
-        end)
-    end
+	local hum = char:WaitForChild("Humanoid", 10)
+	if not hum then
+		return
+	end
+	hum.WalkSpeed = WALK_SPEED
+	hum.JumpPower = JUMP_POWER
+	if not hum:GetAttribute("_OriginalHipHeight") then
+		hum:SetAttribute("_OriginalHipHeight", hum.HipHeight)
+	end
+	hum.HipHeight = hum:GetAttribute("_OriginalHipHeight") + HIP_HEIGHT_BONUS
+	if Strengthen.State.Enabled then
+		Strengthen:ApplyToCharacter(char)
+	end
+	if ShiftLock.State.IsEnabled then
+		task.delay(0.1, function()
+			ShiftLock:_setLockState(true)
+		end)
+	end
 end
-if LocalPlayer.Character then applyMovementStats(LocalPlayer.Character) end
+if LocalPlayer.Character then
+	applyMovementStats(LocalPlayer.Character)
+end
 LocalPlayer.CharacterAdded:Connect(applyMovementStats)
 local Dash = {
-    Config = {
-        Key             = Enum.KeyCode.Q,
-        SpeedMultiplier = 5.5,
-        DecaySteps      = 10,
-        DecayInterval   = 0.1,
-        DecayFactor     = 0.7,
-        AnimationId     = "rbxassetid://119132734924846",
-    },
-    State = {
-        CanDash = true,
-        Track   = nil,
-    },
+	Config = {
+		Key = Enum.KeyCode.Q,
+		SpeedMultiplier = 5.5,
+		DecaySteps = 10,
+		DecayInterval = 0.1,
+		DecayFactor = 0.7,
+		AnimationId = "rbxassetid://119132734924846",
+	},
+	State = {
+		CanDash = true,
+		Track = nil,
+	},
 }
 do
-    local char     = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local hum      = char:WaitForChild("Humanoid")
-    local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)
-    local anim     = Instance.new("Animation")
-    anim.AnimationId = Dash.Config.AnimationId
-    Dash.State.Track = animator:LoadAnimation(anim)
-    LocalPlayer.CharacterAdded:Connect(function(newChar)
-        local newHum      = newChar:WaitForChild("Humanoid")
-        local newAnimator = newHum:FindFirstChildOfClass("Animator") or Instance.new("Animator", newHum)
-        local newAnim     = Instance.new("Animation")
-        newAnim.AnimationId  = Dash.Config.AnimationId
-        Dash.State.Track     = newAnimator:LoadAnimation(newAnim)
-        Dash.State.CanDash   = true
-    end)
+	local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+	local hum = char:WaitForChild("Humanoid")
+	local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)
+	local anim = Instance.new("Animation")
+	anim.AnimationId = Dash.Config.AnimationId
+	Dash.State.Track = animator:LoadAnimation(anim)
+	LocalPlayer.CharacterAdded:Connect(function(newChar)
+		local newHum = newChar:WaitForChild("Humanoid")
+		local newAnimator = newHum:FindFirstChildOfClass("Animator") or Instance.new("Animator", newHum)
+		local newAnim = Instance.new("Animation")
+		newAnim.AnimationId = Dash.Config.AnimationId
+		Dash.State.Track = newAnimator:LoadAnimation(newAnim)
+		Dash.State.CanDash = true
+	end)
 end
 function Dash:Do()
-    if not self.State.CanDash then return end
-    local char = LocalPlayer.Character
-    if not char then return end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hum or not hrp or hum.Health <= 0 then return end
-    self.State.CanDash = false
-    task.spawn(function()
-        local ok, err = pcall(function()
-            if self.State.Track then self.State.Track:Play() end
-            local speed = hum.WalkSpeed * self.Config.SpeedMultiplier
-            local dir   = hum.MoveDirection.Magnitude > 0.05 and hum.MoveDirection or hrp.CFrame.LookVector
-            local attachment = Instance.new("Attachment")
-            attachment.Parent = hrp
-            local lv = Instance.new("LinearVelocity")
-            lv.Attachment0            = attachment
-            lv.MaxForce               = math.huge
-            lv.RelativeTo             = Enum.ActuatorRelativeTo.World
-            lv.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
-            lv.VectorVelocity         = dir * speed
-            lv.Parent                 = hrp
-            for _ = 1, self.Config.DecaySteps do
-                task.wait(self.Config.DecayInterval)
-                lv.VectorVelocity = lv.VectorVelocity * self.Config.DecayFactor
-            end
-            if self.State.Track then self.State.Track:Stop() end
-            lv:Destroy()
-            attachment:Destroy()
-        end)
-        if not ok then warn("[Dash]", err) end
-        self.State.CanDash = true
-    end)
+	if not self.State.CanDash then
+		return
+	end
+	local char = LocalPlayer.Character
+	if not char then
+		return
+	end
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if not hum or not hrp or hum.Health <= 0 then
+		return
+	end
+	self.State.CanDash = false
+	task.spawn(function()
+		local ok, err = pcall(function()
+			if self.State.Track then
+				self.State.Track:Play()
+			end
+			local speed = hum.WalkSpeed * self.Config.SpeedMultiplier
+			local dir = hum.MoveDirection.Magnitude > 0.05 and hum.MoveDirection or hrp.CFrame.LookVector
+			local attachment = Instance.new("Attachment")
+			attachment.Parent = hrp
+			local lv = Instance.new("LinearVelocity")
+			lv.Attachment0 = attachment
+			lv.MaxForce = math.huge
+			lv.RelativeTo = Enum.ActuatorRelativeTo.World
+			lv.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
+			lv.VectorVelocity = dir * speed
+			lv.Parent = hrp
+			for _ = 1, self.Config.DecaySteps do
+				task.wait(self.Config.DecayInterval)
+				lv.VectorVelocity = lv.VectorVelocity * self.Config.DecayFactor
+			end
+			if self.State.Track then
+				self.State.Track:Stop()
+			end
+			lv:Destroy()
+			attachment:Destroy()
+		end)
+		if not ok then
+			warn("[Dash]", err)
+		end
+		self.State.CanDash = true
+	end)
 end
 UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if input.KeyCode == Enum.KeyCode.RightControl then Strengthen:Toggle() end
-    if input.KeyCode == Dash.Config.Key then Dash:Do() end
+	if gpe then
+		return
+	end
+	if input.KeyCode == Enum.KeyCode.RightControl then
+		Strengthen:Toggle()
+	end
+	if input.KeyCode == Dash.Config.Key then
+		Dash:Do()
+	end
+	if input.KeyCode == Enum.KeyCode.F then
+		FixCamera:Toggle()
+	end
 end)
 if UserInputService.TouchEnabled then
-    local Camera    = workspace.CurrentCamera
-    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-    local DashGui   = Instance.new("ScreenGui")
-    DashGui.Name         = "DashButtonGui"
-    DashGui.DisplayOrder = 10
-    DashGui.ResetOnSpawn = false
-    DashGui.Parent       = PlayerGui
-    local DashButton                  = Instance.new("TextButton")
-    DashButton.Name                   = "DashButton"
-    DashButton.BackgroundColor3       = Color3.new(0, 0, 0)
-    DashButton.BackgroundTransparency = 0.4
-    DashButton.Text                   = "Dash"
-    DashButton.TextColor3             = Color3.new(1, 1, 1)
-    DashButton.Font                   = Enum.Font.FredokaOne
-    DashButton.TextScaled             = true
-    DashButton.AutoLocalize           = false
-    Instance.new("UICorner", DashButton).CornerRadius = UDim.new(0, 24)
-    DashButton.Parent = DashGui
-    local function updateDashButtonLayout()
-        local vp     = Camera and Camera.ViewportSize or Vector2.new(800, 600)
-        local minDim = math.min(vp.X, vp.Y)
-        DashButton.Size        = UDim2.new(0, math.max(100, minDim * 0.18), 0, math.max(40, minDim * 0.08))
-        DashButton.Position    = UDim2.new(0.8, 0, 0.85, 0)
-        DashButton.AnchorPoint = Vector2.new(0.5, 0.5)
-    end
-    updateDashButtonLayout()
-    if Camera then Camera:GetPropertyChangedSignal("ViewportSize"):Connect(updateDashButtonLayout) end
-    DashButton.MouseButton1Click:Connect(function() Dash:Do() end)
+	local Camera = workspace.CurrentCamera
+	local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+	local DashGui = Instance.new("ScreenGui")
+	DashGui.Name = "DashButtonGui"
+	DashGui.DisplayOrder = 10
+	DashGui.ResetOnSpawn = false
+	DashGui.Parent = PlayerGui
+	local DashButton = Instance.new("TextButton")
+	DashButton.Name = "DashButton"
+	DashButton.BackgroundColor3 = Color3.new(0, 0, 0)
+	DashButton.BackgroundTransparency = 0.4
+	DashButton.Text = "Dash"
+	DashButton.TextColor3 = Color3.new(1, 1, 1)
+	DashButton.Font = Enum.Font.FredokaOne
+	DashButton.TextScaled = true
+	DashButton.AutoLocalize = false
+	Instance.new("UICorner", DashButton).CornerRadius = UDim.new(0, 24)
+	DashButton.Parent = DashGui
+	local function updateDashButtonLayout()
+		local vp = Camera and Camera.ViewportSize or Vector2.new(800, 600)
+		local minDim = math.min(vp.X, vp.Y)
+		DashButton.Size = UDim2.new(0, math.max(100, minDim * 0.18), 0, math.max(40, minDim * 0.08))
+		DashButton.Position = UDim2.new(0.8, 0, 0.85, 0)
+		DashButton.AnchorPoint = Vector2.new(0.5, 0.5)
+	end
+	updateDashButtonLayout()
+	if Camera then
+		Camera:GetPropertyChangedSignal("ViewportSize"):Connect(updateDashButtonLayout)
+	end
+	DashButton.MouseButton1Click:Connect(function()
+		Dash:Do()
+	end)
 end
 DoNotif("Dash ready! Press Q to dash.", 3)
+local FixCamera = {
+	State = {
+		Enabled = false,
+		Connection = nil,
+		OriginalMaxZoom = nil,
+		OriginalOcclusionMode = nil,
+		OriginalCameraMode = nil,
+	},
+	Config = {
+		MaxZoomDistance = 10000,
+		ForcedCameraMode = Enum.CameraMode.Classic,
+		PreferredOcclusionMode = Enum.DevCameraOcclusionMode.Invisicam,
+	},
+}
+local function _fixCamSafeSet(instance, property, value, fallback)
+	local success, err = pcall(function()
+		instance[property] = value
+	end)
+	if not success then
+		if fallback ~= nil then
+			warn(
+				string.format(
+					"FixCamera: Failed to set %s to %s, using fallback. Error: %s",
+					property,
+					tostring(value),
+					tostring(err)
+				)
+			)
+			pcall(function()
+				instance[property] = fallback
+			end)
+		else
+			warn(string.format("FixCamera: Failed to set %s. Error: %s", property, tostring(err)))
+		end
+	end
+	return success
+end
+function FixCamera:Enable()
+	if not LocalPlayer then
+		return false
+	end
+	self.State.OriginalMaxZoom = LocalPlayer.CameraMaxZoomDistance
+	self.State.OriginalOcclusionMode = LocalPlayer.DevCameraOcclusionMode
+	self.State.OriginalCameraMode = LocalPlayer.CameraMode
+	LocalPlayer.CameraMaxZoomDistance = self.Config.MaxZoomDistance
+	_fixCamSafeSet(LocalPlayer, "DevCameraOcclusionMode", self.Config.PreferredOcclusionMode, 0)
+	self.State.Connection = RunService.RenderStepped:Connect(function()
+		if LocalPlayer.CameraMode ~= self.Config.ForcedCameraMode then
+			LocalPlayer.CameraMode = self.Config.ForcedCameraMode
+		end
+	end)
+	self.State.Enabled = true
+	DoNotif("Camera unlocked (zoom: " .. self.Config.MaxZoomDistance .. ", occlusion: off)", 3)
+	return true
+end
+function FixCamera:Disable()
+	if self.State.Connection then
+		self.State.Connection:Disconnect()
+		self.State.Connection = nil
+	end
+	if LocalPlayer then
+		pcall(function()
+			if self.State.OriginalOcclusionMode ~= nil then
+				LocalPlayer.DevCameraOcclusionMode = self.State.OriginalOcclusionMode
+			end
+			if self.State.OriginalMaxZoom ~= nil then
+				LocalPlayer.CameraMaxZoomDistance = self.State.OriginalMaxZoom
+			end
+			if self.State.OriginalCameraMode ~= nil then
+				LocalPlayer.CameraMode = self.State.OriginalCameraMode
+			end
+		end)
+	end
+	self.State.OriginalOcclusionMode = nil
+	self.State.OriginalMaxZoom = nil
+	self.State.OriginalCameraMode = nil
+	self.State.Enabled = false
+	return true
+end
+function FixCamera:Toggle()
+	if self.State.Enabled then
+		return self:Disable()
+	else
+		return self:Enable()
+	end
+end
+FixCamera:Enable()
 local function ClonedService(name)
 	local Service = game.GetService
 	local Reference = cloneref or function(reference)
