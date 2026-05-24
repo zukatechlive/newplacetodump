@@ -5,6 +5,8 @@ local TweenService = game:GetService("TweenService")
 local plr = Players.LocalPlayer
 local playerGui = plr:WaitForChild("PlayerGui")
 local workspace = game:GetService("Workspace")
+
+
 local CFG = {
 	Title = "Bosses",
 	RefreshRate = 1.5,
@@ -18,26 +20,26 @@ local CFG = {
 	OrbitSpeed = 1.2,
 	HpAlertThreshold = 0.25,
 	AlertCooldown = 10,
-	AccentColor = Color3.fromRGB(220, 60, 60),
-	BgColor = Color3.fromRGB(18, 18, 22),
-	SurfaceColor = Color3.fromRGB(26, 26, 32),
-	TextColor = Color3.fromRGB(240, 240, 240),
-	SubTextColor = Color3.fromRGB(140, 140, 155),
-	BorderColor = Color3.fromRGB(50, 50, 62),
-	BtnTP = Color3.fromRGB(40, 110, 210),
-	BtnAttach = Color3.fromRGB(30, 150, 90),
-	BtnAttachON = Color3.fromRGB(220, 140, 20),
-	BtnIgnore = Color3.fromRGB(70, 70, 85),
-	BtnIgnoreON = Color3.fromRGB(120, 35, 35),
-	HpBarFull = Color3.fromRGB(60, 200, 80),
-	HpBarMid = Color3.fromRGB(220, 180, 30),
-	HpBarLow = Color3.fromRGB(220, 50, 50),
-	HpBarBg = Color3.fromRGB(38, 20, 20),
-	EspFill = Color3.fromRGB(220, 60, 60),
+	AccentColor = Color3.fromRGB(0, 188, 212),
+	BgColor = Color3.fromRGB(10, 10, 14),
+	SurfaceColor = Color3.fromRGB(16, 16, 22),
+	TextColor = Color3.fromRGB(220, 220, 235),
+	SubTextColor = Color3.fromRGB(90, 90, 115),
+	BorderColor = Color3.fromRGB(38, 38, 52),
+	BtnTP = Color3.fromRGB(18, 58, 90),
+	BtnAttach = Color3.fromRGB(10, 68, 58),
+	BtnAttachON = Color3.fromRGB(160, 100, 0),
+	BtnIgnore = Color3.fromRGB(30, 30, 44),
+	BtnIgnoreON = Color3.fromRGB(100, 18, 18),
+	HpBarFull = Color3.fromRGB(0, 200, 83),
+	HpBarMid = Color3.fromRGB(255, 160, 0),
+	HpBarLow = Color3.fromRGB(213, 0, 0),
+	HpBarBg = Color3.fromRGB(20, 6, 6),
+	EspFill = Color3.fromRGB(0, 188, 212),
 	EspOutline = Color3.fromRGB(255, 255, 255),
-	IgnoreSurface = Color3.fromRGB(38, 22, 22),
-	CycleColor = Color3.fromRGB(160, 60, 220),
-	OrbitColor = Color3.fromRGB(20, 180, 200),
+	IgnoreSurface = Color3.fromRGB(18, 8, 8),
+	CycleColor = Color3.fromRGB(100, 60, 220),
+	OrbitColor = Color3.fromRGB(0, 172, 193),
 	TagColors = {
 		hard = Color3.fromRGB(220, 60, 60),
 		farming = Color3.fromRGB(60, 180, 80),
@@ -356,7 +358,7 @@ local function startAlerts()
 	end
 	bossAlertConn = folder.ChildAdded:Connect(function(child)
 		if child.Name ~= _G._bossPanelReattachName then
-			notify(" Boss spawned: " .. child.Name, 4)
+			notify("[!] Boss spawned: " .. child.Name, 4)
 		end
 	end)
 end
@@ -371,7 +373,7 @@ local function checkHpAlerts(children)
 					local last = hpAlertTimes[child.Name] or 0
 					if now - last >= CFG.AlertCooldown then
 						hpAlertTimes[child.Name] = now
-						notify(" " .. child.Name .. " LOW HP (" .. math.floor(ratio * 100) .. "%)", 4)
+						notify("[!] " .. child.Name .. " LOW HP (" .. math.floor(ratio * 100) .. "%)", 4)
 					end
 				end
 			end
@@ -379,7 +381,7 @@ local function checkHpAlerts(children)
 	end
 end
 local function printSnapshot(bossObj)
-	print(" Snapshot: " .. bossObj:GetFullName() .. " ")
+	print("── Snapshot: " .. bossObj:GetFullName() .. " ──")
 	local function recurse(obj, indent)
 		for _, child in ipairs(obj:GetChildren()) do
 			local info = child.Name .. "  [" .. child.ClassName .. "]"
@@ -409,7 +411,7 @@ local function printSnapshot(bossObj)
 	end
 	recurse(bossObj, "  ")
 	print(
-		""
+		"──────────────────────────────────────────"
 	)
 	notify("Snapshot printed: " .. bossObj.Name, 2)
 end
@@ -424,21 +426,18 @@ ScreenGui.DisplayOrder = 99
 ScreenGui.Parent = playerGui
 local MiniBtn = Instance.new("TextButton")
 MiniBtn.Name = "MiniBtn"
-MiniBtn.Size = UDim2.new(0, 36, 0, 36)
+MiniBtn.Size = UDim2.new(0, 40, 0, 22)
 MiniBtn.Position = UDim2.new(0, 24, 0, 24)
 MiniBtn.BackgroundColor3 = CFG.AccentColor
-MiniBtn.Text = ""
+MiniBtn.Text = "BOSS"
 MiniBtn.TextColor3 = Color3.new(1, 1, 1)
-MiniBtn.Font = Enum.Font.GothamBold
-MiniBtn.TextSize = 16
+MiniBtn.Font = Enum.Font.Code
+MiniBtn.TextSize = 10
 MiniBtn.BorderSizePixel = 0
 MiniBtn.ZIndex = 10
 MiniBtn.Visible = false
 MiniBtn.Parent = ScreenGui
 do
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, 8)
-	c.Parent = MiniBtn
 	local s = Instance.new("UIStroke")
 	s.Color = CFG.BorderColor
 	s.Thickness = 1
@@ -466,25 +465,17 @@ MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
 MainFrame.Parent = ScreenGui
 do
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, 8)
-	c.Parent = MainFrame
 	local s = Instance.new("UIStroke")
 	s.Color = CFG.BorderColor
 	s.Thickness = 1
 	s.Parent = MainFrame
 end
 local AccentBar = Instance.new("Frame")
-AccentBar.Size = UDim2.new(0, 3, 1, 0)
+AccentBar.Size = UDim2.new(0, 2, 1, 0)
 AccentBar.BackgroundColor3 = CFG.AccentColor
 AccentBar.BorderSizePixel = 0
 AccentBar.ZIndex = 2
 AccentBar.Parent = MainFrame
-do
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, 4)
-	c.Parent = AccentBar
-end
 local Header = Instance.new("Frame")
 Header.Size = UDim2.new(1, 0, 0, 40)
 Header.BackgroundTransparency = 1
@@ -494,9 +485,9 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -200, 1, 0)
 TitleLabel.Position = UDim2.new(0, 14, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "  " .. CFG.Title
+TitleLabel.Text = "[ " .. CFG.Title .. " ]"
 TitleLabel.TextColor3 = CFG.TextColor
-TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Font = Enum.Font.Code
 TitleLabel.TextSize = 13
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.ZIndex = 4
@@ -508,44 +499,34 @@ local function makeHeaderBtn(text, xOff, w, color)
 	b.BackgroundColor3 = color or Color3.fromRGB(50, 50, 65)
 	b.Text = text
 	b.TextColor3 = CFG.SubTextColor
-	b.Font = Enum.Font.GothamBold
+	b.Font = Enum.Font.Code
 	b.TextSize = 10
 	b.BorderSizePixel = 0
 	b.ZIndex = 6
 	b.Parent = Header
-	do
-		local c = Instance.new("UICorner")
-		c.CornerRadius = UDim.new(0, 4)
-		c.Parent = b
-	end
 	return b
 end
 local EspBtn = makeHeaderBtn("ESP", -196, 34)
 local DstBtn = makeHeaderBtn("DST", -158, 34)
 local AlertBtn = makeHeaderBtn("ALT", -120, 34)
-local MinimizeBtn = makeHeaderBtn("", -82, 26)
+local MinimizeBtn = makeHeaderBtn("──", -82, 26)
 local CountBadge = Instance.new("TextLabel")
 CountBadge.Size = UDim2.new(0, 24, 0, 18)
 CountBadge.Position = UDim2.new(1, -52, 0.5, -9)
 CountBadge.BackgroundColor3 = CFG.AccentColor
 CountBadge.Text = "0"
 CountBadge.TextColor3 = Color3.new(1, 1, 1)
-CountBadge.Font = Enum.Font.GothamBold
+CountBadge.Font = Enum.Font.Code
 CountBadge.TextSize = 10
 CountBadge.ZIndex = 4
 CountBadge.Parent = Header
-do
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(1, 0)
-	c.Parent = CountBadge
-end
 local Chevron = Instance.new("TextLabel")
 Chevron.Size = UDim2.new(0, 20, 0, 20)
 Chevron.Position = UDim2.new(1, -28, 0.5, -10)
 Chevron.BackgroundTransparency = 1
-Chevron.Text = ""
+Chevron.Text = "v"
 Chevron.TextColor3 = CFG.SubTextColor
-Chevron.Font = Enum.Font.GothamBold
+Chevron.Font = Enum.Font.Code
 Chevron.TextSize = 11
 Chevron.ZIndex = 4
 Chevron.Parent = Header
@@ -554,7 +535,7 @@ local Toolbar = Instance.new("Frame")
 Toolbar.Name = "Toolbar"
 Toolbar.Size = UDim2.new(1, 0, 0, ToolbarH)
 Toolbar.Position = UDim2.new(0, 0, 0, 40)
-Toolbar.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
+Toolbar.BackgroundColor3 = Color3.fromRGB(13, 13, 18)
 Toolbar.BorderSizePixel = 0
 Toolbar.ZIndex = 3
 Toolbar.Visible = false
@@ -566,21 +547,16 @@ local function makeToolbarBtn(text, xOff, w, color)
 	b.BackgroundColor3 = color or Color3.fromRGB(40, 40, 52)
 	b.Text = text
 	b.TextColor3 = CFG.SubTextColor
-	b.Font = Enum.Font.GothamBold
+	b.Font = Enum.Font.Code
 	b.TextSize = 10
 	b.BorderSizePixel = 0
 	b.ZIndex = 5
 	b.Parent = Toolbar
-	do
-		local c = Instance.new("UICorner")
-		c.CornerRadius = UDim.new(0, 4)
-		c.Parent = b
-	end
 	return b
 end
-local CycleBtn = makeToolbarBtn(" CYCLE", 6, 68)
+local CycleBtn = makeToolbarBtn("[>] CYCLE", 6, 68)
 local ModeBtn = makeToolbarBtn("BEHIND", 78, 54)
-local SkipBtn = makeToolbarBtn("SKIP ", 136, 50)
+local SkipBtn = makeToolbarBtn("SKIP ▶", 136, 50)
 local SearchBox
 local CycleBarBg = Instance.new("Frame")
 CycleBarBg.Size = UDim2.new(0, 68, 0, 3)
@@ -590,33 +566,20 @@ CycleBarBg.BorderSizePixel = 0
 CycleBarBg.ZIndex = 6
 CycleBarBg.Visible = false
 CycleBarBg.Parent = Toolbar
-do
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(1, 0)
-	c.Parent = CycleBarBg
-end
 local CycleBarFill = Instance.new("Frame")
 CycleBarFill.Size = UDim2.new(0, 0, 1, 0)
 CycleBarFill.BackgroundColor3 = CFG.CycleColor
 CycleBarFill.BorderSizePixel = 0
 CycleBarFill.ZIndex = 7
 CycleBarFill.Parent = CycleBarBg
-do
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(1, 0)
-	c.Parent = CycleBarFill
-end
 local SearchFrame = Instance.new("Frame")
 SearchFrame.Size = UDim2.new(1, -196, 0, 22)
 SearchFrame.Position = UDim2.new(0, 191, 0.5, -11)
-SearchFrame.BackgroundColor3 = Color3.fromRGB(32, 32, 42)
+SearchFrame.BackgroundColor3 = Color3.fromRGB(14, 14, 20)
 SearchFrame.BorderSizePixel = 0
 SearchFrame.ZIndex = 5
 SearchFrame.Parent = Toolbar
 do
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, 4)
-	c.Parent = SearchFrame
 	local s = Instance.new("UIStroke")
 	s.Color = CFG.BorderColor
 	s.Thickness = 1
@@ -625,9 +588,9 @@ end
 local SearchIcon = Instance.new("TextLabel")
 SearchIcon.Size = UDim2.new(0, 18, 1, 0)
 SearchIcon.BackgroundTransparency = 1
-SearchIcon.Text = ""
+SearchIcon.Text = "/"
 SearchIcon.TextSize = 10
-SearchIcon.Font = Enum.Font.Gotham
+SearchIcon.Font = Enum.Font.Code
 SearchIcon.ZIndex = 6
 SearchIcon.Parent = SearchFrame
 SearchBox = Instance.new("TextBox")
@@ -638,7 +601,7 @@ SearchBox.PlaceholderText = "Search…"
 SearchBox.PlaceholderColor3 = CFG.SubTextColor
 SearchBox.Text = ""
 SearchBox.TextColor3 = CFG.TextColor
-SearchBox.Font = Enum.Font.Gotham
+SearchBox.Font = Enum.Font.Code
 SearchBox.TextSize = 10
 SearchBox.TextXAlignment = Enum.TextXAlignment.Left
 SearchBox.ClearTextOnFocus = false
@@ -693,9 +656,9 @@ local IgnoreTitle = Instance.new("TextLabel")
 IgnoreTitle.Size = UDim2.new(1, -80, 1, 0)
 IgnoreTitle.Position = UDim2.new(0, 14, 0, 0)
 IgnoreTitle.BackgroundTransparency = 1
-IgnoreTitle.Text = "  Ignored"
+IgnoreTitle.Text = "-- ignored"
 IgnoreTitle.TextColor3 = CFG.SubTextColor
-IgnoreTitle.Font = Enum.Font.GothamBold
+IgnoreTitle.Font = Enum.Font.Code
 IgnoreTitle.TextSize = 11
 IgnoreTitle.TextXAlignment = Enum.TextXAlignment.Left
 IgnoreTitle.ZIndex = 4
@@ -703,19 +666,14 @@ IgnoreTitle.Parent = IgnoreHeader
 local ClearAllBtn = Instance.new("TextButton")
 ClearAllBtn.Size = UDim2.new(0, 60, 0, 18)
 ClearAllBtn.Position = UDim2.new(1, -68, 0.5, -9)
-ClearAllBtn.BackgroundColor3 = Color3.fromRGB(80, 30, 30)
+ClearAllBtn.BackgroundColor3 = Color3.fromRGB(60, 16, 16)
 ClearAllBtn.Text = "Clear All"
 ClearAllBtn.TextColor3 = Color3.fromRGB(230, 150, 150)
-ClearAllBtn.Font = Enum.Font.GothamBold
+ClearAllBtn.Font = Enum.Font.Code
 ClearAllBtn.TextSize = 9
 ClearAllBtn.BorderSizePixel = 0
 ClearAllBtn.ZIndex = 5
 ClearAllBtn.Parent = IgnoreHeader
-do
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, 4)
-	c.Parent = ClearAllBtn
-end
 local IgnoreScroll = Instance.new("ScrollingFrame")
 IgnoreScroll.Size = UDim2.new(1, 0, 0, 0)
 IgnoreScroll.BackgroundTransparency = 1
@@ -744,16 +702,13 @@ end
 local TagPopup = Instance.new("Frame")
 TagPopup.Name = "TagPopup"
 TagPopup.Size = UDim2.new(0, 160, 0, 0)
-TagPopup.BackgroundColor3 = Color3.fromRGB(28, 28, 36)
+TagPopup.BackgroundColor3 = Color3.fromRGB(12, 12, 18)
 TagPopup.BorderSizePixel = 0
 TagPopup.ZIndex = 20
 TagPopup.Visible = false
 TagPopup.ClipsDescendants = true
 TagPopup.Parent = ScreenGui
 do
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, 6)
-	c.Parent = TagPopup
 	local s = Instance.new("UIStroke")
 	s.Color = CFG.BorderColor
 	s.Thickness = 1
@@ -787,22 +742,17 @@ local function openTagPopup(bossName, screenPos)
 	for _, tag in ipairs(tags) do
 		local btn = Instance.new("TextButton")
 		btn.Size = UDim2.new(1, 0, 0, 22)
-		btn.BackgroundColor3 = Color3.fromRGB(36, 36, 46)
+		btn.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
 		btn.BorderSizePixel = 0
-		btn.Font = Enum.Font.Gotham
+		btn.Font = Enum.Font.Code
 		btn.TextSize = 11
 		btn.ZIndex = 21
 		btn.Parent = TagPopup
-		do
-			local c = Instance.new("UICorner")
-			c.CornerRadius = UDim.new(0, 4)
-			c.Parent = btn
-		end
 		if tag == "(clear)" then
-			btn.Text = "  Clear tag"
+			btn.Text = "x  none"
 			btn.TextColor3 = CFG.SubTextColor
 		else
-			btn.Text = "  " .. tag
+			btn.Text = "> " .. tag
 			btn.TextColor3 = CFG.TagColors[tag] or CFG.TextColor
 		end
 		btn.MouseButton1Click:Connect(function()
@@ -834,16 +784,11 @@ local function makeBtn(parent, text, bgColor, absX, w)
 	btn.BackgroundColor3 = bgColor
 	btn.Text = text
 	btn.TextColor3 = Color3.new(1, 1, 1)
-	btn.Font = Enum.Font.GothamBold
+	btn.Font = Enum.Font.Code
 	btn.TextSize = 9
 	btn.BorderSizePixel = 0
 	btn.ZIndex = 6
 	btn.Parent = parent
-	do
-		local c = Instance.new("UICorner")
-		c.CornerRadius = UDim.new(0, 4)
-		c.Parent = btn
-	end
 	return btn
 end
 local function makeItem(bossObj, layoutOrder)
@@ -866,11 +811,6 @@ local function makeItem(bossObj, layoutOrder)
 	row.BorderSizePixel = 0
 	row.ZIndex = 4
 	row.LayoutOrder = layoutOrder or 0
-	do
-		local c = Instance.new("UICorner")
-		c.CornerRadius = UDim.new(0, 6)
-		c.Parent = row
-	end
 	if isCycleActive then
 		local s = Instance.new("UIStroke")
 		s.Color = CFG.CycleColor
@@ -884,11 +824,6 @@ local function makeItem(bossObj, layoutOrder)
 	dot.BorderSizePixel = 0
 	dot.ZIndex = 5
 	dot.Parent = row
-	do
-		local c = Instance.new("UICorner")
-		c.CornerRadius = UDim.new(1, 0)
-		c.Parent = dot
-	end
 	local nameXOff = 20
 	if tag then
 		local badge = Instance.new("TextLabel")
@@ -898,15 +833,10 @@ local function makeItem(bossObj, layoutOrder)
 		badge.BackgroundTransparency = 0.6
 		badge.Text = tag
 		badge.TextColor3 = Color3.new(1, 1, 1)
-		badge.Font = Enum.Font.GothamBold
+		badge.Font = Enum.Font.Code
 		badge.TextSize = 8
 		badge.ZIndex = 6
 		badge.Parent = row
-		do
-			local c = Instance.new("UICorner")
-			c.CornerRadius = UDim.new(0, 3)
-			c.Parent = badge
-		end
 		nameXOff = 64
 	end
 	local nameBtn = Instance.new("TextButton")
@@ -915,7 +845,7 @@ local function makeItem(bossObj, layoutOrder)
 	nameBtn.BackgroundTransparency = 1
 	nameBtn.Text = name
 	nameBtn.TextColor3 = isIgnored and CFG.SubTextColor or CFG.TextColor
-	nameBtn.Font = Enum.Font.GothamBold
+	nameBtn.Font = Enum.Font.Code
 	nameBtn.TextSize = 11
 	nameBtn.TextXAlignment = Enum.TextXAlignment.Left
 	nameBtn.TextTruncate = Enum.TextTruncate.AtEnd
@@ -927,7 +857,7 @@ local function makeItem(bossObj, layoutOrder)
 	distLabel.BackgroundTransparency = 1
 	distLabel.Text = root and (tostring(dist) .. " st") or "N/A"
 	distLabel.TextColor3 = Color3.fromRGB(100, 180, 255)
-	distLabel.Font = Enum.Font.Gotham
+	distLabel.Font = Enum.Font.Code
 	distLabel.TextSize = 9
 	distLabel.TextXAlignment = Enum.TextXAlignment.Left
 	distLabel.ZIndex = 5
@@ -939,29 +869,19 @@ local function makeItem(bossObj, layoutOrder)
 	hpBg.BorderSizePixel = 0
 	hpBg.ZIndex = 5
 	hpBg.Parent = row
-	do
-		local c = Instance.new("UICorner")
-		c.CornerRadius = UDim.new(1, 0)
-		c.Parent = hpBg
-	end
 	local hpFill = Instance.new("Frame")
 	hpFill.Size = UDim2.new(hpRatio, 0, 1, 0)
 	hpFill.BackgroundColor3 = humanoid and getHpColor(hpRatio) or CFG.SubTextColor
 	hpFill.BorderSizePixel = 0
 	hpFill.ZIndex = 6
 	hpFill.Parent = hpBg
-	do
-		local c = Instance.new("UICorner")
-		c.CornerRadius = UDim.new(1, 0)
-		c.Parent = hpFill
-	end
 	local hpLabel = Instance.new("TextLabel")
 	hpLabel.Size = UDim2.new(0, 80, 0, 12)
 	hpLabel.Position = UDim2.new(0, 74, 0, 16)
 	hpLabel.BackgroundTransparency = 1
 	hpLabel.Text = humanoid and (math.floor(hp) .. "/" .. math.floor(maxHp)) or "No Humanoid"
 	hpLabel.TextColor3 = humanoid and getHpColor(hpRatio) or CFG.SubTextColor
-	hpLabel.Font = Enum.Font.Gotham
+	hpLabel.Font = Enum.Font.Code
 	hpLabel.TextSize = 9
 	hpLabel.TextXAlignment = Enum.TextXAlignment.Left
 	hpLabel.ZIndex = 5
@@ -969,7 +889,7 @@ local function makeItem(bossObj, layoutOrder)
 	local tpBtn = makeBtn(row, "TP", CFG.BtnTP, -168, 34)
 	local attBtn = makeBtn(row, "ATT", CFG.BtnAttach, -130, 36)
 	local ignBtn = makeBtn(row, isIgnored and "UNIGN" or "IGN", isIgnored and CFG.BtnIgnoreON or CFG.BtnIgnore, -90, 44)
-	local snapBtn = makeBtn(row, "", Color3.fromRGB(50, 50, 65), -42, 36)
+	local snapBtn = makeBtn(row, "SN", Color3.fromRGB(50, 50, 65), -42, 36)
 	if _G._bossPanelAttachTarget and root and _G._bossPanelAttachTarget == root then
 		attBtn.BackgroundColor3 = cycleEnabled and CFG.CycleColor or CFG.BtnAttachON
 		attBtn.Text = cycleEnabled and "CYC" or "STOP"
@@ -977,7 +897,7 @@ local function makeItem(bossObj, layoutOrder)
 			activeAttachBtn = attBtn
 		end
 	end
-	local tweenIn = TweenService:Create(row, TweenInfo.new(0.1), { BackgroundColor3 = Color3.fromRGB(38, 38, 50) })
+	local tweenIn = TweenService:Create(row, TweenInfo.new(0.1), { BackgroundColor3 = Color3.fromRGB(22, 22, 32) })
 	local tweenOut = TweenService:Create(row, TweenInfo.new(0.1), { BackgroundColor3 = rowBg })
 	row.MouseEnter:Connect(function()
 		if not isIgnored then
@@ -1017,7 +937,7 @@ local function makeItem(bossObj, layoutOrder)
 		end
 		if cycleEnabled then
 			stopCycle()
-			CycleBtn.Text = " CYCLE"
+			CycleBtn.Text = "[>] CYCLE"
 			CycleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 52)
 			CycleBtn.TextColor3 = CFG.SubTextColor
 			CycleBarBg.Visible = false
@@ -1067,22 +987,17 @@ local function makeIgnoreRow(name)
 	local row = Instance.new("Frame")
 	row.Name = "IGN_" .. name
 	row.Size = UDim2.new(1, 0, 0, 24)
-	row.BackgroundColor3 = Color3.fromRGB(38, 22, 22)
+	row.BackgroundColor3 = Color3.fromRGB(20, 10, 10)
 	row.BorderSizePixel = 0
 	row.ZIndex = 4
 	row.Parent = IgnoreScroll
-	do
-		local c = Instance.new("UICorner")
-		c.CornerRadius = UDim.new(0, 5)
-		c.Parent = row
-	end
 	local lbl = Instance.new("TextLabel")
 	lbl.Size = UDim2.new(1, -60, 1, 0)
 	lbl.Position = UDim2.new(0, 10, 0, 0)
 	lbl.BackgroundTransparency = 1
-	lbl.Text = " " .. name
+	lbl.Text = "  " .. name
 	lbl.TextColor3 = Color3.fromRGB(200, 100, 100)
-	lbl.Font = Enum.Font.Gotham
+	lbl.Font = Enum.Font.Code
 	lbl.TextSize = 10
 	lbl.TextXAlignment = Enum.TextXAlignment.Left
 	lbl.ZIndex = 5
@@ -1090,19 +1005,14 @@ local function makeIgnoreRow(name)
 	local unBtn = Instance.new("TextButton")
 	unBtn.Size = UDim2.new(0, 44, 0, 16)
 	unBtn.Position = UDim2.new(1, -50, 0.5, -8)
-	unBtn.BackgroundColor3 = Color3.fromRGB(60, 35, 35)
+	unBtn.BackgroundColor3 = Color3.fromRGB(42, 18, 18)
 	unBtn.Text = "Unign"
 	unBtn.TextColor3 = Color3.fromRGB(240, 160, 160)
-	unBtn.Font = Enum.Font.GothamBold
+	unBtn.Font = Enum.Font.Code
 	unBtn.TextSize = 9
 	unBtn.BorderSizePixel = 0
 	unBtn.ZIndex = 6
 	unBtn.Parent = row
-	do
-		local c = Instance.new("UICorner")
-		c.CornerRadius = UDim.new(0, 4)
-		c.Parent = unBtn
-	end
 	unBtn.MouseButton1Click:Connect(function()
 		ignoredSet[name] = nil
 		refreshAll()
@@ -1137,7 +1047,7 @@ refreshAll = function()
 		lbl.BackgroundTransparency = 1
 		lbl.Text = "workspace.Bosses not found"
 		lbl.TextColor3 = CFG.SubTextColor
-		lbl.Font = Enum.Font.Gotham
+		lbl.Font = Enum.Font.Code
 		lbl.TextSize = 11
 		lbl.ZIndex = 4
 		lbl.Parent = ScrollFrame
@@ -1160,7 +1070,7 @@ refreshAll = function()
 		lbl.BackgroundTransparency = 1
 		lbl.Text = #allChildren == 0 and "No bosses found" or "No results"
 		lbl.TextColor3 = CFG.SubTextColor
-		lbl.Font = Enum.Font.Gotham
+		lbl.Font = Enum.Font.Code
 		lbl.TextSize = 11
 		lbl.ZIndex = 4
 		lbl.Parent = ScrollFrame
@@ -1229,7 +1139,7 @@ RunService.Heartbeat:Connect(function()
 end)
 local function togglePanel()
 	isOpen = not isOpen
-	Chevron.Text = isOpen and "" or ""
+	Chevron.Text = isOpen and "^" or "v"
 	if isOpen then
 		refreshAll()
 	end
@@ -1328,14 +1238,14 @@ CycleBtn.MouseButton1Click:Connect(function()
 		stopCycle()
 		stopAttach()
 		clearActiveAttach()
-		CycleBtn.Text = " CYCLE"
+		CycleBtn.Text = "[>] CYCLE"
 		CycleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 52)
 		CycleBtn.TextColor3 = CFG.SubTextColor
 		CycleBarBg.Visible = false
 		notify("Auto-Cycle: OFF", 2)
 	else
 		startCycle()
-		CycleBtn.Text = "⏹ CYCLE"
+		CycleBtn.Text = "[.] CYCLE"
 		CycleBtn.BackgroundColor3 = CFG.CycleColor
 		CycleBtn.TextColor3 = Color3.new(1, 1, 1)
 		CycleBarBg.Visible = true
@@ -1427,4 +1337,66 @@ end)
 refreshAll()
 print(
 	string.format("[BossesPanel v4.0] Loaded — toggle key: %s | open panel to expand", tostring(CFG.ToggleKey.Name))
-)
+) -- end
+
+-- auto answer math questions addon
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TextChatService = game:GetService("TextChatService")
+local MathQuizQuestion = ReplicatedStorage:WaitForChild("MathQuizQuestion")
+local MathQuizWinner = ReplicatedStorage:WaitForChild("MathQuizWinner")
+
+
+local ANSWER_DELAY = 1
+local quizActive = false
+local function solveEquation(question)
+	local q = question
+	q = q:gsub("\195\151", "*")
+	q = q:gsub("\195\183", "/")
+	q = q:gsub("[xX]", "*")
+	local left, op, right = q:match("(%d+%.?%d*)%s*([%+%-%*/])%s*(%d+%.?%d*)")
+	if not (left and op and right) then
+		return nil
+	end
+	left = tonumber(left)
+	right = tonumber(right)
+	if not left or not right then
+		return nil
+	end
+	local result
+	if op == "+" then
+		result = left + right
+	elseif op == "-" then
+		result = left - right
+	elseif op == "*" then
+		result = left * right
+	elseif op == "/" then
+		if right == 0 then
+			return nil
+		end
+		result = left / right
+	end
+	if not result then
+		return nil
+	end
+	local rounded = math.round(result)
+	return (math.abs(result - rounded) < 0.0001) and rounded or result
+end
+MathQuizQuestion.OnClientEvent:Connect(function(question, isInsane)
+	if not question or question == "" then
+		return
+	end
+	quizActive = true
+	local answer = solveEquation(question)
+	if not answer then
+		return
+	end
+	task.delay(ANSWER_DELAY, function()
+		if not quizActive then
+			return
+		end
+		TextChatService.TextChannels.RBXGeneral:SendAsync("" .. tostring(answer))
+	end)
+end)
+MathQuizWinner.OnClientEvent:Connect(function()
+	quizActive = false
+end)
