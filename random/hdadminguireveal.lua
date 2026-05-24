@@ -1,3 +1,5 @@
+--[[ this does not give you access to any hdadmin script, this only reveals gui parts and tricks the game into thinking you have perms ]]
+
 
 local function checkIntegrity()
 	local mt = getrawmetatable(game)
