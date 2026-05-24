@@ -164,6 +164,7 @@ local function addEsp(bossObj)
 	if espHighlights[name] then
 		return
 	end
+	-- Highlight (fill + outline glow)
 	local h = Instance.new("Highlight")
 	h.Name = "_BossPanelESP"
 	h.FillColor = CFG.EspFill
@@ -171,13 +172,54 @@ local function addEsp(bossObj)
 	h.FillTransparency = 0.55
 	h.OutlineTransparency = 0
 	h.Adornee = bossObj
-	h.Parent = bossObj
-	espHighlights[name] = h
+	h.Parent = playerGui -- parent to playerGui so it survives boss model changes
+	-- BillboardGui label above the boss
+	local root = getRootPart(bossObj)
+	local bb = Instance.new("BillboardGui")
+	bb.Name = "_BossPanelESPLabel"
+	bb.Size = UDim2.new(0, 120, 0, 40)
+	bb.StudsOffset = Vector3.new(0, 4, 0)
+	bb.AlwaysOnTop = true
+	bb.Adornee = root or bossObj
+	bb.Parent = playerGui
+	local nameLbl = Instance.new("TextLabel")
+	nameLbl.Size = UDim2.new(1, 0, 0.6, 0)
+	nameLbl.BackgroundTransparency = 1
+	nameLbl.Text = name
+	nameLbl.TextColor3 = CFG.EspFill
+	nameLbl.Font = Enum.Font.Code
+	nameLbl.TextSize = 13
+	nameLbl.TextStrokeTransparency = 0
+	nameLbl.TextStrokeColor3 = Color3.new(0, 0, 0)
+	nameLbl.TextScaled = false
+	nameLbl.ZIndex = 2
+	nameLbl.Parent = bb
+	-- HP sub-label
+	local hum = getHumanoid(bossObj)
+	local hpLbl = Instance.new("TextLabel")
+	hpLbl.Name = "_hpLbl"
+	hpLbl.Size = UDim2.new(1, 0, 0.4, 0)
+	hpLbl.Position = UDim2.new(0, 0, 0.6, 0)
+	hpLbl.BackgroundTransparency = 1
+	hpLbl.Text = hum and (math.floor(hum.Health) .. "/" .. math.floor(hum.MaxHealth)) or "?"
+	hpLbl.TextColor3 = hum and getHpColor(hum.MaxHealth > 0 and math.clamp(hum.Health/hum.MaxHealth,0,1) or 0) or CFG.SubTextColor
+	hpLbl.Font = Enum.Font.Code
+	hpLbl.TextSize = 10
+	hpLbl.TextStrokeTransparency = 0
+	hpLbl.TextStrokeColor3 = Color3.new(0, 0, 0)
+	hpLbl.ZIndex = 2
+	hpLbl.Parent = bb
+	espHighlights[name] = { highlight = h, billboard = bb }
 end
 local function removeEsp(name)
 	if espHighlights[name] then
 		pcall(function()
-			espHighlights[name]:Destroy()
+			if espHighlights[name].highlight then
+				espHighlights[name].highlight:Destroy()
+			end
+			if espHighlights[name].billboard then
+				espHighlights[name].billboard:Destroy()
+			end
 		end)
 		espHighlights[name] = nil
 	end
@@ -494,17 +536,36 @@ MiniBtn.InputEnded:Connect(function(inp)
 		miniDragging = false
 	end
 end)
--- ── Outline FX (Rainbow / Pulse / Glow) ──────────────────────────────────────
+-- ── Outline FX stubs (implementations filled in after MainFrame is created) ──
 local fxConn1, fxConn2, fxStroke1, fxStroke2
+local stopFx, startRainbow, startPulse, startGlow, applyFx
+local FX_MODES  = { "rainbow", "pulse", "glow", "off" }
+local fxModeIdx = 1
 
-local function stopFx()
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, CFG.PanelW, 0, 40)
+MainFrame.Position = UDim2.new(0, 24, 0, 24)
+MainFrame.BackgroundColor3 = CFG.BgColor
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+local AccentBar = Instance.new("Frame")
+AccentBar.Size = UDim2.new(0, 2, 1, 0)
+AccentBar.BackgroundColor3 = CFG.AccentColor
+AccentBar.BorderSizePixel = 0
+AccentBar.ZIndex = 2
+AccentBar.Parent = MainFrame
+-- ── Outline FX implementations (now MainFrame exists) ────────────────────────
+stopFx = function()
 	if fxConn1 then pcall(function() fxConn1:Disconnect() end); fxConn1 = nil end
 	if fxConn2 then pcall(function() fxConn2:Disconnect() end); fxConn2 = nil end
 	if fxStroke1 then pcall(function() fxStroke1:Destroy() end); fxStroke1 = nil end
 	if fxStroke2 then pcall(function() fxStroke2:Destroy() end); fxStroke2 = nil end
 end
 
-local function startRainbow()
+startRainbow = function()
 	stopFx()
 	local stroke = Instance.new("UIStroke")
 	stroke.Thickness = CFG.FxThickness
@@ -518,7 +579,7 @@ local function startRainbow()
 	end)
 end
 
-local function startPulse()
+startPulse = function()
 	stopFx()
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = CFG.FxPulseColor
@@ -527,7 +588,7 @@ local function startPulse()
 	stroke.Parent = MainFrame
 	fxStroke1 = stroke
 	local running = true
-	fxConn1 = RunService.Heartbeat:Connect(function() end) -- keepalive ref
+	fxConn1 = RunService.Heartbeat:Connect(function() end)
 	task.spawn(function()
 		while running and fxStroke1 and fxStroke1.Parent do
 			TweenService:Create(stroke, TweenInfo.new(CFG.FxSpeed * 0.5, Enum.EasingStyle.Sine), {
@@ -545,7 +606,7 @@ local function startPulse()
 	end)
 end
 
-local function startGlow()
+startGlow = function()
 	stopFx()
 	local glow = Instance.new("UIStroke")
 	glow.Color = CFG.FxGlowColor
@@ -578,40 +639,6 @@ local function startGlow()
 		if not glow.Parent then running = false end
 	end)
 end
-
-local FX_MODES  = { "rainbow", "pulse", "glow", "off" }
-local fxModeIdx = 1
-local function applyFx(mode)
-	CFG.FxMode = mode
-	if     mode == "rainbow" then startRainbow()
-	elseif mode == "pulse"   then startPulse()
-	elseif mode == "glow"    then startGlow()
-	else                          stopFx()
-	end
-	FxBtn.Text      = mode == "off" and "FX" or mode:upper()
-	FxBtn.BackgroundColor3 = mode == "off"
-		and Color3.fromRGB(50, 50, 65)
-		or  CFG.AccentColor
-	FxBtn.TextColor3 = mode == "off"
-		and CFG.SubTextColor
-		or  Color3.new(1, 1, 1)
-end
-
-
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, CFG.PanelW, 0, 40)
-MainFrame.Position = UDim2.new(0, 24, 0, 24)
-MainFrame.BackgroundColor3 = CFG.BgColor
-MainFrame.BorderSizePixel = 0
-MainFrame.ClipsDescendants = true
-MainFrame.Parent = ScreenGui
-local AccentBar = Instance.new("Frame")
-AccentBar.Size = UDim2.new(0, 2, 1, 0)
-AccentBar.BackgroundColor3 = CFG.AccentColor
-AccentBar.BorderSizePixel = 0
-AccentBar.ZIndex = 2
-AccentBar.Parent = MainFrame
 local Header = Instance.new("Frame")
 Header.Size = UDim2.new(1, 0, 0, 40)
 Header.BackgroundTransparency = 1
@@ -642,14 +669,14 @@ local function makeHeaderBtn(text, xOff, w, color)
 	b.Parent = Header
 	return b
 end
-local EspBtn = makeHeaderBtn("ESP", -196, 34)
-local DstBtn = makeHeaderBtn("DST", -158, 34)
-local AlertBtn = makeHeaderBtn("ALT", -120, 34)
-local FxBtn       = makeHeaderBtn("FX",  -150, 30)
-local MinimizeBtn = makeHeaderBtn("──", -116, 26)
+local EspBtn    = makeHeaderBtn("ESP",  -198, 32)
+local DstBtn    = makeHeaderBtn("DST",  -162, 32)
+local AlertBtn  = makeHeaderBtn("ALT",  -126, 32)
+local FxBtn     = makeHeaderBtn("FX",    -90, 32)
+local MinimizeBtn = makeHeaderBtn("──",  -54, 32)
 local CountBadge = Instance.new("TextLabel")
 CountBadge.Size = UDim2.new(0, 24, 0, 18)
-CountBadge.Position = UDim2.new(1, -52, 0.5, -9)
+CountBadge.Position = UDim2.new(1, -224, 0.5, -9)
 CountBadge.BackgroundColor3 = CFG.AccentColor
 CountBadge.Text = "0"
 CountBadge.TextColor3 = Color3.new(1, 1, 1)
@@ -658,8 +685,8 @@ CountBadge.TextSize = 10
 CountBadge.ZIndex = 4
 CountBadge.Parent = Header
 local Chevron = Instance.new("TextLabel")
-Chevron.Size = UDim2.new(0, 20, 0, 20)
-Chevron.Position = UDim2.new(1, -28, 0.5, -10)
+Chevron.Size = UDim2.new(0, 18, 0, 20)
+Chevron.Position = UDim2.new(1, -18, 0.5, -10)
 Chevron.BackgroundTransparency = 1
 Chevron.Text = "v"
 Chevron.TextColor3 = CFG.SubTextColor
@@ -1273,6 +1300,26 @@ RunService.Heartbeat:Connect(function()
 		local ratio = math.clamp(cycleTimer / CFG.CycleDwell, 0, 1)
 		CycleBarFill.Size = UDim2.new(ratio, 0, 1, 0)
 	end
+	-- update ESP hp labels live
+	if espEnabled then
+		for name, entry in pairs(espHighlights) do
+			local bb = entry.billboard
+			if bb and bb.Parent then
+				local hpLbl = bb:FindFirstChild("_hpLbl")
+				-- find the boss object to get fresh HP
+				local folder = workspace:FindFirstChild("Bosses")
+				local bossObj = folder and folder:FindFirstChild(name)
+				if bossObj and hpLbl then
+					local hum = getHumanoid(bossObj)
+					if hum and hum.MaxHealth > 0 then
+						local ratio = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+						hpLbl.Text = math.floor(hum.Health) .. "/" .. math.floor(hum.MaxHealth)
+						hpLbl.TextColor3 = getHpColor(ratio)
+					end
+				end
+			end
+		end
+	end
 end)
 local function togglePanel()
 	isOpen = not isOpen
@@ -1342,7 +1389,22 @@ FxBtn.MouseButton1Click:Connect(function()
 	applyFx(FX_MODES[fxModeIdx])
 	notify("FX: " .. FX_MODES[fxModeIdx]:upper(), 2)
 end)
-
+-- applyFx defined here so FxBtn is in scope
+applyFx = function(mode)
+	CFG.FxMode = mode
+	if     mode == "rainbow" then startRainbow()
+	elseif mode == "pulse"   then startPulse()
+	elseif mode == "glow"    then startGlow()
+	else                          stopFx()
+	end
+	FxBtn.Text = mode == "off" and "FX" or mode:upper()
+	FxBtn.BackgroundColor3 = mode == "off"
+		and Color3.fromRGB(50, 50, 65)
+		or  CFG.AccentColor
+	FxBtn.TextColor3 = mode == "off"
+		and CFG.SubTextColor
+		or  Color3.new(1, 1, 1)
+end
 EspBtn.MouseButton1Click:Connect(function()
 	espEnabled = not espEnabled
 	EspBtn.BackgroundColor3 = espEnabled and CFG.AccentColor or Color3.fromRGB(50, 50, 65)
