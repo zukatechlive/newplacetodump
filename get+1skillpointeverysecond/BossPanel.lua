@@ -6,7 +6,7 @@ local plr = Players.LocalPlayer
 local playerGui = plr:WaitForChild("PlayerGui")
 local workspace = game:GetService("Workspace")
 local CFG = {
-	Title = "Bosses",
+	Title = "Better Auto Farmer",
 	RefreshRate = 1.5,
 	PanelW = 320,
 	ItemHeight = 50,
@@ -36,6 +36,12 @@ local CFG = {
 	EspFill = Color3.fromRGB(0, 188, 212),
 	EspOutline = Color3.fromRGB(255, 255, 255),
 	IgnoreSurface = Color3.fromRGB(18, 8, 8),
+	-- FX outline modes: "off" | "rainbow" | "pulse" | "glow"
+	FxMode        = "rainbow",
+	FxThickness   = 1.5,
+	FxSpeed       = 1,
+	FxPulseColor  = Color3.fromRGB(0, 200, 200),
+	FxGlowColor   = Color3.fromRGB(0, 188, 212),
 	CycleColor = Color3.fromRGB(100, 60, 220),
 	OrbitColor = Color3.fromRGB(0, 172, 193),
 	TagColors = {
@@ -488,6 +494,110 @@ MiniBtn.InputEnded:Connect(function(inp)
 		miniDragging = false
 	end
 end)
+-- ── Outline FX (Rainbow / Pulse / Glow) ──────────────────────────────────────
+local fxConn1, fxConn2, fxStroke1, fxStroke2
+
+local function stopFx()
+	if fxConn1 then pcall(function() fxConn1:Disconnect() end); fxConn1 = nil end
+	if fxConn2 then pcall(function() fxConn2:Disconnect() end); fxConn2 = nil end
+	if fxStroke1 then pcall(function() fxStroke1:Destroy() end); fxStroke1 = nil end
+	if fxStroke2 then pcall(function() fxStroke2:Destroy() end); fxStroke2 = nil end
+end
+
+local function startRainbow()
+	stopFx()
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness = CFG.FxThickness
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Parent = MainFrame
+	fxStroke1 = stroke
+	local hue = 0
+	fxConn1 = RunService.Heartbeat:Connect(function(dt)
+		hue = (hue + dt * CFG.FxSpeed * 0.2) % 1
+		stroke.Color = Color3.fromHSV(hue, 1, 1)
+	end)
+end
+
+local function startPulse()
+	stopFx()
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = CFG.FxPulseColor
+	stroke.Thickness = CFG.FxThickness
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Parent = MainFrame
+	fxStroke1 = stroke
+	local running = true
+	fxConn1 = RunService.Heartbeat:Connect(function() end) -- keepalive ref
+	task.spawn(function()
+		while running and fxStroke1 and fxStroke1.Parent do
+			TweenService:Create(stroke, TweenInfo.new(CFG.FxSpeed * 0.5, Enum.EasingStyle.Sine), {
+				Thickness = CFG.FxThickness * 3.5, Transparency = 0.5,
+			}):Play()
+			task.wait(CFG.FxSpeed * 0.5)
+			TweenService:Create(stroke, TweenInfo.new(CFG.FxSpeed * 0.5, Enum.EasingStyle.Sine), {
+				Thickness = CFG.FxThickness, Transparency = 0,
+			}):Play()
+			task.wait(CFG.FxSpeed * 0.5)
+		end
+	end)
+	stroke.AncestryChanged:Connect(function()
+		if not stroke.Parent then running = false end
+	end)
+end
+
+local function startGlow()
+	stopFx()
+	local glow = Instance.new("UIStroke")
+	glow.Color = CFG.FxGlowColor
+	glow.Thickness = CFG.FxThickness * 3
+	glow.Transparency = 0.7
+	glow.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	glow.Parent = MainFrame
+	fxStroke2 = glow
+	local inner = Instance.new("UIStroke")
+	inner.Color = CFG.FxGlowColor
+	inner.Thickness = CFG.FxThickness
+	inner.Transparency = 0
+	inner.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	inner.Parent = MainFrame
+	fxStroke1 = inner
+	local running = true
+	task.spawn(function()
+		while running and fxStroke2 and fxStroke2.Parent do
+			TweenService:Create(glow, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+				Transparency = 0.35,
+			}):Play()
+			task.wait(1.2)
+			TweenService:Create(glow, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+				Transparency = 0.75,
+			}):Play()
+			task.wait(1.2)
+		end
+	end)
+	glow.AncestryChanged:Connect(function()
+		if not glow.Parent then running = false end
+	end)
+end
+
+local FX_MODES  = { "rainbow", "pulse", "glow", "off" }
+local fxModeIdx = 1
+local function applyFx(mode)
+	CFG.FxMode = mode
+	if     mode == "rainbow" then startRainbow()
+	elseif mode == "pulse"   then startPulse()
+	elseif mode == "glow"    then startGlow()
+	else                          stopFx()
+	end
+	FxBtn.Text      = mode == "off" and "FX" or mode:upper()
+	FxBtn.BackgroundColor3 = mode == "off"
+		and Color3.fromRGB(50, 50, 65)
+		or  CFG.AccentColor
+	FxBtn.TextColor3 = mode == "off"
+		and CFG.SubTextColor
+		or  Color3.new(1, 1, 1)
+end
+
+
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, CFG.PanelW, 0, 40)
@@ -496,12 +606,6 @@ MainFrame.BackgroundColor3 = CFG.BgColor
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
 MainFrame.Parent = ScreenGui
-do
-	local s = Instance.new("UIStroke")
-	s.Color = CFG.BorderColor
-	s.Thickness = 1
-	s.Parent = MainFrame
-end
 local AccentBar = Instance.new("Frame")
 AccentBar.Size = UDim2.new(0, 2, 1, 0)
 AccentBar.BackgroundColor3 = CFG.AccentColor
@@ -541,7 +645,8 @@ end
 local EspBtn = makeHeaderBtn("ESP", -196, 34)
 local DstBtn = makeHeaderBtn("DST", -158, 34)
 local AlertBtn = makeHeaderBtn("ALT", -120, 34)
-local MinimizeBtn = makeHeaderBtn("──", -82, 26)
+local FxBtn       = makeHeaderBtn("FX",  -150, 30)
+local MinimizeBtn = makeHeaderBtn("──", -116, 26)
 local CountBadge = Instance.new("TextLabel")
 CountBadge.Size = UDim2.new(0, 24, 0, 18)
 CountBadge.Position = UDim2.new(1, -52, 0.5, -9)
@@ -1232,6 +1337,12 @@ MiniBtn.MouseButton1Click:Connect(function()
 	MainFrame.Visible = true
 	MainFrame.Position = MiniBtn.Position
 end)
+FxBtn.MouseButton1Click:Connect(function()
+	fxModeIdx = (fxModeIdx % #FX_MODES) + 1
+	applyFx(FX_MODES[fxModeIdx])
+	notify("FX: " .. FX_MODES[fxModeIdx]:upper(), 2)
+end)
+
 EspBtn.MouseButton1Click:Connect(function()
 	espEnabled = not espEnabled
 	EspBtn.BackgroundColor3 = espEnabled and CFG.AccentColor or Color3.fromRGB(50, 50, 65)
@@ -1367,6 +1478,7 @@ task.spawn(function()
 		end
 	end
 end)
+applyFx(CFG.FxMode)
 refreshAll()
 print(
 	string.format("[BossesPanel v4.0] Loaded — toggle key: %s | open panel to expand", tostring(CFG.ToggleKey.Name))
@@ -1382,35 +1494,55 @@ local MathQuizWinner = ReplicatedStorage:WaitForChild("MathQuizWinner")
 
 local ANSWER_DELAY = 1.7
 local quizActive = false
+
+
 local function solveEquation(question)
 	local q = question
 	q = q:gsub("\195\151", "*")
 	q = q:gsub("\195\183", "/")
 	q = q:gsub("[xX]", "*")
-	local left, op, right = q:match("(%d+%.?%d*)%s*([%+%-%*/])%s*(%d+%.?%d*)")
-	if not (left and op and right) then
-		return nil
-	end
-	left = tonumber(left)
-	right = tonumber(right)
-	if not left or not right then
-		return nil
-	end
-	local result
-	if op == "+" then
-		result = left + right
-	elseif op == "-" then
-		result = left - right
-	elseif op == "*" then
-		result = left * right
-	elseif op == "/" then
-		if right == 0 then
-			return nil
+	q = q:gsub("[%(%)%[%]]", "")
+	q = q:gsub("%s+", " "):match("^%s*(.-)%s*$")
+	local tokens = {}
+	for tok in q:gmatch("[%+%-%*/]?%s*%-?%d+%.?%d*") do
+		local op, num = tok:match("^([%+%-%*/])%s*(%-?%d+%.?%d*)$")
+		if op and num then
+			table.insert(tokens, op)
+			table.insert(tokens, tonumber(num))
+		else
+			local n = tonumber(tok:match("%-?%d+%.?%d*"))
+			if n then
+				table.insert(tokens, n)
+			end
 		end
-		result = left / right
 	end
-	if not result then
+	if #tokens == 0 then
 		return nil
+	end
+	local result = tokens[1]
+	if type(result) ~= "number" then
+		return nil
+	end
+	local i = 2
+	while i <= #tokens do
+		local op = tokens[i]
+		local rhs = tokens[i + 1]
+		if type(op) ~= "string" or type(rhs) ~= "number" then
+			break
+		end
+		if op == "+" then
+			result = result + rhs
+		elseif op == "-" then
+			result = result - rhs
+		elseif op == "*" then
+			result = result * rhs
+		elseif op == "/" then
+			if rhs == 0 then
+				return nil
+			end
+			result = result / rhs
+		end
+		i = i + 2
 	end
 	local rounded = math.round(result)
 	return (math.abs(result - rounded) < 0.0001) and rounded or result
@@ -1428,9 +1560,11 @@ MathQuizQuestion.OnClientEvent:Connect(function(question, isInsane)
 		if not quizActive then
 			return
 		end
-		TextChatService.TextChannels.RBXGeneral:SendAsync("" .. tostring(answer))
+		TextChatService.TextChannels.RBXGeneral:SendAsync(tostring(answer))
 	end)
 end)
 MathQuizWinner.OnClientEvent:Connect(function()
 	quizActive = false
 end)
+
+-- made by zuka math is hard on god
