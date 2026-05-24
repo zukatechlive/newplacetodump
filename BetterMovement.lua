@@ -343,9 +343,6 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 	if input.KeyCode == Dash.Config.Key then
 		Dash:Do()
 	end
-	if input.KeyCode == Enum.KeyCode.F then
-		FixCamera:Toggle()
-	end
 end)
 if UserInputService.TouchEnabled then
 	local Camera = workspace.CurrentCamera
