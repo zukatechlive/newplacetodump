@@ -1,0 +1,1554 @@
+-- this was inspired by nameless admin.
+
+local G = Instance.new("ScreenGui")
+local M = Instance.new("Frame")
+local T = Instance.new("Frame")
+local TTL = Instance.new("TextLabel")
+local BH = Instance.new("Frame")
+local BTN_MIN = Instance.new("TextButton")
+local BTN_REF = Instance.new("TextButton")
+local BTN_AUTO = Instance.new("TextButton")
+local BTN_X = Instance.new("TextButton")
+local M_S = Instance.new("UIStroke")
+local T_S = Instance.new("UIStroke")
+local SB = Instance.new("TextBox")
+local PAD = Instance.new("UIPadding")
+local SORT = Instance.new("TextButton")
+local STATS = Instance.new("TextLabel")
+local C = Instance.new("Frame")
+local C_S = Instance.new("UIStroke")
+local LST = Instance.new("ScrollingFrame")
+local LYT = Instance.new("UIListLayout")
+local ROW_T = Instance.new("Frame")
+local ROW_S = Instance.new("UIStroke")
+local ROW_TXT = Instance.new("TextButton")
+local ROW_B = Instance.new("Frame")
+local BTN_TP = Instance.new("TextButton")
+local BTN_CP = Instance.new("TextButton")
+local SP = Instance.new("TextLabel")
+local EMP = Instance.new("TextLabel")
+local SC = Instance.new("UIScale")
+local MAX_RETRIES = 69
+local RETRY_DELAY = 0.5
+local function sv(n)
+	local g = game.GetService
+	local r = cloneref or function(x)
+		return x
+	end
+	return r(g(game, n))
+end
+local function protect(sg)
+	if sg:IsA("ScreenGui") then
+		sg.ZIndexBehavior = Enum.ZIndexBehavior.Global
+		sg.DisplayOrder = 999999999
+		sg.ResetOnSpawn = false
+		sg.IgnoreGuiInset = true
+	end
+	local cg = sv("CoreGui")
+	local lp = (sv("Players")).LocalPlayer
+	local function na(i, v)
+		if i then
+			if v then
+				i[v] = "\000"
+				i.Archivable = false
+			else
+				i.Name = "\000"
+				i.Archivable = false
+			end
+		end
+	end
+	if gethui then
+		na(sg)
+		sg.Parent = gethui()
+		return sg
+	elseif cg and cg:FindFirstChild("RobloxGui") then
+		na(sg)
+		sg.Parent = cg:FindFirstChild("RobloxGui")
+		return sg
+	elseif cg then
+		na(sg)
+		sg.Parent = cg
+		return sg
+	elseif lp and lp:FindFirstChildWhichIsA("PlayerGui") then
+		na(sg)
+		sg.Parent = lp:FindFirstChildWhichIsA("PlayerGui")
+		sg.ResetOnSpawn = false
+		return sg
+	else
+		return nil
+	end
+end
+local IsOnMobile = (function()
+	local platform = (sv("UserInputService")):GetPlatform()
+	if
+		platform == Enum.Platform.IOS
+		or platform == Enum.Platform.Android
+		or platform == Enum.Platform.AndroidTV
+		or platform == Enum.Platform.Chromecast
+		or platform == Enum.Platform.MetaOS
+	then
+		return true
+	end
+	if platform == Enum.Platform.None then
+		return (sv("UserInputService")).TouchEnabled
+			and not ((sv("UserInputService")).KeyboardEnabled or (sv("UserInputService")).MouseEnabled)
+	end
+	return false
+end)()
+local paddingBase = IsOnMobile and 18 or 14
+local innerPadding = IsOnMobile and 12 or 8
+local buttonHeight = IsOnMobile and 32 or 26
+local rowHeight = IsOnMobile and 70 or 60
+local fontSizeTitle = IsOnMobile and 22 or 20
+local fontSizeMain = IsOnMobile and 20 or 18
+local fontSizeSecondary = IsOnMobile and 18 or 16
+local titleBarHeight = IsOnMobile and 52 or 44
+local searchBarHeight = IsOnMobile and 40 or 36
+local statsHeight = IsOnMobile and 26 or 22
+local sortButtonWidth = IsOnMobile and 110 or 100
+local sortButtonHeight = IsOnMobile and 28 or 26
+local buttonMinWidth = IsOnMobile and 44 or 40
+local buttonRefWidth = IsOnMobile and 52 or 48
+local buttonXWidth = IsOnMobile and 44 or 40
+local buttonTpWidth = IsOnMobile and 110 or 104
+local buttonCpWidth = IsOnMobile and 90 or 84
+local buttonSrvWidth = IsOnMobile and 110 or 104
+local buttonRjWidth = IsOnMobile and 110 or 104
+local buttonAdvWidth = IsOnMobile and 128 or 118
+local expHeaderHeight = IsOnMobile and 38 or 34
+local expListHeight = IsOnMobile and 210 or 190
+local szDesktop = UDim2.new(0.52, 0, 0.64, 0)
+local szMobile = UDim2.new(0.96, 0, 0.78, 0)
+G.Name = "UV"
+protect(G)
+G.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+G.ResetOnSpawn = false
+M.Name = "M"
+M.Parent = G
+M.BackgroundColor3 = Color3.fromRGB(11, 12, 15)
+M.Position = UDim2.new(0.5, 0, 0.5, 0)
+M.AnchorPoint = Vector2.new(0.5, 0)
+M.Size = UDim2.new(0.44, 0, 0.58, 0)
+M.ClipsDescendants = true
+SC.Parent = M
+SC.Scale = 1
+M_S.Parent = M
+M_S.Thickness = 1
+M_S.Transparency = 0.2
+M_S.Color = Color3.fromRGB(0, 60, 60)
+T.Name = "T"
+T.Parent = M
+T.BackgroundColor3 = Color3.fromRGB(14, 16, 20)
+T.Size = UDim2.new(1, 0, 0, titleBarHeight)
+T.ZIndex = 2
+T_S.Parent = T
+T_S.Thickness = 1
+T_S.Transparency = 0.3
+T_S.Color = Color3.fromRGB(30, 42, 48)
+TTL.Name = "TTL"
+TTL.Parent = T
+TTL.BackgroundTransparency = 1
+TTL.Position = UDim2.new(0, paddingBase, 0, 0)
+TTL.Size = UDim2.new(0.6, 0, 1, 0)
+TTL.Font = Enum.Font.Code
+TTL.Text = "[ game-finder ]"
+TTL.TextColor3 = Color3.fromRGB(210, 220, 215)
+TTL.TextSize = fontSizeTitle
+TTL.TextXAlignment = Enum.TextXAlignment.Left
+BH.Name = "BH"
+BH.Parent = T
+BH.BackgroundTransparency = 1
+BH.AnchorPoint = Vector2.new(1, 0)
+BH.Position = UDim2.new(1, -paddingBase, 0, innerPadding)
+BH.Size = UDim2.new(0, 0, 0, buttonHeight)
+BH.AutomaticSize = Enum.AutomaticSize.X
+BH.ZIndex = 3
+local BH_LYT = Instance.new("UIListLayout")
+BH_LYT.Parent = BH
+BH_LYT.FillDirection = Enum.FillDirection.Horizontal
+BH_LYT.Padding = UDim.new(0, innerPadding)
+BH_LYT.HorizontalAlignment = Enum.HorizontalAlignment.Right
+BH_LYT.VerticalAlignment = Enum.VerticalAlignment.Center
+BH_LYT.SortOrder = Enum.SortOrder.LayoutOrder
+BTN_MIN.Name = "BTN_MIN"
+BTN_MIN.Parent = BH
+BTN_MIN.BackgroundColor3 = Color3.fromRGB(16, 22, 22)
+BTN_MIN.Size = UDim2.new(0, buttonMinWidth, 0, buttonHeight)
+BTN_MIN.Font = Enum.Font.Code
+BTN_MIN.Text = "-"
+BTN_MIN.TextColor3 = Color3.fromRGB(210, 220, 215)
+BTN_MIN.TextSize = fontSizeSecondary
+BTN_MIN.LayoutOrder = 1
+BTN_REF.Name = "BTN_REF"
+BTN_REF.Parent = BH
+BTN_REF.BackgroundColor3 = Color3.fromRGB(16, 22, 22)
+BTN_REF.Size = UDim2.new(0, buttonRefWidth, 0, buttonHeight)
+BTN_REF.Font = Enum.Font.Code
+BTN_REF.Text = "R"
+BTN_REF.TextColor3 = Color3.fromRGB(180, 195, 190)
+BTN_REF.TextSize = fontSizeSecondary
+BTN_REF.LayoutOrder = 2
+BTN_AUTO.Name = "BTN_AUTO"
+BTN_AUTO.Parent = BH
+BTN_AUTO.BackgroundColor3 = Color3.fromRGB(16, 22, 22)
+BTN_AUTO.Size = UDim2.new(0, buttonAdvWidth - 10, 0, buttonHeight)
+BTN_AUTO.Font = Enum.Font.Code
+BTN_AUTO.Text = "AutoHop: Off"
+BTN_AUTO.TextColor3 = Color3.fromRGB(180, 195, 190)
+BTN_AUTO.TextSize = fontSizeSecondary
+BTN_AUTO.LayoutOrder = 3
+BTN_X.Name = "BTN_X"
+BTN_X.Parent = BH
+BTN_X.BackgroundColor3 = Color3.fromRGB(160, 30, 40)
+BTN_X.Size = UDim2.new(0, buttonXWidth, 0, buttonHeight)
+BTN_X.Font = Enum.Font.Code
+BTN_X.Text = "X"
+BTN_X.TextColor3 = Color3.fromRGB(255, 255, 255)
+BTN_X.TextSize = fontSizeSecondary
+BTN_X.LayoutOrder = 4
+BTN_X.BackgroundColor3 = Color3.fromRGB(160, 30, 40)
+BTN_X.Size = UDim2.new(0, buttonXWidth, 0, buttonHeight)
+BTN_X.Font = Enum.Font.Code
+BTN_X.Text = "X"
+BTN_X.TextColor3 = Color3.fromRGB(255, 255, 255)
+BTN_X.TextSize = fontSizeSecondary
+BTN_X.LayoutOrder = 4
+SB.Name = "SB"
+SB.Parent = M
+SB.BackgroundColor3 = Color3.fromRGB(12, 13, 17)
+SB.Position = UDim2.new(0, paddingBase, 0, titleBarHeight + innerPadding)
+SB.Size = UDim2.new(1, -paddingBase * 2, 0, searchBarHeight)
+SB.Font = Enum.Font.Code
+SB.PlaceholderText = "search places or IDs..."
+SB.Text = ""
+SB.TextColor3 = Color3.fromRGB(210, 220, 215)
+SB.TextSize = fontSizeMain
+SB.ClearTextOnFocus = false
+PAD.Parent = SB
+PAD.PaddingLeft = UDim.new(0, paddingBase)
+PAD.PaddingRight = UDim.new(0, paddingBase + sortButtonWidth + innerPadding)
+SORT.Name = "SORT"
+SORT.Parent = SB
+SORT.AnchorPoint = Vector2.new(1, 0.5)
+SORT.Position = UDim2.new(1, -innerPadding, 0.5, 0)
+SORT.Size = UDim2.new(0, sortButtonWidth, 0, sortButtonHeight)
+SORT.BackgroundColor3 = Color3.fromRGB(16, 28, 28)
+SORT.Font = Enum.Font.Code
+SORT.Text = "Sort: A>Z"
+SORT.TextSize = fontSizeSecondary
+SORT.TextColor3 = Color3.fromRGB(180, 195, 190)
+C.Name = "C"
+C.Parent = M
+C.BackgroundColor3 = Color3.fromRGB(13, 14, 18)
+C.Position = UDim2.new(0, paddingBase, 0, titleBarHeight + searchBarHeight + innerPadding * 2)
+C.Size = UDim2.new(1, -paddingBase * 2, 1, -(titleBarHeight + searchBarHeight + innerPadding * 3))
+C.BackgroundTransparency = 0
+C_S.Parent = C
+C_S.Thickness = 1
+C_S.Transparency = 0.5
+C_S.Color = Color3.fromRGB(30, 42, 48)
+LST.Name = "LST"
+LST.Parent = C
+LST.BackgroundTransparency = 1
+LST.Position = UDim2.new(0, innerPadding, 0, innerPadding + statsHeight + innerPadding / 2)
+LST.Size = UDim2.new(1, -innerPadding * 2, 1, -innerPadding * 2 - statsHeight - innerPadding / 2)
+LST.CanvasSize = UDim2.new(0, 0, 0, 0)
+LST.ScrollBarThickness = 3
+LST.AutomaticCanvasSize = Enum.AutomaticSize.Y
+LYT.Parent = LST
+LYT.SortOrder = Enum.SortOrder.LayoutOrder
+LYT.Padding = UDim.new(0, innerPadding)
+STATS.Name = "STATS"
+STATS.Parent = C
+STATS.BackgroundTransparency = 1
+STATS.Position = UDim2.new(0, innerPadding, 0, innerPadding)
+STATS.Size = UDim2.new(1, -innerPadding * 2, 0, statsHeight)
+STATS.Font = Enum.Font.Code
+STATS.TextXAlignment = Enum.TextXAlignment.Left
+STATS.TextYAlignment = Enum.TextYAlignment.Center
+STATS.TextColor3 = Color3.fromRGB(140, 155, 150)
+STATS.TextSize = fontSizeSecondary
+STATS.Text = ""
+STATS.ZIndex = 4
+ROW_T.Name = "ROW_T"
+ROW_T.Parent = nil
+ROW_T.BackgroundColor3 = Color3.fromRGB(16, 18, 22)
+ROW_T.Size = UDim2.new(1, -4, 0, rowHeight)
+ROW_T.Position = UDim2.new(0, 2, 0, 0)
+ROW_T.BackgroundTransparency = 0.12
+ROW_T.ClipsDescendants = true
+ROW_S.Parent = ROW_T
+ROW_S.Thickness = 1
+ROW_S.Transparency = 0.6
+ROW_S.Color = Color3.fromRGB(30, 42, 48)
+ROW_S.Name = "S"
+ROW_TXT.Name = "ROW_TXT"
+ROW_TXT.Parent = ROW_T
+ROW_TXT.BackgroundTransparency = 1
+ROW_TXT.Position = UDim2.new(0, innerPadding, 0, 0)
+ROW_TXT.Size = UDim2.new(0.6, -innerPadding, 0, rowHeight)
+ROW_TXT.Font = Enum.Font.Code
+ROW_TXT.Text = "Name (ID)"
+ROW_TXT.TextColor3 = Color3.fromRGB(210, 220, 215)
+ROW_TXT.TextSize = fontSizeMain
+ROW_TXT.TextXAlignment = Enum.TextXAlignment.Left
+ROW_TXT.TextYAlignment = Enum.TextYAlignment.Center
+ROW_TXT.TextTruncate = Enum.TextTruncate.AtEnd
+ROW_B.Name = "ROW_B"
+ROW_B.Parent = ROW_T
+ROW_B.BackgroundTransparency = 1
+ROW_B.Position = UDim2.new(0.6, innerPadding, 0, 0)
+ROW_B.Size = UDim2.new(0.4, -innerPadding * 2, 0, rowHeight)
+local RB_LYT = Instance.new("UIListLayout")
+RB_LYT.Parent = ROW_B
+RB_LYT.FillDirection = Enum.FillDirection.Vertical
+RB_LYT.Padding = UDim.new(0, innerPadding / 2)
+RB_LYT.HorizontalAlignment = Enum.HorizontalAlignment.Right
+RB_LYT.VerticalAlignment = Enum.VerticalAlignment.Center
+RB_LYT.SortOrder = Enum.SortOrder.LayoutOrder
+BTN_TP.Name = "BTN_TP"
+BTN_TP.Parent = ROW_B
+BTN_TP.BackgroundColor3 = Color3.fromRGB(0, 120, 180)
+BTN_TP.Size = UDim2.new(0, buttonTpWidth, 0, buttonHeight)
+BTN_TP.Font = Enum.Font.Code
+BTN_TP.Text = "Teleport"
+BTN_TP.TextColor3 = Color3.fromRGB(255, 255, 255)
+BTN_TP.TextSize = fontSizeSecondary
+BTN_CP.Name = "BTN_CP"
+BTN_CP.Parent = ROW_B
+BTN_CP.BackgroundColor3 = Color3.fromRGB(0, 130, 70)
+BTN_CP.Size = UDim2.new(0, buttonCpWidth, 0, buttonHeight)
+BTN_CP.Font = Enum.Font.Code
+BTN_CP.Text = "Copy ID"
+BTN_CP.TextColor3 = Color3.fromRGB(255, 255, 255)
+BTN_CP.TextSize = fontSizeSecondary
+SP.Name = "SP"
+SP.Parent = C
+SP.AnchorPoint = Vector2.new(0.5, 0.5)
+SP.BackgroundTransparency = 1
+SP.Size = UDim2.new(0, 30, 0, 30)
+SP.Position = UDim2.new(0.5, 0, 0.5, 0)
+SP.Text = "..."
+SP.TextColor3 = Color3.fromRGB(140, 155, 150)
+SP.Font = Enum.Font.Code
+SP.TextSize = 22
+SP.Visible = false
+EMP.Name = "EMP"
+EMP.Parent = C
+EMP.BackgroundTransparency = 1
+EMP.Text = "-- no places"
+EMP.Font = Enum.Font.Code
+EMP.TextSize = fontSizeSecondary
+EMP.TextColor3 = Color3.fromRGB(140, 155, 150)
+EMP.AnchorPoint = Vector2.new(0.5, 1)
+EMP.Position = UDim2.new(0.5, 0, 1, -innerPadding)
+EMP.Visible = false
+local TS = sv("TweenService")
+local UIS = sv("UserInputService")
+local RS = sv("RunService")
+local TPX = sv("TeleportService")
+local P = sv("Players")
+local AS = sv("AssetService")
+local HS = sv("HttpService")
+local ST = sv("Stats")
+local LP = P.LocalPlayer
+local srvBases = {
+	"https://games.roblox.com",
+	"https://games.roproxy.com",
+	"https://roxytheproxy.com/games.roblox.com",
+}
+local srvWorker = "https://solaraserverhop.ltseverydayyou.workers.dev"
+local autoGuard = false
+local autoGuardConn = nil
+local autoPingLimit = 280
+local autoCooldown = 15
+local lastHopTime = 0
+local favFile = "uv_favs.json"
+local favs = {}
+local function loadFavs()
+	if not (isfile and readfile) then
+		return
+	end
+	local ok, data = pcall(readfile, favFile)
+	if not ok or not data or data == "" then
+		return
+	end
+	local ok2, decoded = pcall(function()
+		return HS:JSONDecode(data)
+	end)
+	if ok2 and type(decoded) == "table" then
+		favs = decoded
+	end
+end
+local function saveFavs()
+	if not writefile then
+		return
+	end
+	local ok, data = pcall(function()
+		return HS:JSONEncode(favs)
+	end)
+	if ok and data then
+		pcall(writefile, favFile, data)
+	end
+end
+local function isFav(id)
+	return favs[tostring(id)] == true
+end
+local function setFav(id, v)
+	if v then
+		favs[tostring(id)] = true
+	else
+		favs[tostring(id)] = nil
+	end
+	saveFavs()
+end
+local function tw(o, t, e, d, g)
+	return TS:Create(o, TweenInfo.new(t, e or Enum.EasingStyle.Quad, d or Enum.EasingDirection.Out), g)
+end
+local function rp(b)
+	local r = Instance.new("Frame")
+	r.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	r.BackgroundTransparency = 0.7
+	r.Size = UDim2.fromOffset(0, 0)
+	r.AnchorPoint = Vector2.new(0.5, 0.5)
+	r.Position = UDim2.fromScale(0.5, 0.5)
+	r.ZIndex = b.ZIndex + 1
+	r.Parent = b
+	rc.Parent = r;
+	(tw(r, 0.2, nil, nil, {
+		Size = UDim2.fromOffset(84, 84),
+		BackgroundTransparency = 1,
+	})):Play()
+	task.delay(0.25, function()
+		r:Destroy()
+	end)
+end
+local function press(b)
+	local s = b:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", b)
+	b.MouseButton1Down:Connect(function()
+		(tw(s, 0.08, nil, Enum.EasingDirection.In, {
+			Scale = 0.96,
+		})):Play()
+	end)
+	b.MouseButton1Up:Connect(function()
+		(tw(s, 0.1, nil, nil, {
+			Scale = 1,
+		})):Play()
+	end)
+end
+local function hv(b, base, light, lock)
+	local hover = lock and base or light
+	b.MouseEnter:Connect(function()
+		(tw(b, 0.15, nil, nil, {
+			BackgroundColor3 = hover,
+		})):Play()
+	end)
+	b.MouseLeave:Connect(function()
+		(tw(b, 0.18, nil, nil, {
+			BackgroundColor3 = base,
+		})):Play()
+	end)
+	b.MouseButton1Click:Connect(function()
+		rp(b)
+	end)
+	press(b)
+end
+hv(BTN_MIN, BTN_MIN.BackgroundColor3, Color3.fromRGB(20, 32, 32))
+hv(BTN_REF, BTN_REF.BackgroundColor3, Color3.fromRGB(20, 32, 32))
+hv(BTN_AUTO, BTN_AUTO.BackgroundColor3, Color3.fromRGB(20, 32, 32))
+hv(BTN_X, BTN_X.BackgroundColor3, Color3.fromRGB(190, 50, 60))
+hv(SORT, SORT.BackgroundColor3, Color3.fromRGB(20, 38, 38))
+hv(BTN_TP, BTN_TP.BackgroundColor3, Color3.fromRGB(0, 150, 210))
+hv(BTN_CP, BTN_CP.BackgroundColor3, Color3.fromRGB(0, 160, 90))
+local function drag(ui, bar)
+	bar = bar or ui
+	local dr, di, ds, sp
+	local function upd(i)
+		local d = i.Position - ds
+		ui.Position = UDim2.new(sp.X.Scale, sp.X.Offset + d.X, sp.Y.Scale, sp.Y.Offset + d.Y)
+	end
+	bar.InputBegan:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+			dr = true
+			ds = i.Position
+			sp = ui.Position
+			i.Changed:Connect(function()
+				if i.UserInputState == Enum.UserInputState.End then
+					dr = false
+				end
+			end)
+		end
+	end)
+	bar.InputChanged:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
+			di = i
+		end
+	end)
+	UIS.InputChanged:Connect(function(i)
+		if i == di and dr then
+			upd(i)
+		end
+	end)
+	ui.Active = true
+end
+drag(M, T)
+local function inFX()
+	SC.Scale = 0.92
+	M.BackgroundTransparency = 0.2
+	(tw(SC, 0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, {
+		Scale = 1,
+	})):Play();
+	(tw(M, 0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, {
+		BackgroundTransparency = 0,
+	})):Play()
+end
+local sortMode = "NAME"
+local minimized = false
+local normSize = szDesktop
+local function pickSize()
+	local cam = workspace.CurrentCamera
+	local vs = cam and cam.ViewportSize or Vector2.new(1280, 720)
+	if IsOnMobile or vs.X < 900 then
+		normSize = szMobile
+	else
+		normSize = szDesktop
+	end
+end
+local function applySize(force)
+	if minimized and not force then
+		return
+	end
+	M.Size = minimized and UDim2.new(normSize.X.Scale, normSize.X.Offset, 0, titleBarHeight) or normSize
+end
+(workspace:GetPropertyChangedSignal("CurrentCamera")):Connect(function()
+	local cam = workspace.CurrentCamera
+	if cam then
+		(cam:GetPropertyChangedSignal("ViewportSize")):Connect(function()
+			pickSize()
+			applySize(false)
+		end)
+	end
+end)
+UIS.LastInputTypeChanged:Connect(function()
+	pickSize()
+	applySize(false)
+end)
+local function hideBody(h)
+	minimized = h
+	if h then
+		(tw(M, 0.2, nil, nil, {
+			Size = UDim2.new(normSize.X.Scale, normSize.X.Offset, 0, titleBarHeight),
+		})):Play()
+		C.Visible = false
+		SB.Visible = false
+	else
+		(tw(M, 0.2, nil, nil, {
+			Size = normSize,
+		})):Play()
+		task.delay(0.16, function()
+			if not minimized then
+				C.Visible = true
+				SB.Visible = true
+			end
+		end)
+	end
+end
+BTN_MIN.MouseButton1Click:Connect(function()
+	hideBody(not minimized)
+end)
+BTN_X.MouseButton1Click:Connect(function()
+	rp(BTN_X);
+	(tw(SC, 0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In, {
+		Scale = 0.92,
+	})):Play();
+	(tw(M, 0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In, {
+		BackgroundTransparency = 0.25,
+	})):Play()
+	task.delay(0.14, function()
+		if _G._uv_canvas and _G._uv_canvas.Disconnect then
+			_G._uv_canvas:Disconnect()
+		end
+		if _G._uv_df and _G._uv_df.Disconnect then
+			_G._uv_df:Disconnect()
+		end
+		G:Destroy()
+	end)
+end)
+local function spn(v)
+	SP.Visible = v
+	if v then
+		task.spawn(function()
+			local a = {
+				"|",
+				"/",
+				"-",
+				"\\",
+			}
+			local i = 1
+			while SP.Visible do
+				SP.Text = a[i]
+				i = i % #a + 1
+				task.wait(0.08)
+			end
+		end)
+	end
+end
+local toRoot = Instance.new("Frame")
+toRoot.Name = "TOAST_ROOT"
+toRoot.Parent = G
+toRoot.AnchorPoint = Vector2.new(1, 0)
+toRoot.Position = UDim2.new(1, -paddingBase, 0, paddingBase)
+toRoot.Size = UDim2.new(0, IsOnMobile and 360 or 320, 1, -paddingBase * 2)
+toRoot.BackgroundTransparency = 1
+toRoot.ZIndex = 5
+local toList = Instance.new("UIListLayout")
+toList.Parent = toRoot
+toList.FillDirection = Enum.FillDirection.Vertical
+toList.HorizontalAlignment = Enum.HorizontalAlignment.Right
+toList.VerticalAlignment = Enum.VerticalAlignment.Top
+toList.SortOrder = Enum.SortOrder.LayoutOrder
+toList.Padding = UDim.new(0, innerPadding)
+local function toast(ti, tx, dur)
+	dur = dur or 3
+	local f = Instance.new("Frame")
+	f.Size = UDim2.new(0, IsOnMobile and 360 or 320, 0, 0)
+	f.BackgroundColor3 = Color3.fromRGB(14, 16, 20)
+	f.BackgroundTransparency = 0.15
+	f.Parent = toRoot
+	f.ClipsDescendants = true
+	f.ZIndex = 6
+	local fs = Instance.new("UIStroke", f)
+	fs.Color = Color3.fromRGB(0, 60, 60)
+	fs.Transparency = 0.3
+	local t1 = Instance.new("TextLabel")
+	t1.Parent = f
+	t1.BackgroundTransparency = 1
+	t1.Size = UDim2.new(1, -paddingBase, 0, fontSizeMain + innerPadding)
+	t1.Position = UDim2.new(0, innerPadding, 0, innerPadding)
+	t1.Font = Enum.Font.Code
+	t1.TextXAlignment = Enum.TextXAlignment.Left
+	t1.TextColor3 = Color3.fromRGB(210, 220, 215)
+	t1.TextSize = fontSizeMain
+	t1.Text = ti or "Notice"
+	local t2 = Instance.new("TextLabel")
+	t2.Parent = f
+	t2.BackgroundTransparency = 1
+	t2.Size = UDim2.new(1, -paddingBase, 0, fontSizeSecondary + innerPadding)
+	t2.Position = UDim2.new(0, innerPadding, 0, fontSizeMain + innerPadding * 2)
+	t2.Font = Enum.Font.Code
+	t2.TextXAlignment = Enum.TextXAlignment.Left
+	t2.TextColor3 = Color3.fromRGB(160, 175, 170)
+	t2.TextSize = fontSizeSecondary
+	t2.TextWrapped = true
+	t2.Text = tx or ""
+	f.Size = UDim2.new(0, IsOnMobile and 360 or 320, 0, fontSizeMain + fontSizeSecondary + innerPadding * 4)
+	f.BackgroundTransparency = 1
+	fs.Transparency = 1
+	(tw(f, 0.18, nil, nil, {
+		BackgroundTransparency = 0.15,
+	})):Play();
+	(tw(fs, 0.18, nil, nil, {
+		Transparency = 0.3,
+	})):Play()
+	task.delay(dur, function()
+		(tw(f, 0.18, nil, Enum.EasingDirection.In, {
+			BackgroundTransparency = 1,
+			Size = UDim2.new(0, IsOnMobile and 360 or 320, 0, 0),
+		})):Play();
+		(tw(fs, 0.14, nil, Enum.EasingDirection.In, {
+			Transparency = 1,
+		})):Play()
+		task.delay(0.18, function()
+			f:Destroy()
+		end)
+	end)
+end
+local function note(t, d, nm)
+	toast(nm or "Notice", t, d)
+end
+local rows = {}
+local fetching = false
+local openRow = nil
+loadFavs()
+local function clr()
+	for _, it in ipairs(rows) do
+		if it.f then
+			it.f:Destroy()
+		end
+	end
+	table.clear(rows)
+	openRow = nil
+end
+local function apply()
+	local q = string.lower(SB.Text)
+	local a = {}
+	for _, it in ipairs(rows) do
+		local v = q == "" or string.find(string.lower(it.n), q) or string.find(tostring(it.id), q)
+		it.f.Visible = v
+		if v then
+			table.insert(a, it)
+		end
+	end
+	table.sort(a, function(x, y)
+		if x.pinned ~= y.pinned then
+			return x.pinned and true or false
+		end
+		if x.cur ~= y.cur then
+			return x.cur
+		end
+		if sortMode == "NAME" then
+			return string.lower(x.n) < string.lower(y.n)
+		else
+			return x.id < y.id
+		end
+	end)
+	for i, ob in ipairs(a) do
+		ob.f.LayoutOrder = i
+	end
+	EMP.Visible = #a == 0
+end
+local function closeRow(r)
+	if not r or not r.expOpen then
+		return
+	end
+	r.expOpen = false
+	(tw(r.f, 0.16, nil, Enum.EasingDirection.In, {
+		Size = UDim2.new(1, -4, 0, rowHeight),
+	})):Play();
+	(tw(r.exp, 0.16, nil, Enum.EasingDirection.In, {
+		Size = UDim2.new(1, -innerPadding * 2, 0, 0),
+		BackgroundTransparency = 1,
+	})):Play()
+	task.delay(0.16, function()
+		r.exp.Visible = false
+		r.hdr.Visible = false
+	end)
+	if r.btnSRV then
+		r.btnSRV.Text = "Servers"
+	end
+end
+local function getSrvData(placeId, allowSame)
+	local pid = tostring(placeId)
+	local query = "?sortOrder=Asc&limit=100"
+	local resTable = nil
+	for _, base in ipairs(srvBases) do
+		local url = base .. "/v1/games/" .. pid .. "/servers/Public" .. query
+		local ok, resp = pcall(function()
+			return game:HttpGetAsync(url)
+		end)
+		if ok and type(resp) == "string" and #resp > 0 then
+			local decOk, js = pcall(function()
+				return HS:JSONDecode(resp)
+			end)
+			if decOk and type(js) == "table" and type(js.data) == "table" then
+				resTable = js
+				break
+			end
+		end
+	end
+	if not resTable then
+		local wurl = srvWorker .. "/servers?placeId=" .. HS:UrlEncode(pid)
+		local ok, resp = pcall(function()
+			return game:HttpGetAsync(wurl)
+		end)
+		if ok and type(resp) == "string" and #resp > 0 then
+			local decOk, js = pcall(function()
+				return HS:JSONDecode(resp)
+			end)
+			if decOk and type(js) == "table" and type(js.data) == "table" then
+				resTable = js
+			end
+		end
+	end
+	if not resTable or type(resTable.data) ~= "table" then
+		return nil
+	end
+	local data = {}
+	for _, v in ipairs(resTable.data) do
+		if type(v) == "table" and v.maxPlayers > v.playing and (allowSame or v.id ~= game.JobId) then
+			table.insert(data, {
+				id = v.id,
+				playing = v.playing,
+				max = v.maxPlayers,
+				fps = tonumber(v.fps) or 0,
+				ping = tonumber(v.ping) or 0,
+			})
+		end
+	end
+	return data
+end
+local function srvSpin(lbl, v)
+	lbl.Visible = v
+	if v then
+		task.spawn(function()
+			local a = {
+				"|",
+				"/",
+				"-",
+				"\\",
+			}
+			local i = 1
+			while lbl.Visible do
+				lbl.Text = a[i]
+				i = i % #a + 1
+				task.wait(0.08)
+			end
+		end)
+	end
+end
+local function srvFetch(placeId, r)
+	for _, c in ipairs(r.slist:GetChildren()) do
+		if c:IsA("TextButton") or c:IsA("Frame") then
+			c:Destroy()
+		end
+	end
+	r.semp.Visible = false
+	srvSpin(r.ssp, true)
+	local data = getSrvData(placeId, false)
+	if not data then
+		srvSpin(r.ssp, false)
+		r.semp.Text = "-- fetch failed"
+		r.semp.Visible = true
+		return
+	end
+	table.sort(data, function(a, b)
+		return a.playing > b.playing
+	end)
+	srvSpin(r.ssp, false)
+	if #data == 0 then
+		r.semp.Text = "-- no servers"
+		r.semp.Visible = true
+		return
+	end
+	for _, entry in ipairs(data) do
+		local b = Instance.new("TextButton")
+		b.Parent = r.slist
+		b.BackgroundColor3 = Color3.fromRGB(14, 16, 20)
+		b.AutoButtonColor = true
+		b.Size = UDim2.new(1, 0, 0, buttonHeight)
+		b.AutomaticSize = Enum.AutomaticSize.Y
+		b.TextColor3 = Color3.fromRGB(210, 220, 215)
+		b.Font = Enum.Font.Code
+		b.TextSize = fontSizeSecondary
+		b.TextWrapped = true
+		b.TextXAlignment = Enum.TextXAlignment.Left
+		b.TextYAlignment = Enum.TextYAlignment.Center
+		b.Text = tostring(entry.playing)
+			.. "/"
+			.. tostring(entry.max)
+			.. " - "
+			.. tostring(entry.id)
+			.. "\nFPS: "
+			.. string.format("%.2f", entry.fps)
+			.. " | Ping: "
+			.. tostring(entry.ping)
+			.. "ms"
+		local pad = Instance.new("UIPadding", b)
+		pad.PaddingLeft = UDim.new(0, innerPadding)
+		pad.PaddingRight = UDim.new(0, innerPadding)
+		pad.PaddingTop = UDim.new(0, innerPadding / 2)
+		pad.PaddingBottom = UDim.new(0, innerPadding / 2)
+		local bs = Instance.new("UIStroke", b)
+		bs.Color = Color3.fromRGB(30, 42, 48)
+		bs.Transparency = 0.55
+		hv(b, b.BackgroundColor3, Color3.fromRGB(38, 32, 66))
+		b.MouseButton1Click:Connect(function()
+			if setclipboard and UIS:IsKeyDown(Enum.KeyCode.LeftShift) then
+				local s = 'game:GetService("TeleportService"):TeleportToPlaceInstance('
+					.. tostring(placeId)
+					.. ', "'
+					.. tostring(entry.id)
+					.. '", game:GetService("Players").LocalPlayer)'
+				setclipboard(s)
+				note("Copied join script", 2, "Game Finder")
+				return
+			end
+			local ok2, e = pcall(function()
+				TPX:TeleportToPlaceInstance(placeId, entry.id, LP)
+			end)
+			if ok2 then
+				note("Serverhop: " .. entry.playing .. "/" .. entry.max, 2, "Game Finder")
+			else
+				note("Teleport failed: " .. tostring(e), 4, "Game Finder")
+			end
+		end)
+	end
+end
+local function advHopPlace(pid)
+	note("Finding a better server...", 2, "Game Finder")
+	local data = getSrvData(pid, false)
+	if not data then
+		note("Failed to fetch servers", 4, "Game Finder")
+		return
+	end
+	if #data == 0 then
+		note("Unable to server hop: only this server exists", 4, "Game Finder")
+		return
+	end
+	table.sort(data, function(a, b)
+		local ap, bp = a.ping, b.ping
+		if ap == 0 and bp > 0 then
+			return false
+		end
+		if bp == 0 and ap > 0 then
+			return true
+		end
+		if ap > 0 and bp > 0 and ap ~= bp then
+			return ap < bp
+		end
+		if a.playing ~= b.playing then
+			return a.playing > b.playing
+		end
+		return a.id < b.id
+	end)
+	local t = data[1]
+	local ok, e = pcall(function()
+		TPX:TeleportToPlaceInstance(pid, t.id, LP)
+	end)
+	if ok then
+		note(
+			"Advanced hop: " .. tostring(t.playing) .. "/" .. tostring(t.max) .. " | " .. tostring(t.ping) .. "ms",
+			4,
+			"Game Finder"
+		)
+	else
+		note("Teleport failed: " .. tostring(e), 4, "Game Finder")
+	end
+end
+local function hopByPlayers(mode)
+	local data = getSrvData(game.PlaceId, false)
+	if not data then
+		note("Failed to fetch servers", 4, "Game Finder")
+		return
+	end
+	if #data == 0 then
+		note("No servers available", 4, "Game Finder")
+		return
+	end
+	if mode == "SMALL" then
+		table.sort(data, function(a, b)
+			return a.playing < b.playing
+		end)
+	else
+		table.sort(data, function(a, b)
+			return a.playing > b.playing
+		end)
+	end
+	local t = data[1]
+	local ok, e = pcall(function()
+		TPX:TeleportToPlaceInstance(game.PlaceId, t.id, LP)
+	end)
+	if ok then
+		note(
+			(mode == "SMALL" and "Smallest" or "Fullest")
+				.. " server: "
+				.. tostring(t.playing)
+				.. "/"
+				.. tostring(t.max)
+				.. " | "
+				.. tostring(t.ping)
+				.. "ms",
+			4,
+			"Game Finder"
+		)
+	else
+		note("Teleport failed: " .. tostring(e), 4, "Game Finder")
+	end
+end
+local function advHop()
+	advHopPlace(game.PlaceId)
+end
+local function startGuard()
+	if autoGuardConn then
+		autoGuardConn:Disconnect()
+		autoGuardConn = nil
+	end
+	if not autoGuard then
+		return
+	end
+	local bad = 0
+	autoGuardConn = RS.Heartbeat:Connect(function(dt)
+		if tick() - lastHopTime < autoCooldown then
+			return
+		end
+		local ping = 0
+		if ST and ST.Network and ST.Network.ServerStatsItem and ST.Network.ServerStatsItem["Data Ping"] then
+			local v = ST.Network.ServerStatsItem["Data Ping"]:GetValue()
+			if typeof(v) == "number" then
+				ping = v
+			end
+		end
+		if ping >= autoPingLimit and ping < 10000 then
+			bad += dt
+			if bad >= 5 then
+				lastHopTime = tick()
+				bad = 0
+				note(
+					"Auto hop: ping " .. tostring(math.floor(ping)) .. "ms, finding better server...",
+					3,
+					"Game Finder"
+				)
+				advHop()
+			end
+		else
+			bad = 0
+		end
+	end)
+end
+local function mk(pl, idx)
+	local f = ROW_T:Clone()
+	f.Parent = LST
+	f.Name = "R"
+	f.BackgroundTransparency = 0.18
+	local s = f:FindFirstChild("S") or f:FindFirstChildWhichIsA("UIStroke")
+	if s then
+		s.Transparency = 0.8
+	end
+	f.Visible = false
+
+	local txt = f.ROW_TXT
+	local bar = f.ROW_B
+
+	local isCurrent = pl.PlaceId == game.PlaceId
+	local pinned = isFav(pl.PlaceId)
+
+	txt.Text = pl.Name
+	txt.TextYAlignment = Enum.TextYAlignment.Center
+	txt.ZIndex = 5
+	bar.ZIndex = 5
+	for _, ch in ipairs(bar:GetChildren()) do
+		if ch:IsA("GuiObject") then
+			ch.ZIndex = 5
+		end
+	end
+
+	local rowTop = Instance.new("Frame")
+	rowTop.Name = "ROW_TOP"
+	rowTop.Parent = bar
+	rowTop.BackgroundTransparency = 1
+	rowTop.Size = UDim2.new(1, 0, 0, buttonHeight)
+
+	local rowBot = Instance.new("Frame")
+	rowBot.Name = "ROW_BOT"
+	rowBot.Parent = bar
+	rowBot.BackgroundTransparency = 1
+	rowBot.Size = UDim2.new(1, 0, 0, buttonHeight)
+
+	local rt = Instance.new("UIListLayout")
+	rt.Parent = rowTop
+	rt.FillDirection = Enum.FillDirection.Horizontal
+	rt.Padding = UDim.new(0, innerPadding)
+	rt.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	rt.VerticalAlignment = Enum.VerticalAlignment.Center
+	rt.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local rb2 = Instance.new("UIListLayout")
+	rb2.Parent = rowBot
+	rb2.FillDirection = Enum.FillDirection.Horizontal
+	rb2.Padding = UDim.new(0, innerPadding)
+	rb2.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	rb2.VerticalAlignment = Enum.VerticalAlignment.Center
+	rb2.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local btp = bar.BTN_TP
+	local bcp = bar.BTN_CP
+	btp.Parent = rowTop
+	bcp.Parent = rowBot
+	btp.LayoutOrder = 1
+	bcp.LayoutOrder = 5
+	btp.Size = UDim2.new(0, buttonTpWidth, 0, buttonHeight)
+	bcp.Size = UDim2.new(0, buttonCpWidth, 0, buttonHeight)
+
+	local bpin = Instance.new("TextButton")
+	bpin.Name = "BTN_PIN"
+	bpin.Parent = rowTop
+	bpin.BackgroundColor3 = Color3.fromRGB(16, 22, 22)
+	bpin.Size = UDim2.new(0, innerPadding + buttonHeight, 0, buttonHeight)
+	bpin.Font = Enum.Font.Code
+	bpin.Text = pinned and "[*]" or "[ ]"
+	bpin.TextColor3 = pinned and Color3.fromRGB(0, 212, 200) or Color3.fromRGB(180, 195, 190)
+	bpin.TextSize = fontSizeSecondary
+	bpin.LayoutOrder = 0
+	bpin.ZIndex = 5
+	hv(bpin, bpin.BackgroundColor3, Color3.fromRGB(20, 32, 32))
+	hv(bcp, bcp.BackgroundColor3, Color3.fromRGB(0, 160, 90))
+
+	local bsrv = Instance.new("TextButton")
+	bsrv.Name = "BTN_SRV"
+	bsrv.Parent = rowBot
+	bsrv.BackgroundColor3 = Color3.fromRGB(16, 24, 28)
+	bsrv.Size = UDim2.new(0, buttonSrvWidth, 0, buttonHeight)
+	bsrv.Font = Enum.Font.Code
+	bsrv.Text = "Servers"
+	bsrv.TextColor3 = Color3.fromRGB(180, 195, 190)
+	bsrv.TextSize = fontSizeSecondary
+	bsrv.LayoutOrder = 4
+	bsrv.ZIndex = 5
+
+	local hdr = Instance.new("Frame")
+	hdr.Name = "EXP_HDR"
+	hdr.Parent = f
+	hdr.BackgroundTransparency = 1
+	hdr.Position = UDim2.new(0, innerPadding, 0, rowHeight + innerPadding / 2)
+	hdr.Size = UDim2.new(1, -innerPadding * 2, 0, expHeaderHeight)
+	hdr.Visible = false
+	hdr.ZIndex = 7
+
+	local hl = Instance.new("TextLabel")
+	hl.Parent = hdr
+	hl.BackgroundTransparency = 1
+	hl.Position = UDim2.new(0, 0, 0, 0)
+	hl.Size = UDim2.new(1, -90, 1, 0)
+	hl.Text = "available servers"
+	hl.Font = Enum.Font.Code
+	hl.TextSize = fontSizeMain
+	hl.TextXAlignment = Enum.TextXAlignment.Left
+	hl.TextColor3 = Color3.fromRGB(200, 210, 205)
+	hl.ZIndex = 7
+
+	local hclose = Instance.new("TextButton")
+	hclose.Parent = hdr
+	hclose.BackgroundColor3 = Color3.fromRGB(16, 22, 22)
+	hclose.Size = UDim2.new(0, 80, 1, 0)
+	hclose.Position = UDim2.new(1, -80, 0, 0)
+	hclose.Font = Enum.Font.Code
+	hclose.Text = "Close"
+	hclose.TextSize = fontSizeSecondary
+	hclose.TextColor3 = Color3.fromRGB(180, 195, 190)
+	hclose.ZIndex = 7
+	hv(hclose, hclose.BackgroundColor3, Color3.fromRGB(20, 32, 32))
+
+	local exp = Instance.new("Frame")
+	exp.Name = "EXP"
+	exp.Parent = f
+	exp.BackgroundColor3 = Color3.fromRGB(12, 14, 17)
+	exp.Position = UDim2.new(0, innerPadding, 0, rowHeight + expHeaderHeight + innerPadding)
+	exp.Size = UDim2.new(1, -innerPadding * 2, 0, 0)
+	exp.BackgroundTransparency = 1
+	exp.Visible = false
+	exp.ZIndex = 6
+	local exps = Instance.new("UIStroke", exp)
+	exps.Color = Color3.fromRGB(30, 42, 48)
+	exps.Transparency = 0.45
+
+	local slist = Instance.new("ScrollingFrame")
+	slist.Parent = exp
+	slist.BackgroundTransparency = 1
+	slist.Position = UDim2.new(0, innerPadding / 2, 0, innerPadding / 2)
+	slist.Size = UDim2.new(1, -innerPadding, 1, -innerPadding)
+	slist.CanvasSize = UDim2.new(0, 0, 0, 0)
+	slist.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	slist.ScrollBarThickness = 3
+	slist.ZIndex = 7
+	local slyt = Instance.new("UIListLayout", slist)
+	slyt.Padding = UDim.new(0, innerPadding / 2)
+	slyt.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local ssp = Instance.new("TextLabel")
+	ssp.Parent = exp
+	ssp.AnchorPoint = Vector2.new(0.5, 0.5)
+	ssp.BackgroundTransparency = 1
+	ssp.Size = UDim2.new(0, 30, 0, 30)
+	ssp.Position = UDim2.new(0.5, 0, 0.5, 0)
+	ssp.Text = "..."
+	ssp.TextColor3 = Color3.fromRGB(140, 155, 150)
+	ssp.Font = Enum.Font.Code
+	ssp.TextSize = 22
+	ssp.ZIndex = 8
+	ssp.Visible = false
+
+	local semp = Instance.new("TextLabel")
+	semp.Parent = exp
+	semp.BackgroundTransparency = 1
+	semp.Text = "-- no servers"
+	semp.Font = Enum.Font.Code
+	semp.TextSize = fontSizeSecondary
+	semp.TextColor3 = Color3.fromRGB(140, 155, 150)
+	semp.AnchorPoint = Vector2.new(0.5, 1)
+	semp.Position = UDim2.new(0.5, 0, 1, -innerPadding / 2)
+	semp.ZIndex = 7
+	semp.Visible = false
+
+	local brj
+	local badv
+	local bsm
+	local bfull
+
+	if isCurrent then
+		f.BackgroundColor3 = Color3.fromRGB(10, 28, 28)
+		if s then
+			s.Transparency = 0.35
+		end
+		local cya = Color3.fromRGB(0, 212, 200)
+		btp.Text = "Server Hop"
+		btp.AutoButtonColor = false
+		btp.Active = true
+		btp.BackgroundColor3 = cya
+		btp.TextColor3 = Color3.fromRGB(20, 24, 28)
+		btp.ZIndex = 5
+		hv(btp, cya, cya, true)
+
+		local ylw = Color3.fromRGB(248, 196, 84)
+		bsrv.BackgroundColor3 = ylw
+		bsrv.TextColor3 = Color3.fromRGB(30, 26, 20)
+		bsrv.AutoButtonColor = false
+		hv(bsrv, ylw, ylw, true)
+
+		brj = Instance.new("TextButton")
+		brj.Name = "BTN_RJ"
+		brj.Parent = rowTop
+		brj.BackgroundColor3 = Color3.fromRGB(0, 120, 180)
+		brj.Size = UDim2.new(0, buttonRjWidth, 0, buttonHeight)
+		brj.Font = Enum.Font.Code
+		brj.Text = "Rejoin"
+		brj.TextColor3 = Color3.fromRGB(255, 255, 255)
+		brj.TextSize = fontSizeSecondary
+		brj.LayoutOrder = 2
+		brj.ZIndex = 5
+		hv(brj, brj.BackgroundColor3, Color3.fromRGB(0, 150, 210))
+
+		badv = Instance.new("TextButton")
+		badv.Name = "BTN_ADV"
+		badv.Parent = rowTop
+		badv.BackgroundColor3 = Color3.fromRGB(0, 140, 100)
+		badv.Size = UDim2.new(0, buttonAdvWidth, 0, buttonHeight)
+		badv.Font = Enum.Font.Code
+		badv.Text = "Advanced Hop"
+		badv.TextColor3 = Color3.fromRGB(255, 255, 255)
+		badv.TextSize = fontSizeSecondary
+		badv.LayoutOrder = 3
+		badv.ZIndex = 5
+		hv(badv, badv.BackgroundColor3, Color3.fromRGB(0, 170, 120))
+
+		bsm = Instance.new("TextButton")
+		bsm.Name = "BTN_SMALLEST"
+		bsm.Parent = rowBot
+		bsm.BackgroundColor3 = Color3.fromRGB(0, 110, 80)
+		bsm.Size = UDim2.new(0, buttonSrvWidth, 0, buttonHeight)
+		bsm.Font = Enum.Font.Code
+		bsm.Text = "Smallest"
+		bsm.TextColor3 = Color3.fromRGB(255, 255, 255)
+		bsm.TextSize = fontSizeSecondary
+		bsm.LayoutOrder = 6
+		bsm.ZIndex = 5
+		hv(bsm, bsm.BackgroundColor3, Color3.fromRGB(0, 140, 100))
+
+		bfull = Instance.new("TextButton")
+		bfull.Name = "BTN_FULLEST"
+		bfull.Parent = rowBot
+		bfull.BackgroundColor3 = Color3.fromRGB(100, 20, 120)
+		bfull.Size = UDim2.new(0, buttonSrvWidth, 0, buttonHeight)
+		bfull.Font = Enum.Font.Code
+		bfull.Text = "Fullest"
+		bfull.TextColor3 = Color3.fromRGB(255, 255, 255)
+		bfull.TextSize = fontSizeSecondary
+		bfull.LayoutOrder = 7
+		bfull.ZIndex = 5
+		hv(bfull, bfull.BackgroundColor3, Color3.fromRGB(120, 30, 140))
+	else
+		hv(btp, btp.BackgroundColor3, Color3.fromRGB(0, 150, 210))
+		hv(bsrv, bsrv.BackgroundColor3, Color3.fromRGB(20, 32, 38))
+
+		local badv2 = Instance.new("TextButton")
+		badv2.Name = "BTN_ADV_PLACE"
+		badv2.Parent = rowTop
+		badv2.BackgroundColor3 = Color3.fromRGB(0, 140, 100)
+		badv2.Size = UDim2.new(0, buttonAdvWidth, 0, buttonHeight)
+		badv2.Font = Enum.Font.Code
+		badv2.Text = "Adv. Hop"
+		badv2.TextColor3 = Color3.fromRGB(255, 255, 255)
+		badv2.TextSize = fontSizeSecondary
+		badv2.LayoutOrder = 3
+		badv2.ZIndex = 5
+		hv(badv2, badv2.BackgroundColor3, Color3.fromRGB(0, 170, 120))
+		badv2.MouseButton1Click:Connect(function()
+			advHopPlace(pl.PlaceId)
+		end)
+	end
+
+	local it = {
+		f = f,
+		n = pl.Name,
+		id = pl.PlaceId,
+		exp = exp,
+		hdr = hdr,
+		slist = slist,
+		ssp = ssp,
+		semp = semp,
+		expOpen = false,
+		btnSRV = bsrv,
+		cur = isCurrent,
+		pinned = pinned,
+		pinBtn = bpin,
+	}
+	table.insert(rows, it)
+
+	bpin.MouseButton1Click:Connect(function()
+		pinned = not pinned
+		it.pinned = pinned
+		setFav(pl.PlaceId, pinned or nil)
+		bpin.Text = pinned and "[*]" or "[ ]"
+		bpin.TextColor3 = pinned and Color3.fromRGB(0, 212, 200) or Color3.fromRGB(180, 195, 190)
+		apply()
+	end)
+
+	if bsm then
+		bsm.MouseButton1Click:Connect(function()
+			hopByPlayers("SMALL")
+		end)
+	end
+
+	if bfull then
+		bfull.MouseButton1Click:Connect(function()
+			hopByPlayers("FULL")
+		end)
+	end
+
+	f.MouseEnter:Connect(function()
+		tw(f, 0.12, nil, nil, { BackgroundTransparency = 0.1 }):Play()
+		if s then
+			tw(s, 0.15, nil, nil, { Transparency = isCurrent and 0.28 or 0.45 }):Play()
+		end
+	end)
+
+	f.MouseLeave:Connect(function()
+		tw(f, 0.18, nil, nil, { BackgroundTransparency = 0.18 }):Play()
+		if s then
+			tw(s, 0.2, nil, nil, { Transparency = isCurrent and 0.35 or 0.6 }):Play()
+		end
+	end)
+
+	btp.MouseButton1Click:Connect(function()
+		if isCurrent then
+			local ok, e = pcall(function()
+				TPX:Teleport(game.PlaceId)
+			end)
+			if ok then
+				note("Server hopping this experience", 2, "Game Finder")
+			else
+				note("Teleport failed: " .. tostring(e), 4, "Game Finder")
+			end
+		else
+			local ok, e = pcall(function()
+				TPX:Teleport(pl.PlaceId, LP)
+			end)
+			if ok then
+				note("Teleporting to " .. pl.Name, 2, "Game Finder")
+			else
+				note("Teleport failed: " .. tostring(e), 4, "Game Finder")
+			end
+		end
+	end)
+
+	if brj then
+		brj.MouseButton1Click:Connect(function()
+			local ok, e = pcall(function()
+				TPX:TeleportToPlaceInstance(game.PlaceId, game.JobId, LP)
+			end)
+			if ok then
+				note("Rejoining this server", 2, "Game Finder")
+			else
+				note("Teleport failed: " .. tostring(e), 4, "Game Finder")
+			end
+		end)
+	end
+
+	if badv then
+		badv.MouseButton1Click:Connect(function()
+			advHop()
+		end)
+	end
+
+	bcp.MouseButton1Click:Connect(function()
+		if setclipboard then
+			setclipboard(tostring(pl.PlaceId))
+			note("Copied ID: " .. pl.PlaceId, 2, "Game Finder")
+		else
+			note("Clipboard unavailable", 3, "Game Finder")
+		end
+	end)
+
+	bsrv.MouseButton1Click:Connect(function()
+		if it.expOpen then
+			closeRow(it)
+			if openRow == it then
+				openRow = nil
+			end
+		else
+			if openRow and openRow ~= it then
+				closeRow(openRow)
+			end
+			it.hdr.Visible = true
+			it.exp.Visible = true
+			it.expOpen = true
+			tw(
+				it.f,
+				0.16,
+				nil,
+				nil,
+				{ Size = UDim2.new(1, -4, 0, rowHeight + expHeaderHeight + expListHeight + innerPadding * 2) }
+			):Play()
+			tw(
+				it.exp,
+				0.16,
+				nil,
+				nil,
+				{ Size = UDim2.new(1, -innerPadding * 2, 0, expListHeight), BackgroundTransparency = 0.05 }
+			):Play()
+			it.btnSRV.Text = "Servers (close)"
+			openRow = it
+			srvFetch(pl.PlaceId, it)
+		end
+	end)
+
+	hclose.MouseButton1Click:Connect(function()
+		closeRow(it)
+		if openRow == it then
+			openRow = nil
+		end
+	end)
+
+	task.delay(idx * 0.012, function()
+		f.Visible = true
+		f.BackgroundTransparency = 0.24
+		if s then
+			s.Transparency = isCurrent and 0.45 or 0.8
+		end
+		f.Size = UDim2.new(1, -4, 0, 0)
+		tw(
+			f,
+			0.18,
+			Enum.EasingStyle.Quad,
+			Enum.EasingDirection.Out,
+			{ Size = UDim2.new(1, -4, 0, rowHeight), BackgroundTransparency = 0.18 }
+		):Play()
+		if s then
+			tw(s, 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Transparency = isCurrent and 0.35 or 0.6 }):Play()
+		end
+	end)
+end
+local function updateStats(total, curName, curId)
+	if STATS then
+		local t = "Places: " .. tostring(total)
+		if curName and curId then
+			t = t .. " • Current: " .. tostring(curName) .. " (" .. tostring(curId) .. ")"
+		end
+		STATS.Text = t
+	end
+end
+local function fetch()
+	if fetching then
+		return
+	end
+	fetching = true
+	spn(true)
+	EMP.Visible = false
+	clr()
+	note("Loading places...", 2, "Game Finder")
+	local tr, ok, pg = 0, false, nil
+	while tr < MAX_RETRIES do
+		tr += 1
+		local s, r = pcall(function()
+			pg = AS:GetGamePlacesAsync()
+		end)
+		if s then
+			ok = true
+			break
+		else
+			task.wait(RETRY_DELAY)
+		end
+	end
+	if not ok then
+		spn(false)
+		fetching = false
+		note("Failed to load places", 4, "Game Finder")
+		return
+	end
+	local i = 0
+	while true do
+		for _, pl in ipairs(pg:GetCurrentPage()) do
+			i += 1
+			mk(pl, i)
+		end
+		if pg.IsFinished then
+			break
+		end
+		pg:AdvanceToNextPageAsync()
+	end
+	spn(false)
+	apply()
+	local curName
+	local curId
+	for _, r in ipairs(rows) do
+		if r.cur then
+			curName = r.n
+			curId = r.id
+			break
+		end
+	end
+	updateStats(#rows, curName, curId)
+	fetching = false
+end
+local function deb()
+	if _G._uv_df and _G._uv_df.Disconnect then
+		_G._uv_df:Disconnect()
+	end
+	local rs = RS.RenderStepped:Connect(function() end)
+	_G._uv_df = rs
+	task.delay(0.08, function()
+		if _G._uv_df then
+			_G._uv_df:Disconnect()
+			_G._uv_df = nil
+		end
+		apply()
+	end)
+end
+SB.Focused:Connect(function()
+	(tw(SB, 0.12, nil, nil, {
+		BackgroundColor3 = Color3.fromRGB(16, 18, 22),
+	})):Play()
+end)
+SB.FocusLost:Connect(function()
+	(tw(SB, 0.16, nil, nil, {
+		BackgroundColor3 = Color3.fromRGB(12, 13, 17),
+	})):Play()
+end)
+SB.Changed:Connect(function(p)
+	if p == "Text" then
+		deb()
+	end
+end)
+SORT.MouseButton1Click:Connect(function()
+	sortMode = sortMode == "NAME" and "ID" or "NAME"
+	SORT.Text = sortMode == "NAME" and "Sort: A>Z" or "Sort: ID"
+	rp(SORT)
+	apply()
+end)
+BTN_REF.MouseButton1Click:Connect(function()
+	rp(BTN_REF)
+	fetch()
+end)
+BTN_AUTO.MouseButton1Click:Connect(function()
+	autoGuard = not autoGuard
+	BTN_AUTO.Text = autoGuard and "AutoHop: On" or "AutoHop: Off"
+	BTN_AUTO.BackgroundColor3 = autoGuard and Color3.fromRGB(0, 140, 100) or Color3.fromRGB(16, 22, 22)
+	startGuard()
+end)
+local function canvas()
+	if _G._uv_canvas and _G._uv_canvas.Disconnect then
+		_G._uv_canvas:Disconnect()
+	end
+	_G._uv_canvas = RS.Stepped:Connect(function()
+		local ly = LST:FindFirstChildOfClass("UIListLayout")
+		if ly then
+			LST.CanvasSize = UDim2.new(0, 0, 0, ly.AbsoluteContentSize.Y)
+		end
+	end)
+end
+pickSize()
+applySize(true)
+M.Position = UDim2.new(0.5, 0, 0.5 - normSize.Y.Scale / 2, 0)
+inFX()
+canvas()
+fetch()
+startGuard()
