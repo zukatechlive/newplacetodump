@@ -10,7 +10,7 @@ local LocalPlayer = Players.LocalPlayer
 local function DoNotif(msg, duration)
 	pcall(function()
 		StarterGui:SetCore("SendNotification", {
-			Title = "BetterMovement",
+			Title = "BetterMovement: Made By zuka.",
 			Text = msg,
 			Duration = duration or 3,
 		})
