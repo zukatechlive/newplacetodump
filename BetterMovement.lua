@@ -1,3 +1,38 @@
+--loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/BetterMovement.lua"))()
+-- by zuka
+
+do
+	local prev = _G._BetterMovement
+	if prev then
+		if prev.Connections then
+			for _, c in ipairs(prev.Connections) do
+				pcall(function()
+					c:Disconnect()
+				end)
+			end
+		end
+		if prev.GUIs then
+			for _, g in ipairs(prev.GUIs) do
+				pcall(function()
+					g:Destroy()
+				end)
+			end
+		end
+		if prev.ShiftLockDisable then
+			pcall(prev.ShiftLockDisable)
+		end
+	end
+	_G._BetterMovement = { Connections = {}, GUIs = {} }
+end
+local _BM = _G._BetterMovement
+local function _BM_trackConn(c)
+	table.insert(_BM.Connections, c)
+	return c
+end
+local function _BM_trackGui(g)
+	table.insert(_BM.GUIs, g)
+	return g
+end
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -5,8 +40,6 @@ local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local StarterGui = game:GetService("StarterGui")
 local LocalPlayer = Players.LocalPlayer
-
-
 local function DoNotif(msg, duration)
 	pcall(function()
 		StarterGui:SetCore("SendNotification", {
@@ -127,7 +160,7 @@ function ShiftLock:Enable()
 	end
 	self.State.IsEnabled = true
 	local ui = self.State.UI
-	ui.ScreenGui = Instance.new("ScreenGui", CoreGui)
+	ui.ScreenGui = _BM_trackGui(Instance.new("ScreenGui", CoreGui))
 	ui.ScreenGui.Name = "ForensicShiftLock_V2"
 	ui.ScreenGui.ResetOnSpawn = false
 	ui.Button = Instance.new("ImageButton", ui.ScreenGui)
@@ -157,6 +190,9 @@ function ShiftLock:Enable()
 	end)
 	self:_setLockState(true)
 	DoNotif("Shift Lock ON. Press Alt to toggle.", 3)
+	_BM.ShiftLockDisable = function()
+		self:Disable()
+	end
 end
 function ShiftLock:Disable()
 	if not self.State.IsEnabled then
@@ -256,7 +292,7 @@ end
 if LocalPlayer.Character then
 	applyMovementStats(LocalPlayer.Character)
 end
-LocalPlayer.CharacterAdded:Connect(applyMovementStats)
+_BM_trackConn(LocalPlayer.CharacterAdded:Connect(applyMovementStats))
 local Dash = {
 	Config = {
 		Key = Enum.KeyCode.Q,
@@ -333,7 +369,7 @@ function Dash:Do()
 		self.State.CanDash = true
 	end)
 end
-UserInputService.InputBegan:Connect(function(input, gpe)
+_BM_trackConn(UserInputService.InputBegan:Connect(function(input, gpe)
 	if gpe then
 		return
 	end
@@ -343,11 +379,11 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 	if input.KeyCode == Dash.Config.Key then
 		Dash:Do()
 	end
-end)
+end))
 if UserInputService.TouchEnabled then
 	local Camera = workspace.CurrentCamera
 	local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-	local DashGui = Instance.new("ScreenGui")
+	local DashGui = _BM_trackGui(Instance.new("ScreenGui"))
 	DashGui.Name = "DashButtonGui"
 	DashGui.DisplayOrder = 10
 	DashGui.ResetOnSpawn = false
@@ -7718,4 +7754,7 @@ function _PlayerModule()
 	end
 	return PlayerModule.new()
 end
-_PlayerModule()
+if not _G._BetterMovement_PlayerModuleLoaded then
+	_G._BetterMovement_PlayerModuleLoaded = true
+	_PlayerModule()
+end
