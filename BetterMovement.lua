@@ -1,6 +1,3 @@
---loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/BetterMovement.lua"))()
--- by zuka
-
 do
 	local prev = _G._BetterMovement
 	if prev then
@@ -40,6 +37,7 @@ local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local StarterGui = game:GetService("StarterGui")
 local LocalPlayer = Players.LocalPlayer
+	or Players:GetPropertyChangedSignal("LocalPlayer"):Wait() and Players.LocalPlayer
 local function DoNotif(msg, duration)
 	pcall(function()
 		StarterGui:SetCore("SendNotification", {
@@ -103,6 +101,9 @@ function ShiftLock:_makeDraggable(guiObject, dragHandle)
 	return moveConn
 end
 function ShiftLock:_updateLogic()
+	if not LocalPlayer then
+		return
+	end
 	local char = LocalPlayer.Character
 	local hum = char and char:FindFirstChildOfClass("Humanoid")
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
