@@ -6,6 +6,8 @@
 --  ####  ####        #     ####         
 --  ####  #           #     #       
 --  #  #   ##         #      ##  
+--                                                 
+--                                                 
 --                               
 --  #                 #          
 --  #                 #          
@@ -162,6 +164,261 @@ local CollectionService = game:GetService("CollectionService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerMouse = LocalPlayer:GetMouse()
 local CurrentCamera = Workspace.CurrentCamera
+
+do
+    local THEME = {
+        Title        = "ZukaTech",
+        Subtitle     = "Made by @OverZuka — We're so back...",
+        IconAssetId  = "rbxassetid://7243158473",
+        BackgroundColor = Color3.fromRGB(8, 8, 12),
+        AccentColor     = Color3.fromRGB(0, 220, 255),
+        TextColor       = Color3.fromRGB(230, 230, 240),
+        SubtitleColor   = Color3.fromRGB(130, 130, 150),
+        FadeInTime  = 0.5,
+        HoldTime    = 0.8,
+        FadeOutTime = 0.4,
+        TypingSpeed    = 0.045,
+        ScanlineCount  = 28,
+        ScanlineAlpha  = 0.06,
+        ParticleCount  = 18,
+    }
+    local splashGui = Instance.new("ScreenGui")
+    splashGui.Name            = "SplashScreen_" .. math.random(1000, 9999)
+    splashGui.IgnoreGuiInset  = true
+    splashGui.ResetOnSpawn    = false
+    splashGui.ZIndexBehavior  = Enum.ZIndexBehavior.Global
+    splashGui.DisplayOrder    = 999
+    splashGui.Parent          = CoreGui
+    local background = Instance.new("Frame")
+    background.Size                 = UDim2.fromScale(1, 1)
+    background.BackgroundColor3     = THEME.BackgroundColor
+    background.BackgroundTransparency = 0.4
+    background.BorderSizePixel      = 0
+    background.ZIndex               = 1
+    background.Parent               = splashGui
+    local scanContainer = Instance.new("Frame")
+    scanContainer.Size                 = UDim2.fromScale(1, 1)
+    scanContainer.BackgroundTransparency = 1
+    scanContainer.BorderSizePixel      = 0
+    scanContainer.ZIndex               = 2
+    scanContainer.ClipsDescendants     = true
+    scanContainer.Parent               = background
+    local lineSpacing = math.ceil(1080 / THEME.ScanlineCount)
+    for i = 0, THEME.ScanlineCount - 1 do
+        local line = Instance.new("Frame")
+        line.Size                 = UDim2.new(1, 0, 0, 1)
+        line.Position             = UDim2.new(0, 0, 0, i * lineSpacing)
+        line.BackgroundColor3     = Color3.new(1, 1, 1)
+        line.BackgroundTransparency = 1 - THEME.ScanlineAlpha
+        line.BorderSizePixel      = 0
+        line.ZIndex               = 2
+        line.Parent               = scanContainer
+    end
+    local sweepLine = Instance.new("Frame")
+    sweepLine.Size                 = UDim2.new(1, 0, 0, 2)
+    sweepLine.Position             = UDim2.fromScale(0, -0.01)
+    sweepLine.BackgroundColor3     = THEME.AccentColor
+    sweepLine.BackgroundTransparency = 0.7
+    sweepLine.BorderSizePixel      = 0
+    sweepLine.ZIndex               = 3
+    sweepLine.Parent               = scanContainer
+    local particleContainer = Instance.new("Frame")
+    particleContainer.Size                 = UDim2.fromScale(1, 1)
+    particleContainer.BackgroundTransparency = 1
+    particleContainer.BorderSizePixel      = 0
+    particleContainer.ZIndex               = 3
+    particleContainer.ClipsDescendants     = true
+    particleContainer.Parent               = background
+    local particles = {}
+    for i = 1, THEME.ParticleCount do
+        local p = Instance.new("Frame")
+        local sz = math.random(1, 3)
+        p.Size                 = UDim2.fromOffset(sz, sz)
+        p.Position             = UDim2.fromScale(math.random(), math.random())
+        p.BackgroundColor3     = THEME.AccentColor
+        p.BackgroundTransparency = math.random(40, 80) / 100
+        p.BorderSizePixel      = 0
+        p.ZIndex               = 3
+        Instance.new("UICorner", p).CornerRadius = UDim.new(1, 0)
+        p.Parent               = particleContainer
+        table.insert(particles, p)
+    end
+    local card = Instance.new("Frame")
+    card.Size                 = UDim2.fromOffset(300, 220)
+    card.Position             = UDim2.fromScale(0.5, 0.5)
+    card.AnchorPoint          = Vector2.new(0.5, 0.5)
+    card.BackgroundColor3     = Color3.fromRGB(13, 13, 18)
+    card.BackgroundTransparency = 1
+    card.BorderSizePixel      = 0
+    card.ZIndex               = 5
+    card.Parent               = background
+    Instance.new("UICorner", card).CornerRadius = UDim.new(0, 14)
+    local cardStroke = Instance.new("UIStroke", card)
+    cardStroke.Thickness    = 1
+    cardStroke.Color        = THEME.AccentColor
+    cardStroke.Transparency = 0.6
+    local gradient = Instance.new("UIGradient", card)
+    gradient.Color    = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 28)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 14)),
+    })
+    gradient.Rotation = 135
+    local topBar = Instance.new("Frame")
+    topBar.Size             = UDim2.new(0, 40, 0, 2)
+    topBar.Position         = UDim2.new(0.5, 0, 0, 0)
+    topBar.AnchorPoint      = Vector2.new(0.5, 0)
+    topBar.BackgroundColor3 = THEME.AccentColor
+    topBar.BorderSizePixel  = 0
+    topBar.ZIndex           = 6
+    Instance.new("UICorner", topBar).CornerRadius = UDim.new(0, 2)
+    topBar.Parent = card
+    local iconWrap = Instance.new("Frame")
+    iconWrap.Size                 = UDim2.fromOffset(64, 64)
+    iconWrap.Position             = UDim2.new(0.5, 0, 0, 28)
+    iconWrap.AnchorPoint          = Vector2.new(0.5, 0)
+    iconWrap.BackgroundColor3     = Color3.fromRGB(20, 20, 28)
+    iconWrap.BackgroundTransparency = 0
+    iconWrap.BorderSizePixel      = 0
+    iconWrap.ZIndex               = 6
+    Instance.new("UICorner", iconWrap).CornerRadius = UDim.new(0, 12)
+    local iconStroke = Instance.new("UIStroke", iconWrap)
+    iconStroke.Thickness    = 1
+    iconStroke.Color        = THEME.AccentColor
+    iconStroke.Transparency = 0.7
+    iconWrap.Parent = card
+    local icon = Instance.new("ImageLabel")
+    icon.Size                 = UDim2.fromOffset(36, 36)
+    icon.Position             = UDim2.fromScale(0.5, 0.5)
+    icon.AnchorPoint          = Vector2.new(0.5, 0.5)
+    icon.BackgroundTransparency = 1
+    icon.ImageColor3          = THEME.AccentColor
+    icon.ImageTransparency    = 0.1
+    icon.Image                = THEME.IconAssetId
+    icon.ZIndex               = 7
+    icon.Parent               = iconWrap
+    pcall(function() ContentProvider:PreloadAsync({ icon }) end)
+    local title = Instance.new("TextLabel")
+    title.Size               = UDim2.new(1, -40, 0, 28)
+    title.Position           = UDim2.new(0.5, 0, 0, 104)
+    title.AnchorPoint        = Vector2.new(0.5, 0)
+    title.BackgroundTransparency = 1
+    title.Font               = Enum.Font.GothamBold
+    title.Text               = "Loading..."
+    title.TextSize           = 20
+    title.TextColor3         = THEME.TextColor
+    title.TextXAlignment     = Enum.TextXAlignment.Center
+    title.ZIndex             = 6
+    title.Parent             = card
+    local cursor = Instance.new("TextLabel")
+    cursor.Size               = UDim2.fromOffset(10, 22)
+    cursor.BackgroundTransparency = 1
+    cursor.Font               = Enum.Font.GothamBold
+    cursor.Text               = "|"
+    cursor.TextSize           = 20
+    cursor.TextColor3         = THEME.AccentColor
+    cursor.TextTransparency   = 0
+    cursor.ZIndex             = 6
+    cursor.Parent             = card
+    local divider = Instance.new("Frame")
+    divider.Size             = UDim2.new(0, 0, 0, 1)
+    divider.Position         = UDim2.new(0.5, 0, 0, 140)
+    divider.AnchorPoint      = Vector2.new(0.5, 0)
+    divider.BackgroundColor3 = THEME.AccentColor
+    divider.BackgroundTransparency = 1
+    divider.BorderSizePixel  = 0
+    divider.ZIndex           = 6
+    divider.Parent           = card
+    local subtitle = Instance.new("TextLabel")
+    subtitle.Size               = UDim2.new(1, -40, 0, 20)
+    subtitle.Position           = UDim2.new(0.5, 0, 0, 152)
+    subtitle.AnchorPoint        = Vector2.new(0.5, 0)
+    subtitle.BackgroundTransparency = 1
+    subtitle.Font               = Enum.Font.Gotham
+    subtitle.Text               = THEME.Subtitle
+    subtitle.TextSize           = 11
+    subtitle.TextColor3         = THEME.SubtitleColor
+    subtitle.TextTransparency   = 1
+    subtitle.TextXAlignment     = Enum.TextXAlignment.Center
+    subtitle.ZIndex             = 6
+    subtitle.Parent             = card
+    local eOut  = TweenInfo.new(THEME.FadeInTime,  Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+    local eIn   = TweenInfo.new(THEME.FadeOutTime, Enum.EasingStyle.Quad,  Enum.EasingDirection.In)
+    local eFast = TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+    card.Position = UDim2.new(0.5, 0, 0.54, 0)
+    TweenService:Create(card, eOut, {
+        Position = UDim2.fromScale(0.5, 0.5)
+    }):Play()
+    task.delay(0.1, function()
+        TweenService:Create(topBar, eFast, { Size = UDim2.new(0.6, 0, 0, 2) }):Play()
+    end)
+    task.delay(0.15, function()
+        TweenService:Create(iconStroke, eFast, { Transparency = 0.2 }):Play()
+        task.wait(0.25)
+        TweenService:Create(iconStroke, TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+            { Transparency = 0.7 }):Play()
+    end)
+    task.delay(0.2, function()
+        TweenService:Create(divider, eFast, { Size = UDim2.new(0.55, 0, 0, 1) }):Play()
+    end)
+    task.spawn(function()
+        while splashGui.Parent do
+            TweenService:Create(sweepLine, TweenInfo.new(2.2, Enum.EasingStyle.Linear),
+                { Position = UDim2.fromScale(0, 1.02) }):Play()
+            task.wait(2.2)
+            sweepLine.Position = UDim2.fromScale(0, -0.01)
+        end
+    end)
+    task.spawn(function()
+        while splashGui.Parent do
+            for _, p in ipairs(particles) do
+                local dur  = math.random(30, 70) / 10
+                local newY = p.Position.Y.Scale - math.random(5, 15) / 100
+                TweenService:Create(p, TweenInfo.new(dur, Enum.EasingStyle.Linear),
+                    { Position = UDim2.new(p.Position.X.Scale, 0, newY, 0) }):Play()
+                task.wait(math.random(1, 4) / 10)
+            end
+            task.wait(3)
+        end
+    end)
+    task.delay(THEME.FadeInTime * 0.6, function()
+        local fullText = THEME.Title
+        for i = 1, #fullText do
+            title.Text = string.sub(fullText, 1, i)
+            local approxW = i * (title.TextSize * 0.58)
+            cursor.Position = UDim2.new(0.5, math.min(approxW / 2, card.AbsoluteSize.X / 2 - 24), 0, 104)
+            task.wait(THEME.TypingSpeed)
+        end
+        for _ = 1, 3 do
+            TweenService:Create(cursor, TweenInfo.new(0.22), { TextTransparency = 1 }):Play()
+            task.wait(0.25)
+            TweenService:Create(cursor, TweenInfo.new(0.22), { TextTransparency = 0 }):Play()
+            task.wait(0.25)
+        end
+        TweenService:Create(cursor, TweenInfo.new(0.2), { TextTransparency = 1 }):Play()
+    end)
+    local typingDuration = THEME.FadeInTime * 0.6 + #THEME.Title * THEME.TypingSpeed + 1.8
+    task.delay(typingDuration, function()
+        TweenService:Create(subtitle, TweenInfo.new(0.4, Enum.EasingStyle.Quad), { TextTransparency = 0 }):Play()
+    end)
+    task.wait(THEME.FadeInTime + THEME.HoldTime + #THEME.Title * THEME.TypingSpeed + 1.5)
+    TweenService:Create(card, eIn, {
+        Position             = UDim2.new(0.5, 0, 0.46, 0),
+        BackgroundTransparency = 1
+    }):Play()
+    TweenService:Create(cardStroke, eIn, { Transparency = 1 }):Play()
+    TweenService:Create(topBar,  eIn, { BackgroundTransparency = 1 }):Play()
+    TweenService:Create(divider, eIn, { BackgroundTransparency = 1 }):Play()
+    TweenService:Create(icon,    eIn, { ImageTransparency = 1 }):Play()
+    TweenService:Create(title,   eIn, { TextTransparency  = 1 }):Play()
+    TweenService:Create(subtitle,eIn, { TextTransparency  = 1 }):Play()
+    TweenService:Create(background, eIn, { BackgroundTransparency = 1 }):Play()
+    TweenService:Create(sweepLine,  eIn, { BackgroundTransparency = 1 }):Play()
+    for _, p in ipairs(particles) do
+        TweenService:Create(p, eIn, { BackgroundTransparency = 1 }):Play()
+    end
+    task.wait(THEME.FadeOutTime + 0.05)
+    splashGui:Destroy()
+end
 
 local Utilities = {}
 function Utilities.findPlayer(inputName)
@@ -557,171 +814,6 @@ RegisterCommand({
 }, function()
 	Modules.Performance:Toggle()
 end)
-Modules.Freecam = {
-	State = {
-		IsEnabled = false,
-		Connections = {},
-		Camera = nil,
-		OriginalCameraType = nil,
-		OriginalCFrame = nil,
-	},
-	Config = {
-		BaseSpeed = 32,
-		ShiftMultiplier = 3,
-		ScrollStep = 8,
-		Sensitivity = 0.35,
-		SpeedMin = 4,
-		SpeedMax = 512,
-		SmoothFactor = 12,
-	},
-}
-local UIS = game:GetService("UserInputService")
-local RunSvc = game:GetService("RunService")
-local KEYS = {
-	Forward = Enum.KeyCode.W,
-	Backward = Enum.KeyCode.S,
-	Left = Enum.KeyCode.A,
-	Right = Enum.KeyCode.D,
-	Up = Enum.KeyCode.E,
-	Down = Enum.KeyCode.Q,
-	Sprint = Enum.KeyCode.LeftShift,
-	SpeedUp = Enum.KeyCode.Equals,
-	SpeedDown = Enum.KeyCode.Minus,
-}
-function Modules.Freecam:Enable()
-	if self.State.IsEnabled then
-		return
-	end
-	self.State.IsEnabled = true
-	local cam = workspace.CurrentCamera
-	self.State.Camera = cam
-	self.State.OriginalCameraType = cam.CameraType
-	self.State.OriginalCFrame = cam.CFrame
-	pcall(function()
-		UIS.MouseBehavior = Enum.MouseBehavior.LockCenter
-	end)
-	pcall(function()
-		UIS.MouseIconEnabled = false
-	end)
-	local cfg = self.Config
-	local yaw, pitch = 0, 0
-	local velocity = Vector3.zero
-	local currentSpeed = cfg.BaseSpeed
-	local _, iY, _ = cam.CFrame:ToEulerAnglesYXZ()
-	yaw = iY
-	self.State.Connections.MouseMove = UIS.InputChanged:Connect(function(inp)
-		if not self.State.IsEnabled then
-			return
-		end
-		if inp.UserInputType == Enum.UserInputType.MouseMovement then
-			yaw = yaw - inp.Delta.X * cfg.Sensitivity * 0.01
-			pitch = math.clamp(pitch - inp.Delta.Y * cfg.Sensitivity * 0.01, math.rad(-89), math.rad(89))
-		end
-	end)
-	self.State.Connections.Scroll = UIS.InputChanged:Connect(function(inp)
-		if not self.State.IsEnabled then
-			return
-		end
-		if inp.UserInputType == Enum.UserInputType.MouseWheel then
-			currentSpeed = math.clamp(currentSpeed + inp.Position.Z * cfg.ScrollStep, cfg.SpeedMin, cfg.SpeedMax)
-		end
-	end)
-	self.State.Connections.SpeedKey = UIS.InputBegan:Connect(function(inp, gpe)
-		if gpe or not self.State.IsEnabled then
-			return
-		end
-		if inp.KeyCode == KEYS.SpeedUp then
-			currentSpeed = math.clamp(currentSpeed + cfg.ScrollStep, cfg.SpeedMin, cfg.SpeedMax)
-		elseif inp.KeyCode == KEYS.SpeedDown then
-			currentSpeed = math.clamp(currentSpeed - cfg.ScrollStep, cfg.SpeedMin, cfg.SpeedMax)
-		end
-	end)
-	self.State.Connections.Render = RunSvc.RenderStepped:Connect(function(dt)
-		if not self.State.IsEnabled then
-			return
-		end
-		cam.CameraType = Enum.CameraType.Scriptable
-		local speed = currentSpeed * (UIS:IsKeyDown(KEYS.Sprint) and cfg.ShiftMultiplier or 1)
-		local move = Vector3.new(
-			(UIS:IsKeyDown(KEYS.Right) and 1 or 0) - (UIS:IsKeyDown(KEYS.Left) and 1 or 0),
-			(UIS:IsKeyDown(KEYS.Up) and 1 or 0) - (UIS:IsKeyDown(KEYS.Down) and 1 or 0),
-			(UIS:IsKeyDown(KEYS.Backward) and 1 or 0) - (UIS:IsKeyDown(KEYS.Forward) and 1 or 0)
-		)
-		if move.Magnitude > 0 then
-			move = move.Unit * speed
-		end
-		local rotCF = CFrame.fromEulerAnglesYXZ(pitch, yaw, 0)
-		local worldMove = rotCF:VectorToWorldSpace(move)
-		local alpha = 1 - math.exp(-cfg.SmoothFactor * dt)
-		velocity = velocity:Lerp(worldMove, alpha)
-		cam.CFrame = CFrame.new(cam.CFrame.Position + velocity * dt) * rotCF
-	end)
-	DoNotif("Freecam ON  —  WASD/QE · Shift sprint · Scroll speed", 3)
-end
-function Modules.Freecam:Disable()
-	if not self.State.IsEnabled then
-		return
-	end
-	self.State.IsEnabled = false
-	for key, conn in pairs(self.State.Connections) do
-		pcall(function()
-			conn:Disconnect()
-		end)
-		self.State.Connections[key] = nil
-	end
-	local cam = self.State.Camera or workspace.CurrentCamera
-	pcall(function()
-		cam.CameraType = self.State.OriginalCameraType or Enum.CameraType.Custom
-	end)
-	pcall(function()
-		UIS.MouseBehavior = Enum.MouseBehavior.Default
-	end)
-	pcall(function()
-		UIS.MouseIconEnabled = true
-	end)
-	local char = Players.LocalPlayer and Players.LocalPlayer.Character
-	local hrp = char and char:FindFirstChild("HumanoidRootPart")
-	if hrp then
-		pcall(function()
-			cam.CFrame = CFrame.new(hrp.Position + Vector3.new(0, 2, 8), hrp.Position)
-		end)
-	elseif self.State.OriginalCFrame then
-		pcall(function()
-			cam.CFrame = self.State.OriginalCFrame
-		end)
-	end
-	self.State.Camera = nil
-	self.State.OriginalCFrame = nil
-	DoNotif("Freecam OFF", 2)
-end
-function Modules.Freecam:Toggle()
-	if self.State.IsEnabled then
-		self:Disable()
-	else
-		self:Enable()
-	end
-end
-function Modules.Freecam:SetSpeed(n)
-	self.Config.BaseSpeed = math.clamp(tonumber(n) or 32, self.Config.SpeedMin, self.Config.SpeedMax)
-	DoNotif(("Freecam speed: %d"):format(self.Config.BaseSpeed), 2)
-end
-function Modules.Freecam:Initialize()
-	local module = self
-	RegisterCommand({
-		Name = "freecamBROKEN",
-		Aliases = {},
-		Description = "Free camera — WASD/QE move, Shift sprint, Scroll/+- speed.",
-	}, function()
-		module:Toggle()
-	end)
-	RegisterCommand({
-		Name = "fcspeed",
-		Aliases = { "freecamspeed" },
-		Description = "Set freecam base speed. Usage: ;fcspeed <number>",
-	}, function(args)
-		module:SetSpeed(args[1])
-	end)
-end
 RegisterCommand({
 	Name = "desync",
 	Aliases = { "psync" },
@@ -2756,7 +2848,7 @@ Modules.Fly = {
 		Gamepad = { Left = Vector3.zero, RightTrigger = 0, LeftTrigger = 0 },
 	},
 	Config = {
-		Speed = 90,
+		Speed = 500,
 		SprintMultiplier = 8.5,
 		Acceleration = 18,
 		Deceleration = 14,
@@ -3015,7 +3107,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
 		return
 	end
-	if input.KeyCode == Enum.KeyCode.F then
+	if input.KeyCode == Enum.KeyCode.X then
 		Fly:Toggle()
 	end
 end)
@@ -30204,8 +30296,6 @@ RegisterCommand({
 		Modules.AutoInteract:Enable(args[1])
 	end
 end)
--- ── Imported: freecam  [raw → register] ──────────────────────
-
 RegisterCommand({
 	Name = "freecam",
 	Aliases = { "fcam" },
@@ -36175,7 +36265,706 @@ RegisterCommand({
 		quizActive = false
 	end)
 end)
+RegisterCommand({
+	Name = "antiadonis",
+	Aliases = { "NoAdonis", "Byebye" },
+	Description = "Anti Adonis Detection.",
+	ArgsDesc = {},
+	Permissions = {},
+}, function(args, speaker)
+	if getgenv().ZexAddon_Loaded then
+		return
+	end
+	getgenv().ZexAddon_Loaded = true
+	local set_ro = setreadonly
+		or (make_writeable and function(t, v)
+			if v then
+				make_readonly(t)
+			else
+				make_writeable(t)
+			end
+		end)
+		or function() end
+	local get_mt = getrawmetatable or debug.getmetatable
+	local hook_meta = hookmetamethod
+	local new_cc = newcclosure or function(f)
+		return f
+	end
+	local check_caller = checkcaller or function()
+		return false
+	end
+	local hook_fn = hookfunction or function() end
+	local gc = getgc or get_gc_objects or function()
+		return {}
+	end
+	local is_our_thread = isourclosure or function()
+		return false
+	end
 
+	-- haha get owned adonis noobs!!!!1111!!!!
+    -- this was adonis bypass was made entrirely by zuka
+
+	local Stats = {
+		KickAttempts = 0,
+		RemotesBlocked = 0,
+		DetectionsCaught = 0,
+		FunctionsHooked = 0,
+		ClientChecksBlocked = 0,
+		RemotesFired = 0,
+	}
+
+	local HookedFunctions = {}
+	local cachedACTable = nil
+	local originalFunctions = {}
+	local isUnloaded = false
+	local Services = setmetatable({}, {
+		__index = function(t, k)
+			local ok, s = pcall(function()
+				return game:GetService(k)
+			end)
+			if ok and s then
+				rawset(t, k, s)
+			end
+			return s
+		end,
+	})
+	local gcCache = nil
+	local gcCacheTime = 0
+	local GC_CACHE_TTL = 30
+	local function getCachedGC()
+		local now = os.clock()
+		if gcCache and (now - gcCacheTime) < GC_CACHE_TTL then
+			return gcCache
+		end
+		local ok, objs = pcall(gc, true)
+		if ok and objs then
+			gcCache = objs
+			gcCacheTime = now
+		end
+		return gcCache
+	end
+	local function safe(fn, ...)
+		local ok, result = pcall(fn, ...)
+		return ok and result or nil
+	end
+	local function safeHook(original, replacement)
+		if type(original) ~= "function" then
+			return false
+		end
+		local ok = pcall(hook_fn, original, new_cc(replacement))
+		if not ok then
+			return false
+		end
+		table.insert(HookedFunctions, original)
+		Stats.FunctionsHooked += 1
+		return true
+	end
+	local function dismantle_readonly(target)
+		if type(target) ~= "table" then
+			return
+		end
+		pcall(function()
+			if set_ro then
+				set_ro(target, false)
+			end
+			local mt = get_mt(target)
+			if mt then
+				pcall(set_ro, mt, false)
+			end
+		end)
+	end
+	for _, fn in ipairs({ getgenv, getrenv, getreg }) do
+		if type(fn) == "function" then
+			local ok, env = pcall(fn)
+			if ok and type(env) == "table" then
+				dismantle_readonly(env)
+			end
+		end
+	end
+	if not game:IsLoaded() then
+		game.Loaded:Wait()
+	end
+	local Players = Services.Players
+	repeat
+		task.wait(0.1)
+	until Players and Players.LocalPlayer
+	local LocalPlayer = Players.LocalPlayer
+	do
+		local stackThreshold = 195
+		local stackThresholdMax = 198
+		local firstError = "C stack overflow"
+		local secondError = "cannot resume dead coroutine"
+		local pack, unpack_ = table.pack, unpack
+		local info, find_ = debug.info, table.find
+		local luaCacheFuncs = {}
+		local StackCache = {}
+		local WrapHook
+		local function checkValidity(func)
+			if info(func, "s") ~= "[C]" then
+				return false
+			end
+			return true
+		end
+		local function isInCache(func)
+			for _, tbl in StackCache do
+				if tbl.Wrapped == func or tbl.ReplacementFunc == func then
+					return tbl
+				end
+			end
+			return nil
+		end
+		local function insertInCache(func, wrapped)
+			if type(func) ~= "function" or type(wrapped) ~= "function" then
+				return
+			end
+			local New
+			New = {
+				WrapCount = 1,
+				Original = func,
+				ReplacementFunc = function(...)
+					local args = pack(pcall(WrapHook(func), ...))
+					if not args[1] then
+						local err = args[2]
+						if err ~= "cannot resume dead coroutine" and New.WrapCount > stackThresholdMax then
+							task.spawn(New.Gc)
+							return getrenv().error(firstError, 2)
+						elseif
+							err == "cannot resume dead coroutine"
+							or select(2, pcall(WrapHook(wrapped))) == "cannot resume dead coroutine"
+						then
+							task.spawn(New.Gc)
+							return getrenv().error(secondError, 2)
+						end
+						task.spawn(New.Gc)
+						return getrenv().error(err, 2)
+					end
+					task.spawn(New.Gc)
+					return unpack_(args, 2, args.n)
+				end,
+				Wrapped = wrapped,
+				Gc = function()
+					local idx = table.find(StackCache, New)
+					if idx then
+						table.remove(StackCache, idx)
+					end
+				end,
+			}
+			table.insert(StackCache, New)
+		end
+		WrapHook = hook_fn(
+			getrenv().coroutine.wrap,
+			new_cc(function(...)
+				local Target = ...
+				if not check_caller() and type(Target) == "function" then
+					local CacheTbl = isInCache(Target)
+					if CacheTbl then
+						local valid = checkValidity(Target)
+						if not valid then
+							local res = WrapHook(...)
+							local pos = table.find(luaCacheFuncs, Target)
+							if pos then
+								luaCacheFuncs[pos] = res
+							else
+								table.insert(luaCacheFuncs, res)
+							end
+							return res
+						end
+						CacheTbl.WrapCount += 1
+						if CacheTbl.WrapCount == stackThreshold then
+							local nf = WrapHook(CacheTbl.ReplacementFunc)
+							CacheTbl.Original, CacheTbl.ReplacementFunc = nf, nf
+							CacheTbl.Wrapped = WrapHook(CacheTbl.Wrapped)
+							return nf
+						elseif CacheTbl.WrapCount < stackThreshold or CacheTbl.WrapCount > stackThresholdMax then
+							local nf = WrapHook(CacheTbl.Wrapped)
+							CacheTbl.Wrapped = nf
+							return nf
+						end
+						local nf = WrapHook(CacheTbl.ReplacementFunc)
+						CacheTbl.Original, CacheTbl.ReplacementFunc = nf, nf
+						CacheTbl.Wrapped = WrapHook(WrapHook(CacheTbl.Wrapped))
+						return nf
+					else
+						local arg = WrapHook(...)
+						insertInCache(Target, arg)
+						return arg
+					end
+				end
+				return WrapHook(...)
+			end)
+		)
+		print("[Zuka] C-stack overflow bypass: active")
+	end
+	do
+		local oldDebugInfo = debug.info
+		local adonisCache = {}
+		hook_fn(
+			debug.info,
+			new_cc(function(target, fmt, ...)
+				if check_caller() then
+					return oldDebugInfo(target, fmt, ...)
+				end
+				if type(target) == "function" and type(fmt) == "string" and fmt:find("f") then
+					if not adonisCache[target] then
+						local results = table.pack(oldDebugInfo(target, fmt, ...))
+						adonisCache[target] = results
+						return table.unpack(results, 1, results.n)
+					else
+						local c = adonisCache[target]
+						return table.unpack(c, 1, c.n)
+					end
+				end
+				return oldDebugInfo(target, fmt, ...)
+			end)
+		)
+		print("[Zuka] debug.info tamper neutralizer: active")
+	end
+	do
+		local testFn = new_cc(function() end)
+		local s = debug.info(testFn, "s")
+		local l = debug.info(testFn, "l")
+		local n = debug.info(testFn, "n")
+		local a = debug.info(testFn, "a")
+		if s ~= "[C]" or l ~= -1 or n ~= "" or a ~= 0 then
+			warn(
+				string.format(
+					"[ZexAddon] WARNING: newcclosure may not pass Adonis metamethod validity! source=%s line=%s name=%s args=%s",
+					tostring(s),
+					tostring(l),
+					tostring(n),
+					tostring(a)
+				)
+			)
+		else
+			print("[Zuka] newcclosure validity check: OK")
+		end
+	end
+	local _require = getrenv().require
+	local function SanitizeCarbonModule(moduleScript)
+		local success, moduleData = pcall(_require, moduleScript)
+		if not success or type(moduleData) ~= "table" then
+			return moduleData
+		end
+		for _, key in pairs({ "Security", "Verify", "Check", "AntiCheat", "ExploitCheck" }) do
+			if rawget(moduleData, key) ~= nil then
+				rawset(moduleData, key, function()
+					return true
+				end)
+			end
+		end
+		if rawget(moduleData, "Hash") or rawget(moduleData, "CheckSum") then
+			rawset(moduleData, "Hash", nil)
+			rawset(moduleData, "CheckSum", nil)
+		end
+		return moduleData
+	end
+	local oldRequire
+	oldRequire = hook_fn(
+		_require,
+		new_cc(function(module)
+			if check_caller() then
+				return oldRequire(module)
+			end
+			if typeof(module) == "Instance" and module:IsA("ModuleScript") then
+				if module.Name == "1" and module.Parent and module.Parent.Name == "Settings" then
+					return SanitizeCarbonModule(module)
+				end
+				local name = module.Name:lower()
+				if name:find("security") or name:find("anticheat") then
+					return setmetatable({}, {
+						__index = function()
+							return function()
+								return true
+							end
+						end,
+					})
+				end
+				if name:find("topbar") or name:find("icon") or name:find("adonis") or name:find("aethetic") then
+					return setmetatable({}, {
+						__index = function()
+							return function() end
+						end,
+						__newindex = function() end,
+						__call = function()
+							return {}
+						end,
+					})
+				end
+			end
+			return oldRequire(module)
+		end)
+	)
+	do
+		local oldBind
+		oldBind = hook_fn(
+			RunService and RunService.BindToRenderStep or game:GetService("RunService").BindToRenderStep,
+			new_cc(function(self, name, priority, callback)
+				if not check_caller() then
+					local lower = name:lower()
+					if lower:find("ac") or lower:find("security") or lower:find("verify") then
+						return nil
+					end
+				end
+				return oldBind(self, name, priority, callback)
+			end)
+		)
+	end
+	local AC_SIGNATURES = {
+		{ "Detected", true, 1 },
+		{ "RemovePlayer", true, 1 },
+		{ "CheckAllClients", true, 1 },
+		{ "KickedPlayers", false, 1 },
+		{ "SpoofCheckCache", false, 1 },
+		{ "ClientTimeoutLimit", false, 1 },
+		{ "CharacterCheck", true, 0.5 },
+		{ "UserSpoofCheck", true, 0.5 },
+		{ "AntiCheatEnabled", true, 1 },
+		{ "GetPlayer", true, 0.5 },
+	}
+	local AC_SCORE_THRESHOLD = 3
+	local function scoreTable(v)
+		if type(v) ~= "table" then
+			return 0
+		end
+		if rawget(v, "Detected") == nil and rawget(v, "RemovePlayer") == nil then
+			return 0
+		end
+		local score = 0
+		pcall(function()
+			for _, sig in ipairs(AC_SIGNATURES) do
+				local name, isFunc, weight = sig[1], sig[2], sig[3]
+				local val = rawget(v, name)
+				if val ~= nil then
+					if isFunc then
+						if type(val) == "function" then
+							score += weight
+						end
+					else
+						score += weight
+					end
+				end
+			end
+		end)
+		return score
+	end
+	local function findACTable()
+		local objs = getCachedGC()
+		if not objs then
+			return nil
+		end
+		for _, v in ipairs(objs) do
+			local ok, isT = pcall(function()
+				return type(v) == "table"
+			end)
+			if ok and isT and scoreTable(v) >= AC_SCORE_THRESHOLD then
+				return v
+			end
+		end
+		return nil
+	end
+	local function hookACTable(tbl)
+		if not tbl then
+			return
+		end
+		if type(tbl.Detected) == "function" then
+			safeHook(tbl.Detected, function(player, action, info)
+				Stats.DetectionsCaught += 1
+			end)
+		end
+		if type(tbl.RemovePlayer) == "function" then
+			safeHook(tbl.RemovePlayer, function(p, info)
+				Stats.KickAttempts += 1
+			end)
+		end
+		if type(tbl.CheckAllClients) == "function" then
+			safeHook(tbl.CheckAllClients, function(...)
+				Stats.ClientChecksBlocked += 1
+			end)
+		end
+		if type(tbl.UserSpoofCheck) == "function" then
+			safeHook(tbl.UserSpoofCheck, function(p, ...)
+				return nil
+			end)
+		end
+		if type(tbl.CharacterCheck) == "function" then
+			safeHook(tbl.CharacterCheck, function(...) end)
+		end
+		if type(tbl.KickedPlayers) == "table" then
+			local mt = getmetatable(tbl.KickedPlayers) or {}
+			rawset(mt, "__index", function()
+				return false
+			end)
+			rawset(mt, "__newindex", function() end)
+			rawset(mt, "__len", function()
+				return 0
+			end)
+			pcall(setmetatable, tbl.KickedPlayers, mt)
+		end
+		if type(tbl.SpoofCheckCache) == "table" then
+			local mt = {}
+			rawset(mt, "__index", function(t, k)
+				return {
+					{
+						Id = k,
+						Username = LocalPlayer.Name,
+						DisplayName = LocalPlayer.DisplayName,
+						UserId = LocalPlayer.UserId,
+					},
+				}
+			end)
+			rawset(mt, "__newindex", function() end)
+			pcall(setmetatable, tbl.SpoofCheckCache, mt)
+		end
+		if tbl.ClientTimeoutLimit ~= nil then
+			pcall(function()
+				tbl.ClientTimeoutLimit = math.huge
+			end)
+		end
+		if tbl.AntiCheatEnabled ~= nil then
+			pcall(function()
+				tbl.AntiCheatEnabled = false
+			end)
+		end
+	end
+	local function findAndPatchRemoteClients()
+		local userId = tostring(LocalPlayer.UserId)
+		local objs = getCachedGC()
+		if not objs then
+			return
+		end
+		for _, v in ipairs(objs) do
+			local ok2, isT = pcall(function()
+				return type(v) == "table"
+			end)
+			if not (ok2 and isT) then
+				continue
+			end
+			local ok3, client, hasMaxLen = pcall(function()
+				return rawget(v, userId), rawget(v, "MaxLen")
+			end)
+			if not (ok3 and type(client) == "table") then
+				continue
+			end
+			local ok4, hasLastUpdate = pcall(function()
+				return rawget(client, "LastUpdate") ~= nil
+			end)
+			if ok4 and hasLastUpdate and hasMaxLen ~= nil then
+				task.spawn(function()
+					while not isUnloaded do
+						task.wait(8)
+						pcall(function()
+							local c = v[userId]
+							if c then
+								c.LastUpdate = os.time()
+								c.PlayerLoaded = true
+							end
+						end)
+					end
+				end)
+			end
+		end
+	end
+	local REMOTE_BLOCK_EXACT = {
+		["__FUNCTION"] = true,
+		["_FUNCTION"] = true,
+		["ClientCheck"] = true,
+		["ProcessCommand"] = true,
+		["ClientLoaded"] = true,
+		["ActivateCommand"] = true,
+		["Disconnect"] = true,
+	}
+	local REMOTE_BLOCK_PATTERNS = {
+		"anticheat",
+		"anti_cheat",
+		"kickplayer",
+		"banplayer",
+		"reportexploit",
+		"detectclient",
+		"cheatcheck",
+	}
+	local function shouldBlockRemote(remoteName)
+		if REMOTE_BLOCK_EXACT[remoteName] then
+			return true
+		end
+		local lower = remoteName:lower()
+		for _, pat in ipairs(REMOTE_BLOCK_PATTERNS) do
+			if lower:find(pat, 1, true) then
+				return true
+			end
+		end
+		return false
+	end
+	local function installNamecallHook()
+		local mt = get_mt(game)
+		if not mt then
+			return
+		end
+		local oldNamecall = mt.__namecall
+		originalFunctions.namecall = oldNamecall
+		pcall(set_ro, mt, false)
+		mt.__namecall = new_cc(function(self, ...)
+			if isUnloaded then
+				return oldNamecall(self, ...)
+			end
+			local method = getnamecallmethod()
+			local args = { ... }
+			if check_caller() then
+				return oldNamecall(self, ...)
+			end
+			if method == "Kick" and self == LocalPlayer then
+				local msg = tostring(args[1] or ""):lower()
+				for _, kw in ipairs({ "adonis", "anti.?cheat", "exploit", "acli", "detected", "cheat", "ban" }) do
+					if msg:find(kw) then
+						Stats.KickAttempts += 1
+						return nil
+					end
+				end
+			end
+			if method == "FireServer" or method == "InvokeServer" then
+				local name = (typeof(self) == "Instance" and self.Name) or ""
+				if shouldBlockRemote(name) then
+					Stats.RemotesBlocked += 1
+					if method == "InvokeServer" then
+						return "Pong"
+					end
+					return nil
+				end
+				Stats.RemotesFired += 1
+			end
+			return oldNamecall(self, ...)
+		end)
+		pcall(set_ro, mt, true)
+	end
+	local function installDebugHooks()
+		local function isHooked(fn)
+			for _, h in ipairs(HookedFunctions) do
+				if fn == h then
+					return true
+				end
+			end
+			return false
+		end
+		local function wrapDebugFn(fn, fallback)
+			if type(fn) ~= "function" then
+				return
+			end
+			pcall(
+				hook_fn,
+				fn,
+				new_cc(function(target, ...)
+					if isHooked(target) then
+						return fallback
+					end
+					return fn(target, ...)
+				end)
+			)
+		end
+		wrapDebugFn(debug.info or debug.getinfo, nil)
+		wrapDebugFn(debug.getupvalues, {})
+		wrapDebugFn(debug.getlocals, {})
+		wrapDebugFn(debug.getconstants, {})
+	end
+	local function protectKick()
+		local origKick = LocalPlayer.Kick
+		originalFunctions.kick = origKick
+		safeHook(origKick, function(self, reason, ...)
+			if check_caller() then
+				return origKick(self, reason, ...)
+			end
+			if self == LocalPlayer then
+				local msg = tostring(reason or ""):lower()
+				for _, kw in ipairs({ "adonis", "anti.?cheat", "exploit", "acli", "cheat", "ban", "detected" }) do
+					if msg:find(kw) then
+						Stats.KickAttempts += 1
+						return nil
+					end
+				end
+			end
+			return origKick(self, reason, ...)
+		end)
+	end
+	local function rescan()
+		gcCache = nil
+		local tbl = findACTable()
+		if tbl and tbl ~= cachedACTable then
+			cachedACTable = tbl
+			hookACTable(tbl)
+			warn("[Zuka] New AC table found and hooked during rescan.")
+		end
+		findAndPatchRemoteClients()
+	end
+	local function initialize()
+		installNamecallHook()
+		installDebugHooks()
+		protectKick()
+		cachedACTable = findACTable()
+		if cachedACTable then
+			hookACTable(cachedACTable)
+		end
+		findAndPatchRemoteClients()
+		task.spawn(function()
+			while not isUnloaded do
+				task.wait(45)
+				rescan()
+			end
+		end)
+		task.spawn(function()
+			while not isUnloaded do
+				task.wait(60)
+				pcall(function()
+					warn(
+						string.format(
+							"[Zuka] Stats | Kicks: %d | Remotes: %d | Detections: %d | ClientChecks: %d | Hooks: %d",
+							Stats.KickAttempts,
+							Stats.RemotesBlocked,
+							Stats.DetectionsCaught,
+							Stats.ClientChecksBlocked,
+							Stats.FunctionsHooked
+						)
+					)
+				end)
+			end
+		end)
+	end
+	getgenv().ZexAddon = {
+		Version = "3.0",
+		GetStats = function()
+			return {
+				KickAttempts = Stats.KickAttempts,
+				RemotesBlocked = Stats.RemotesBlocked,
+				DetectionsCaught = Stats.DetectionsCaught,
+				ClientChecksBlocked = Stats.ClientChecksBlocked,
+				FunctionsHooked = Stats.FunctionsHooked,
+				RemotesFired = Stats.RemotesFired,
+			}
+		end,
+		PrintStats = function()
+			local s = getgenv().ZexAddon.GetStats()
+			for k, v in pairs(s) do
+				print(string.format("  %s: %d", k, v))
+			end
+		end,
+		Rescan = function()
+			rescan()
+			warn("[ZexAddon] Manual rescan complete.")
+		end,
+		Unload = function()
+			isUnloaded = true
+			getgenv().ZexAddon_Loaded = nil
+			warn("[ZexAddon] Unloaded.")
+		end,
+		BlockRemote = function(name)
+			REMOTE_BLOCK_EXACT[name] = true
+			warn("[ZexAddon] Now blocking remote: " .. tostring(name))
+		end,
+		UnblockRemote = function(name)
+			REMOTE_BLOCK_EXACT[name] = nil
+			warn("[ZexAddon] Unblocked remote: " .. tostring(name))
+		end,
+	}
+	initialize()
+	print("Fuck you adonis!!")
+end)
 RegisterCommand({
 	Name = "newantia2",
 	Aliases = { "naa2" },
@@ -36301,7 +37090,7 @@ RegisterCommand({
 				module.ShotgunEnabled = true
 				module.Knockback = 9999999
 				module.AmmoPerMag = 999999
-				module.FireRate = 0.12
+				module.FireRate = 0.07
 				module.ZeroDamageDistance = 999999
 				module.HeadshotHitmarker = 100
 				module.TacticalReloadTime = 0
@@ -36314,12 +37103,12 @@ RegisterCommand({
 				module.Range = 90000
 				module.BulletSpeed = 90000
 				module.DamageableLaserTrail = 999999
-				module.SelfDamage = 999999
+				module.SelfDamage = 0
 				module.ReloadTime = 0
 				module.DamageBasedOnDistance = 999999
 				module.SwitchTime = 0
-				module.FriendlyFire = true
-				module.BulletPerShot = 15
+				module.FriendlyFire = false
+				module.BulletPerShot = 45
 				module.FullDamageDistance = 999999
 				module.SilenceEffect = false
 				module.HeadshotDamageMultiplier = 999999
@@ -36605,12 +37394,6 @@ RegisterCommand({ Name = "Overseer", Aliases = {}, Description = "Better than al
 		" Loading.. "
 	)
 end)
-RegisterCommand({ Name = "teleporter", Aliases = { "tpui" }, Description = "Loads the Game Universe." }, function()
-	loadstringCmd(
-		"https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/GameFinder.lua",
-		"stolen from nameless-admin"
-	)
-end)
 RegisterCommand({ Name = "autofling", Aliases = { "pwned" }, Description = "Pwned Flinger" }, function()
 	loadstringCmd(
 		"https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/Ultimatefling.lua",
@@ -36813,6 +37596,33 @@ RegisterCommand({
 }, function(args)
     loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/fling.lua"))()
 end)
+
+RegisterCommand({
+    Name        = "inspectos",
+    Aliases     = {"newos"},
+    Description = "overseer light version",
+}, function(args)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/OverseerMini.lua"))()
+end)
+
+RegisterCommand({
+    Name        = "bosspanel",
+    Aliases     = {"bossp"},
+    Description = "for get 1 skill point every second.",
+}, function(args)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/get%2B1skillpointeverysecond/BossPanel.lua"))()
+end)
+
+RegisterCommand({
+    Name        = "newgamefinder",
+    Aliases     = {"tpui"},
+    Description = "revamped",
+}, function(args)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/get%2B1skillpointeverysecond/UniverseViewer.lua"))()
+end)
+
+
+
 
 -- aimbot core/gui
 local function loadAimbotGUI(args)
