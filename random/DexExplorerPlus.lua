@@ -128,21 +128,21 @@ local _CEShared = _CEShared or (function()
         if t then return t end
         -- fallback to match dex dark theme if Settings not yet wired
         return {
-            Main1        = Color3.fromRGB(52,52,52),
-            Main2        = Color3.fromRGB(45,45,45),
-            Outline1     = Color3.fromRGB(33,33,33),
-            Outline2     = Color3.fromRGB(55,55,55),
-            Outline3     = Color3.fromRGB(30,30,30),
-            TextBox      = Color3.fromRGB(38,38,38),
-            Menu         = Color3.fromRGB(32,32,32),
-            Button       = Color3.fromRGB(60,60,60),
-            ButtonHover  = Color3.fromRGB(68,68,68),
-            ButtonPress  = Color3.fromRGB(40,40,40),
-            Highlight    = Color3.fromRGB(75,75,75),
-            Text         = Color3.fromRGB(255,255,255),
-            PlaceholderText = Color3.fromRGB(100,100,100),
-            ListSelection= Color3.fromRGB(11,90,175),
-            Important    = Color3.fromRGB(255,80,80),
+            Main1        = Color3.fromRGB(30,32,38),
+            Main2        = Color3.fromRGB(24,26,32),
+            Outline1     = Color3.fromRGB(18,19,24),
+            Outline2     = Color3.fromRGB(42,44,54),
+            Outline3     = Color3.fromRGB(15,16,20),
+            TextBox      = Color3.fromRGB(20,22,28),
+            Menu         = Color3.fromRGB(18,20,26),
+            Button       = Color3.fromRGB(38,42,52),
+            ButtonHover  = Color3.fromRGB(52,58,72),
+            ButtonPress  = Color3.fromRGB(26,28,36),
+            Highlight    = Color3.fromRGB(55,62,78),
+            Text         = Color3.fromRGB(220,225,240),
+            PlaceholderText = Color3.fromRGB(90,96,116),
+            ListSelection= Color3.fromRGB(40,100,210),
+            Important    = Color3.fromRGB(255,70,70),
         }
     end
 
@@ -11096,7 +11096,7 @@ return search]==]
 						2,
 						"Frame",
 						{
-							BackgroundColor3 = Color3.new(0.20392157137394, 0.20392157137394, 0.20392157137394),
+							BackgroundColor3 = Color3.fromRGB(18, 20, 26),
 							BorderSizePixel = 0,
 							Name = "ToolBar",
 							Parent = { 1 },
@@ -11107,8 +11107,8 @@ return search]==]
 						3,
 						"Frame",
 						{
-							BackgroundColor3 = Color3.new(0.14901961386204, 0.14901961386204, 0.14901961386204),
-							BorderColor3 = Color3.new(0.1176470592618, 0.1176470592618, 0.1176470592618),
+							BackgroundColor3 = Color3.fromRGB(14, 16, 22),
+							BorderColor3 = Color3.fromRGB(40, 44, 56),
 							BorderSizePixel = 0,
 							Name = "SearchFrame",
 							Parent = { 2 },
@@ -11126,18 +11126,18 @@ return search]==]
 							Font = 3,
 							Name = "SearchBox",
 							Parent = { 3 },
-							PlaceholderColor3 = Color3.new(0.39215689897537, 0.39215689897537, 0.39215689897537),
+							PlaceholderColor3 = Color3.fromRGB(90, 96, 116),
 							PlaceholderText = "Search workspace",
 							Position = UDim2.new(0, 4, 0, 0),
 							Size = UDim2.new(1, -24, 0, 18),
 							Text = "",
-							TextColor3 = Color3.new(1, 1, 1),
+							TextColor3 = Color3.fromRGB(220, 225, 240),
 							TextSize = 14,
 							TextXAlignment = 0,
 						},
 					},
-					{ 5, "UICorner", { CornerRadius = UDim.new(0, 2), Parent = { 3 } } },
-					{ 6, "UIStroke", { Thickness = 1.4, Parent = { 3 }, Color = Color3.fromRGB(42, 42, 42) } },
+					{ 5, "UICorner", { CornerRadius = UDim.new(0, 3), Parent = { 3 } } },
+					{ 6, "UIStroke", { Thickness = 1, Parent = { 3 }, Color = Color3.fromRGB(40, 44, 56) } },
 					{
 						7,
 						"TextButton",
@@ -11203,7 +11203,7 @@ return search]==]
 						11,
 						"Frame",
 						{
-							BackgroundColor3 = Color3.new(0.15686275064945, 0.15686275064945, 0.15686275064945),
+							BackgroundColor3 = Color3.fromRGB(18, 20, 26),
 							BorderSizePixel = 0,
 							Name = "ScrollCorner",
 							Parent = { 1 },
@@ -14143,8 +14143,8 @@ return search]==]
 							"Frame",
 							{
 								Active = true,
-								BackgroundColor3 = Color3.new(50, 50, 50),
-								BackgroundTransparency = 0.5,
+								BackgroundColor3 = Color3.fromRGB(24, 26, 32),
+								BackgroundTransparency = 0.06,
 								BorderSizePixel = 0,
 								Name = "Main",
 								Parent = { 1 },
@@ -14156,7 +14156,7 @@ return search]==]
 							3,
 							"Frame",
 							{
-								BackgroundColor3 = Color3.new(0.17647059261799, 0.17647059261799, 0.17647059261799),
+								BackgroundColor3 = Color3.fromRGB(24, 26, 32),
 								BorderSizePixel = 0,
 								Name = "Content",
 								Parent = { 2 },
@@ -14169,7 +14169,7 @@ return search]==]
 							4,
 							"Frame",
 							{
-								BackgroundColor3 = Color3.fromRGB(33, 33, 33),
+								BackgroundColor3 = Color3.fromRGB(40, 44, 56),
 								BorderSizePixel = 0,
 								Name = "Line",
 								Parent = { 3 },
@@ -14181,7 +14181,7 @@ return search]==]
 							"TextButton",
 							{
 								AutoButtonColor = false,
-								BackgroundColor3 = Color3.new(0.20392157137394, 0.20392157137394, 0.20392157137394),
+								BackgroundColor3 = Color3.fromRGB(18, 20, 26),
 								BorderSizePixel = 0,
 								Name = "TopBar",
 								Parent = { 2 },
@@ -16557,7 +16557,7 @@ return search]==]
 							1,
 							"Frame",
 							{
-								BackgroundColor3 = Color3.new(0.15686275064945, 0.15686275064945, 0.15686275064945),
+								BackgroundColor3 = Color3.fromRGB(18, 20, 26),
 								BorderSizePixel = 0,
 								Position = UDim2.new(0.5, -300, 0.5, -200),
 								Size = UDim2.new(0, 600, 0, 400),
@@ -16620,7 +16620,7 @@ return search]==]
 							1,
 							"Frame",
 							{
-								BackgroundColor3 = Color3.new(0.15686275064945, 0.15686275064945, 0.15686275064945),
+								BackgroundColor3 = Color3.fromRGB(18, 20, 26),
 								BorderSizePixel = 0,
 								Name = "ScrollCorner",
 								Position = UDim2.new(1, -16, 1, -16),
@@ -25095,7 +25095,7 @@ return search]==]
 						2,
 						"Frame",
 						{
-							BackgroundColor3 = Color3.new(0.20392157137394, 0.20392157137394, 0.20392157137394),
+							BackgroundColor3 = Color3.fromRGB(18, 20, 26),
 							BorderSizePixel = 0,
 							Name = "ToolBar",
 							Parent = { 1 },
@@ -25106,8 +25106,8 @@ return search]==]
 						3,
 						"Frame",
 						{
-							BackgroundColor3 = Color3.new(0.14901961386204, 0.14901961386204, 0.14901961386204),
-							BorderColor3 = Color3.new(0.1176470592618, 0.1176470592618, 0.1176470592618),
+							BackgroundColor3 = Color3.fromRGB(14, 16, 22),
+							BorderColor3 = Color3.fromRGB(40, 44, 56),
 							BorderSizePixel = 0,
 							Name = "SearchFrame",
 							Parent = { 2 },
@@ -25125,12 +25125,12 @@ return search]==]
 							Font = 3,
 							Name = "SearchBox",
 							Parent = { 3 },
-							PlaceholderColor3 = Color3.new(0.39215689897537, 0.39215689897537, 0.39215689897537),
+							PlaceholderColor3 = Color3.fromRGB(90, 96, 116),
 							PlaceholderText = "Search properties",
 							Position = UDim2.new(0, 4, 0, 0),
 							Size = UDim2.new(1, -24, 0, 18),
 							Text = "",
-							TextColor3 = Color3.new(1, 1, 1),
+							TextColor3 = Color3.fromRGB(220, 225, 240),
 							TextSize = 14,
 							TextXAlignment = 0,
 						},
@@ -25201,7 +25201,7 @@ return search]==]
 						10,
 						"Frame",
 						{
-							BackgroundColor3 = Color3.new(0.15686275064945, 0.15686275064945, 0.15686275064945),
+							BackgroundColor3 = Color3.fromRGB(18, 20, 26),
 							BorderSizePixel = 0,
 							Name = "ScrollCorner",
 							Parent = { 1 },
@@ -27174,6 +27174,8 @@ local RETURN_ELAPSED_TIME = false
 							local numParams= proto.numParams
 							local jumpMarkers = {}
 							local function makeJump(idx) jumpMarkers[idx]=(jumpMarkers[idx] or 0)+1 end
+							local indentLevel = 0
+							local function ind() return string.rep("\t", indentLevel) end
 							totalParameters += numParams
 							if proto.main and pflags and pflags.native then emit("--!native\n") end
 			
@@ -27298,6 +27300,7 @@ local RETURN_ELAPSED_TIME = false
 								FASTCALL2=true, FASTCALL2K=true, FASTCALL3=true,
 								JUMPX=true, NOP=true, JUMPBACK=true,
 								NAMECALLUDATA=true,
+								NAMECALL=true, FORNLOOP=true, FORGLOOP=true,
 							}
 							for i, action in ipairs(actions) do
 								if action.hide then continue end
@@ -27327,7 +27330,10 @@ local RETURN_ELAPSED_TIME = false
 									local n = jumpMarkers[i]
 									if n then
 										jumpMarkers[i]=nil
-									for _=1,n do emit("end\n") end
+										for _=1,n do
+											indentLevel = math.max(0, indentLevel - 1)
+											emit(ind().."end\n")
+										end
 			
 									end
 								end
@@ -27344,38 +27350,38 @@ local RETURN_ELAPSED_TIME = false
 										emit(padRight(opn," ",15))
 									end
 								end
-								if opn=="LOADNIL" then emit(R(ur[1]).." = nil")
+								if opn=="LOADNIL" then emit(ind()..R(ur[1]).." = nil")
 			
 								elseif opn=="LOADB" then
-									emit(R(ur[1]).." = "..toEscapedString(toBoolean(ed[1])))
+									emit(ind()..R(ur[1]).." = "..toEscapedString(toBoolean(ed[1])))
 			
 									if ed[2]~=0 then emit(" +"..ed[2]) end
 			
-								elseif opn=="LOADN" then emit(R(ur[1]).." = "..ed[1])
+								elseif opn=="LOADN" then emit(ind()..R(ur[1]).." = "..ed[1])
 			
-								elseif opn=="LOADK" then emit(R(ur[1]).." = "..fmtConst(consts[ed[1]+1]))
+								elseif opn=="LOADK" then emit(ind()..R(ur[1]).." = "..fmtConst(consts[ed[1]+1]))
 			
-								elseif opn=="MOVE"  then emit(R(ur[1]).." = "..R(ur[2]))
+								elseif opn=="MOVE"  then emit(ind()..R(ur[1]).." = "..R(ur[2]))
 			
 								elseif opn=="GETGLOBAL" then
 									local gk=tostring(consts[ed[1]+1] and consts[ed[1]+1].value or "")
 									if options.ListUsedGlobals and isValidGlobal(gk) then
 										table.insert(usedGlobals,gk); usedGlobalsSet[gk]=true
 									end
-									emit(R(ur[1]).." = "..gk)
+									emit(ind()..R(ur[1]).." = "..gk)
 			
 								elseif opn=="SETGLOBAL" then
 									local gk=tostring(consts[ed[1]+1] and consts[ed[1]+1].value or "")
 									if options.ListUsedGlobals and isValidGlobal(gk) then
 										table.insert(usedGlobals,gk); usedGlobalsSet[gk]=true
 									end
-									emit(gk.." = "..R(ur[1]))
+									emit(ind()..gk.." = "..R(ur[1]))
 			
-								elseif opn=="GETUPVAL" then emit(R(ur[1]).." = "..fmtUpv(caps[ed[1]]))
+								elseif opn=="GETUPVAL" then emit(ind()..R(ur[1]).." = "..fmtUpv(caps[ed[1]]))
 			
-								elseif opn=="SETUPVAL" then emit(fmtUpv(caps[ed[1]]).." = "..R(ur[1]))
+								elseif opn=="SETUPVAL" then emit(ind()..fmtUpv(caps[ed[1]]).." = "..R(ur[1]))
 			
-								elseif opn=="CLOSEUPVALS" then emit("-- clear captures from back until: "..ur[1])
+								elseif opn=="CLOSEUPVALS" then emit(ind().."-- clear captures from back until: "..ur[1])
 			
 								elseif opn=="GETIMPORT" then
 									local imp=tostring(consts[ed[1]+1] and consts[ed[1]+1].value or "")
@@ -27386,24 +27392,24 @@ local RETURN_ELAPSED_TIME = false
 									emit(R(ur[1]).." = "..imp)
 			
 								elseif opn=="GETTABLE" then
-									emit(R(ur[1]).." = "..R(ur[2]).."["..R(ur[3]).."]")
+									emit(ind()..R(ur[1]).." = "..R(ur[2]).."["..R(ur[3]).."]")
 			
 								elseif opn=="SETTABLE" then
-									emit(R(ur[2]).."["..R(ur[3]).."] = "..R(ur[1]))
+									emit(ind()..R(ur[2]).."["..R(ur[3]).."] = "..R(ur[1]))
 			
 								elseif opn=="GETTABLEKS" then
 									local key = consts[ed[2]+1] and consts[ed[2]+1].value
-									emit(R(ur[1]).." = "..R(ur[2])..formatIndexString(key))
+									emit(ind()..R(ur[1]).." = "..R(ur[2])..formatIndexString(key))
 			
 								elseif opn=="SETTABLEKS" then
 									local key = consts[ed[2]+1] and consts[ed[2]+1].value
-									emit(R(ur[2])..formatIndexString(key).." = "..R(ur[1]))
+									emit(ind()..R(ur[2])..formatIndexString(key).." = "..R(ur[1]))
 			
 								elseif opn=="GETTABLEN" then
-									emit(R(ur[1]).." = "..R(ur[2]).."["..(ed[1]+1).."]")
+									emit(ind()..R(ur[1]).." = "..R(ur[2]).."["..(ed[1]+1).."]")
 			
 								elseif opn=="SETTABLEN" then
-									emit(R(ur[2]).."["..(ed[1]+1).."] = "..R(ur[1]))
+									emit(ind()..R(ur[2]).."["..(ed[1]+1).."] = "..R(ur[1]))
 			
 								elseif opn=="NEWCLOSURE" then
 									local p2=inner[ed[1]+1]; if p2 then writeProto(ur[1],p2) end
@@ -27414,7 +27420,7 @@ local RETURN_ELAPSED_TIME = false
 									end
 								elseif opn=="NAMECALL" then
 									local method=tostring(consts[ed[2]+1] and consts[ed[2]+1].value or "")
-									emit("-- :"..method)
+									emit(ind().."-- :"..method)
 			
 								elseif opn=="CALL" then
 									local baseR=ur[1]
@@ -27446,7 +27452,7 @@ local RETURN_ELAPSED_TIME = false
 										callBody..=ab
 									end
 									callBody..=")"
-									emit(callBody)
+									emit(ind()..callBody)
 			
 								elseif opn=="RETURN" then
 									local baseR=ur[1]; local tot=ed[1]-2
@@ -27459,11 +27465,11 @@ local RETURN_ELAPSED_TIME = false
 											if k~=tot then rb..=", " end
 										end
 									end
-									emit("return"..rb)
+									emit(ind().."return"..rb)
 			
 								elseif opn=="JUMP" then emit("-- jump to #"..(i+ed[1]))
 			
-								elseif opn=="JUMPBACK" then emit("-- jump back to #"..(i+ed[1]+1))
+								elseif opn=="JUMPBACK" then emit(ind().."-- jump back to #"..(i+ed[1]+1))
 			
 								elseif opn=="JUMPIF" then
 									local ei=i+ed[1]; makeJump(ei)
@@ -27535,13 +27541,13 @@ local RETURN_ELAPSED_TIME = false
 									for k,r in ipairs(ur) do
 										cb..=fmtReg(r, i); if k~=#ur then cb..=" .. " end
 									end
-									emit(R(tgt).." = "..cb)
+									emit(ind()..R(tgt).." = "..cb)
 			
-								elseif opn=="NOT"    then emit(R(ur[1]).." = not "..R(ur[2]))
+								elseif opn=="NOT"    then emit(ind()..R(ur[1]).." = not "..R(ur[2]))
 			
-								elseif opn=="MINUS"  then emit(R(ur[1]).." = -"..R(ur[2]))
+								elseif opn=="MINUS"  then emit(ind()..R(ur[1]).." = -"..R(ur[2]))
 			
-								elseif opn=="LENGTH" then emit(R(ur[1]).." = #"..R(ur[2]))
+								elseif opn=="LENGTH" then emit(ind()..R(ur[1]).." = #"..R(ur[2]))
 			
 								elseif opn=="NEWTABLE" then
 									emit(R(ur[1]).." = {}")
@@ -27613,15 +27619,15 @@ local RETURN_ELAPSED_TIME = false
 											rb..=R(ur[k]); if k~=vc2 then rb..=", " end
 										end
 									end
-									emit(rb.." = ...")
+									emit(ind()..rb.." = ...")
 			
-								elseif opn=="PREPVARARGS" then emit("-- ... ; number of fixed args: "..ed[1])
+								elseif opn=="PREPVARARGS" then emit(ind().."-- ... ; number of fixed args: "..ed[1])
 			
-								elseif opn=="LOADKX" then emit(R(ur[1]).." = "..fmtConst(consts[ed[1]+1]))
+								elseif opn=="LOADKX" then emit(ind()..R(ur[1]).." = "..fmtConst(consts[ed[1]+1]))
 			
-								elseif opn=="JUMPX"    then emit("-- jump to #"..(i+ed[1]))
+								elseif opn=="JUMPX"    then emit(ind().."-- jump to #"..(i+ed[1]))
 			
-								elseif opn=="COVERAGE" then emit("-- coverage ("..ed[1]..")")
+								elseif opn=="COVERAGE" then emit(ind().."-- coverage ("..ed[1]..")")
 			
 								elseif opn=="JUMPXEQKNIL" then
 									local rev=bit32.rshift(ed[2] or 0,0x1F)~=1
@@ -27644,27 +27650,27 @@ local RETURN_ELAPSED_TIME = false
 									local ei=i+ed[1]; makeJump(ei)
 									emit("if "..R(ur[1]).." "..sign.." "..val.." then -- goto #"..ei)
 			
-								elseif opn=="CAPTURE"  then emit("-- upvalue capture")
+								elseif opn=="CAPTURE"  then emit(ind().."-- upvalue capture")
 			
-								elseif opn=="SUBRK"    then emit(R(ur[1]).." = "..fmtConst(consts[ed[1]+1]).." - "..R(ur[2]))
+								elseif opn=="SUBRK"    then emit(ind()..R(ur[1]).." = "..fmtConst(consts[ed[1]+1]).." - "..R(ur[2]))
 			
-								elseif opn=="DIVRK"    then emit(R(ur[1]).." = "..fmtConst(consts[ed[1]+1]).." / "..R(ur[2]))
+								elseif opn=="DIVRK"    then emit(ind()..R(ur[1]).." = "..fmtConst(consts[ed[1]+1]).." / "..R(ur[2]))
 			
-								elseif opn=="IDIV"     then emit(R(ur[1]).." = "..R(ur[2]).." // "..R(ur[3]))
+								elseif opn=="IDIV"     then emit(ind()..R(ur[1]).." = "..R(ur[2]).." // "..R(ur[3]))
 			
-								elseif opn=="IDIVK"    then emit(R(ur[1]).." = "..R(ur[2]).." // "..fmtConst(consts[ed[1]+1]))
+								elseif opn=="IDIVK"    then emit(ind()..R(ur[1]).." = "..R(ur[2]).." // "..fmtConst(consts[ed[1]+1]))
 			
 								elseif opn=="GETUDATAKS" then
 									local key = consts[ed[2]+1] and consts[ed[2]+1].value
-									emit(R(ur[1]).." = "..R(ur[2])..formatIndexString(key))
+									emit(ind()..R(ur[1]).." = "..R(ur[2])..formatIndexString(key))
 			
 								elseif opn=="SETUDATAKS" then
 									local key = consts[ed[2]+1] and consts[ed[2]+1].value
-									emit(R(ur[2])..formatIndexString(key).." = "..R(ur[1]))
+									emit(ind()..R(ur[2])..formatIndexString(key).." = "..R(ur[1]))
 			
 								elseif opn=="NAMECALLUDATA" then
 									local method = tostring(consts[ed[2]+1] and consts[ed[2]+1].value or "")
-									emit("-- :"..method.." (udata)")
+									emit(ind().."-- :"..method.." (udata)")
 			
 								elseif opn=="FASTCALL" then emit("-- FASTCALL; "..Luau:GetBuiltinInfo(ed[1]).."()")
 			
@@ -27876,198 +27882,344 @@ local RETURN_ELAPSED_TIME = false
 			local function _ppImpl(text)
 				local result = {}
 				local depth  = 0
-			
 				local DEDENT_BEFORE      = { ["end"]=true, ["until"]=true }
 				local INDENT_AFTER       = { ["then"]=true, ["do"]=true, ["repeat"]=true }
 				local DEDENT_THEN_INDENT = { ["else"]=true, ["elseif"]=true }
-			
 				local function stripStrings(s)
-					-- remove string literals then line comments to get bare keyword tokens
-					-- Lua patterns don't support PCRE non-capturing groups; use simple greedy match.
 					s = s:gsub('"[^"]*"', '""')
 					s = s:gsub("'[^']*'", "''")
-					s = s:gsub("%-%-.*$", "")  -- strip trailing comment
+					s = s:gsub("%-%-.*$", "")
 					return s
 				end
-			
 				local function firstWord(s)
 					return (stripStrings(s):match("^%s*([%a_][%w_]*)")) or ""
 				end
-			
 				local function containsOpener(s)
 					local clean = stripStrings(s)
-					-- elseif/else are already handled by DEDENT_THEN_INDENT; don't double-indent
 					local fw = clean:match("^%s*([%a_][%w_]*)")
 					if fw == "elseif" or fw == "else" then return false end
-					for w in clean:gmatch("[%a_][%w_]*") do
-						if INDENT_AFTER[w] then return true end
-						if w == "function" then return true end
+					for w2 in clean:gmatch("[%a_][%w_]*") do
+						if INDENT_AFTER[w2] then return true end
+						if w2 == "function" then return true end
 					end
 					return false
 				end
-			
-				for line in (text .. "\n"):gmatch("[^\n]*\n") do
-					local bare = line:gsub("\n$", "")
-					if bare == "" then
-						result[#result + 1] = "\n"; continue
-					end
-			
-					-- strip disasm prefix: [NNN] :NNN: OPNAME<spaces>
-					local expr = bare:match("^%[%d+%]%s*:?%d*:?%s*%u[%u_]*%s+(.*)") or bare
-			
+				local function stripDisasm(line)
+					return line:match("^%[%d+%]%s*:?%d*:?%s*%u[%u_]*%s+(.*)") or line
+				end
+				for line in (text.."\n"):gmatch("[^\n]*\n") do
+					local bare = line:gsub("\n$","")
+					if bare == "" then result[#result+1]="\n"; continue end
+					local expr = stripDisasm(bare)
 					local kw = firstWord(expr)
-			
 					if DEDENT_THEN_INDENT[kw] then
-						depth = math.max(0, depth - 1)
-						result[#result + 1] = string.rep("    ", depth) .. bare .. "\n"
+						depth = math.max(0, depth-1)
+						result[#result+1] = string.rep("    ",depth)..bare.."\n"
 						depth += 1
-			
 					elseif DEDENT_BEFORE[kw] then
-						depth = math.max(0, depth - 1)
-						result[#result + 1] = string.rep("    ", depth) .. bare .. "\n"
-			
+						depth = math.max(0, depth-1)
+						result[#result+1] = string.rep("    ",depth)..bare.."\n"
 					else
-						result[#result + 1] = string.rep("    ", depth) .. bare .. "\n"
+						result[#result+1] = string.rep("    ",depth)..bare.."\n"
 						if containsOpener(expr) then depth += 1 end
 					end
 				end
-			
 				return table.concat(result)
 			end
 
 			local function _coImpl(text)
 				local rawLines = {}
-				for line in (text .. "\n"):gmatch("[^\n]*\n") do
-					rawLines[#rawLines + 1] = line:gsub("\n$", "")
+				for line in (text.."\n"):gmatch("[^\n]*\n") do
+					rawLines[#rawLines+1] = line:gsub("\n$","")
 				end
 
 				local function escpat(s)
-					return s:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
+					return s:gsub("([%(%)%.%%%+%-%*%?%[%^%$])","%%%1")
 				end
 
 				local function nextNonBlank(start)
 					local j = start
-					while j <= #rawLines and (rawLines[j] == nil or rawLines[j]:match("^%s*$")) do
-						j += 1
-					end
+					while j <= #rawLines and (rawLines[j]==nil or rawLines[j]:match("^%s*$")) do j+=1 end
 					return j
 				end
 
-				-- Pass 1: collapse single-use constant loads into the next usage line
-				-- Handles: strings, numbers, booleans, nil, and bare name/import paths
-				-- e.g. v2 = "RunService" / v0 = v0:GetService(v2) → v0 = v0:GetService("RunService")
+				-- Pass 0: while-loop reconstruction
+				-- `if cond then -- goto #N` + `-- jump back to #M` (where N >= M)  →  while cond do ... end
+				do
+					local i = 1
+					while i <= #rawLines do
+						local line = rawLines[i]
+						if line then
+							local cond = line:match("^%s*if%s+(.-)%s+then%s*%-%-.*$") or line:match("^%s*if%s+(.-)%s+then%s*$")
+							if cond then
+								local gt = tonumber(line:match("%-%-.*goto #(%d+)"))
+								if gt then
+									for j = i+1, math.min(i+400, #rawLines) do
+										local jl = rawLines[j]
+										if jl and jl:match("^%s*%-%- jump back to #%d+%s*$") then
+											if gt >= j then
+												local ind = line:match("^(%s*)")
+												rawLines[i] = ind.."while "..cond.." do"
+												rawLines[j] = ind.."end"
+											end
+											break
+										end
+									end
+								end
+							end
+						end
+						i += 1
+					end
+				end
+
+				-- Pass 0b: repeat..until reconstruction
+				-- A leftover `-- jump back to #M` whose immediately preceding conditional exits forward
+				-- means: body runs then tests; emit `until cond`
+				do
+					local i = 1
+					while i <= #rawLines do
+						local line = rawLines[i]
+						if line and line:match("^%s*%-%- jump back to #%d+%s*$") then
+							for back = 1, 4 do
+								local prev = rawLines[i-back]
+								if not prev then break end
+								local cond, tgt = prev:match("^%s*if%s+(.-)%s+then%s*%-%- goto #(%d+)%s*$")
+								if cond and tonumber(tgt) == i+1 then
+									local ind = prev:match('^(%s*)')
+										rawLines[i-back] = ind.."until "..cond
+									rawLines[i] = nil
+									break
+								end
+							end
+						end
+						i += 1
+					end
+				end
+
+				-- Pass 1: collapse single-use constant/literal loads into the next line that uses them
 				local function tryCollapse(i)
 					local line = rawLines[i]
-					if line == nil then return false end
-					local reg, lit = line:match('^%s*(v%d+) = (".-")%s*$')
+					if not line then return false end
+					local reg, lit
+					reg, lit = line:match('^%s*(v%d+) = (".-")%s*$')
 					if not reg then reg, lit = line:match('^%s*(v%d+) = (%-?%d+%.?%d*)%s*$') end
 					if not reg then reg, lit = line:match('^%s*(v%d+) = (true)%s*$') end
 					if not reg then reg, lit = line:match('^%s*(v%d+) = (false)%s*$') end
 					if not reg then reg, lit = line:match('^%s*(v%d+) = (nil)%s*$') end
-					-- bare import/global paths like: v2 = game.Players.LocalPlayer
 					if not reg then reg, lit = line:match('^%s*(v%d+) = ([%a_][%w_%.]*)%s*$') end
 					if not reg then return false end
-					local j = nextNonBlank(i + 1)
-					if j > #rawLines or rawLines[j] == nil then return false end
-					local nextLine = rawLines[j]
+					local j = nextNonBlank(i+1)
+					if j > #rawLines or not rawLines[j] then return false end
+					local nxt = rawLines[j]
 					local ep = escpat(reg)
-					local count = 0
-					for _ in nextLine:gmatch(ep) do count += 1 end
-					if count ~= 1 then return false end
-					if nextLine:match("^%s*" .. ep .. "%s*=") then return false end
-					rawLines[j] = nextLine:gsub(ep, lit, 1)
+					local cnt = 0; for _ in nxt:gmatch(ep) do cnt+=1 end
+					if cnt ~= 1 then return false end
+					if nxt:match("^%s*"..ep.."%s*=") then return false end
+					rawLines[j] = nxt:gsub(ep, lit, 1)
 					rawLines[i] = nil
 					return true
 				end
-				for _ = 1, 8 do  -- more passes for deeper constant chains
-					for i = 1, #rawLines do tryCollapse(i) end
-				end
+				for _ = 1, 8 do for i = 1, #rawLines do tryCollapse(i) end end
 
-				-- Pass 1b: fold single-use field/index accesses
-				-- e.g. v3 = v2.Players / use(v3)  →  use(v2.Players)
+				-- Pass 1b: fold single-use field/index accesses (vN = vM.field → inline)
 				local function tryFoldField(i)
 					local line = rawLines[i]
 					if not line then return false end
 					local lreg, src, field = line:match('^%s*(v%d+) = (v%d+)%.([%a_][%w_]*)%s*$')
 					if not lreg then
 						lreg, src, field = line:match('^%s*(v%d+) = (v%d+)%[(.-)%]%s*$')
-						if lreg then field = "[" .. field .. "]" else return false end
+						if lreg then field = "["..field.."]" else return false end
 					else
-						field = "." .. field
+						field = "."..field
 					end
-					local j = nextNonBlank(i + 1)
+					local j = nextNonBlank(i+1)
 					if j > #rawLines then return false end
-					local nextLine = rawLines[j]
-					local epSrc = escpat(src)
-					local epReg = escpat(lreg)
-					local count = 0
-					for _ in nextLine:gmatch(epReg) do count += 1 end
-					if count ~= 1 then return false end
-					if nextLine:match("^%s*" .. epReg .. "%s*=") then return false end
-					rawLines[j] = nextLine:gsub(epReg, src .. field, 1)
+					local nxt = rawLines[j]
+					local ep = escpat(lreg)
+					local cnt = 0; for _ in nxt:gmatch(ep) do cnt+=1 end
+					if cnt ~= 1 then return false end
+					if nxt:match("^%s*"..ep.."%s*=") then return false end
+					rawLines[j] = nxt:gsub(ep, src..field, 1)
 					rawLines[i] = nil
 					return true
 				end
-				for _ = 1, 6 do
-					for i = 1, #rawLines do tryFoldField(i) end
+				for _ = 1, 6 do for i = 1, #rawLines do tryFoldField(i) end end
+
+				-- Pass 1c: fold single-use upv_N temp assignments inline
+				local function tryFoldUpv(i)
+					local line = rawLines[i]
+					if not line then return false end
+					local reg = line:match('^%s*(upv_%d+)%s*=')
+					if not reg then return false end
+					local val = line:match('^%s*upv_%d+%s*=%s*(.-)%s*$')
+					if not val or val == '' then return false end
+					local j = nextNonBlank(i+1)
+					if j > #rawLines or not rawLines[j] then return false end
+					local nxt = rawLines[j]
+					local ep = escpat(reg)
+					local cnt = 0; for _ in nxt:gmatch(ep) do cnt+=1 end
+					if cnt ~= 1 then return false end
+					if nxt:match("^%s*"..ep.."%s*=") then return false end
+					rawLines[j] = nxt:gsub(ep, val, 1)
+					rawLines[i] = nil
+					return true
+				end
+				for _ = 1, 6 do for i = 1, #rawLines do tryFoldUpv(i) end end
+
+				-- Pass 1d: table constructor reconstruction
+				-- vN = {} followed by vN.key = val (or vN[N] = val) lines  →  vN = { key = val, ... }
+				do
+					local i = 1
+					while i <= #rawLines do
+						local line = rawLines[i]
+						if line and line:match('^%s*v%d+ = {}%s*$') then
+							local tbl = line:match('^%s*(v%d+)')
+							local ep = escpat(tbl)
+							local entries, j = {}, i+1
+							while j <= #rawLines do
+								local nl = rawLines[j]
+								if nl == nil then j+=1; continue end
+								local key, val = nl:match('^%s*'..ep..'%.([%a_][%w_]*)%s*=%s*(.+)$')
+								if not key then key, val = nl:match('^%s*'..ep..'%["([^"]+)"%]%s*=%s*(.+)$') end
+								local numkey
+								if not key then numkey, val = nl:match('^%s*'..ep..'%[(%d+)%]%s*=%s*(.+)$'); key = numkey end
+								if key and val then
+									entries[#entries+1] = {key=key, val=val:match('^(.-)%s*$'), idx=j, num=numkey~=nil}
+									j += 1
+								else break end
+							end
+							if #entries >= 1 then
+								local parts, allNum = {}, true
+								for _,e in ipairs(entries) do if not e.num then allNum=false end end
+								for _,e in ipairs(entries) do
+									parts[#parts+1] = allNum and e.val or (e.key..' = '..e.val)
+									rawLines[e.idx] = nil
+								end
+								local ind = line:match('^(%s*)')
+								if #parts <= 4 then
+									rawLines[i] = ind..tbl..' = { '..table.concat(parts,', ')..' }'
+								else
+									rawLines[i] = ind..tbl..' = {\n'..ind..'\t'..
+										table.concat(parts, ',\n'..ind..'\t')..'\n'..ind..'}'
+								end
+							end
+						end
+						i += 1
+					end
 				end
 
 				-- Pass 2: strip comment noise
 				local pass2 = {}
 				for idx = 1, #rawLines do
 					local line = rawLines[idx]
-					if line == nil then continue end
-					local stripped = line:match("^%s*(.-)%s*$")
-					if stripped:match("^%-%- goto #%d+$") then continue end
-					if stripped:match("^%-%- jump") then continue end
-					line = line:gsub("%s*%-%- goto #%d+", "")
-					line = line:gsub("%s*%-%- end at #%d+", "")
-					line = line:gsub("%s*%-%- iterate %+ jump to #%d+", "")
-					pass2[#pass2 + 1] = line
+					if not line then continue end
+					local s = line:match('^%s*(.-)%s*$')
+					if s:match('^%-%- goto #%d+$')                  then continue end
+					if s:match('^%-%- jump')                        then continue end
+					if s:match('^%-%- :.*%(udata%)$')               then continue end
+					if s:match('^%-%- upvalue capture$')            then continue end
+					if s:match('^%-%- clear captures')              then continue end
+					if s:match('^%-%- FASTCALL')                    then continue end
+					if s:match('^%-%- coverage')                    then continue end
+					if s:match('^%-%- :[%a_][%w_]*%s*$')            then continue end
+					if s:match('^%-%- :[%a_][%w_]* %(udata%)%s*$') then continue end
+					line = line:gsub("%s*%-%- goto #%d+","")
+					line = line:gsub("%s*%-%- end at #%d+","")
+					line = line:gsub("%s*%-%- iterate %+ jump to #%d+","")
+					pass2[#pass2+1] = line
 				end
 
-				-- Pass 3: drop vN = nil lines immediately before a for loop
-				local pass3 = {}
-				local i = 1
-				while i <= #pass2 do
-					local line = pass2[i]
-					local nxt  = pass2[i + 1]
-					local s    = line and line:match("^%s*(.-)%s*$") or ""
-					local isNilInit = s:match("^v%d+ = nil") ~= nil
-					local nextIsFor = nxt and nxt:match("^%s*for%s+v%d+") ~= nil
-					if isNilInit and nextIsFor then
-						i += 1
-					else
-						pass3[#pass3 + 1] = line
-						i += 1
+				-- Pass 2b: prettify for-loop variable names in headers only
+				-- `for vN = ...` → `for i = ...`
+				-- `for vA, vB in pairs(...)` → `for k, v in pairs(...)`
+				-- `for vA, vB in ipairs(...)` → `for i, v in ipairs(...)`
+				local pass2b = {}
+				for _, line in ipairs(pass2) do
+					local r = line
+					do
+						local ind, rest = r:match('^(%s*)for v%d+ = (.+)$')
+						if ind then r = ind..'for i = '..rest end
 					end
+					do
+						local ind, rest = r:match('^(%s*)for v%d+, v%d+ in pairs(.+)$')
+						if ind then r = ind..'for k, v in pairs'..rest end
+					end
+					do
+						local ind, rest = r:match('^(%s*)for v%d+, v%d+ in ipairs(.+)$')
+						if ind then r = ind..'for i, v in ipairs'..rest end
+					end
+					do
+						local ind, iter = r:match('^(%s*)for v%d+, v%d+ in (v%d+) do%s*$')
+						if ind then r = ind..'for k, v in '..iter..' do' end
+					end
+					pass2b[#pass2b+1] = r
+				end
+
+				-- Pass 3: drop vN = nil / local vN = nil lines immediately before a for loop
+				local pass3 = {}
+				local i3 = 1
+				while i3 <= #pass2b do
+					local line = pass2b[i3]
+					local nxt  = pass2b[i3+1]
+					local s    = line and line:match('^%s*(.-)%s*$') or ''
+					local isNil = s:match('^v%d+ = nil') or s:match('^local v%d+ = nil')
+					local nxtFor = nxt and nxt:match('^%s*for%s+')
+					if isNil and nxtFor then i3+=1
+					else pass3[#pass3+1] = line; i3+=1 end
+				end
+
+				-- Pass 3b: fold `... = fn(...)` + `return ...` tail-call pairs → `return fn(...)`
+				local pass3b = {}
+				local i3b = 1
+				while i3b <= #pass3 do
+					local line = pass3[i3b]
+					local nxt  = pass3[i3b+1]
+					if line and nxt then
+						local ind, expr = line:match('^(%s*)%.%.%. = (.+)$')
+						if ind and expr and nxt:match('^%s*return %.%.%.$') then
+							pass3b[#pass3b+1] = ind..'return '..expr
+							i3b += 2; continue
+						end
+					end
+					pass3b[#pass3b+1] = line; i3b+=1
 				end
 
 				-- Pass 4: insert `local` on first assignment of each vN register
-				local seen = {}
+				local seen4 = {}
 				local pass4 = {}
-				for _, line in ipairs(pass3) do
-					local reg = line:match("^%s*(v%d+)%s*=")
-					if reg and not seen[reg] then
-						seen[reg] = true
-						line = line:gsub("^(%s*)(v%d+%s*=)", "%1local %2", 1)
+				for _, line in ipairs(pass3b) do
+					local reg = line:match('^%s*(v%d+)%s*=')
+					if reg and not seen4[reg] then
+						seen4[reg] = true
+						line = line:gsub('^(%s*)(v%d+%s*=)', '%1local %2', 1)
 					end
-					pass4[#pass4 + 1] = line
+					pass4[#pass4+1] = line
 				end
 
-				-- Pass 5: collapse runs of multiple blank lines into one
+				-- Pass 4b: insert `local` on first assignment of each upv_N upvalue temp
+				local seen4b = {}
+				local pass4b = {}
+				for _, line in ipairs(pass4) do
+					local reg = line:match('^%s*(upv_%d+)%s*=')
+					if reg and not seen4b[reg] then
+						seen4b[reg] = true
+						line = line:gsub('^(%s*)(upv_%d+%s*=)', '%1local %2', 1)
+					end
+					pass4b[#pass4b+1] = line
+				end
+
+				-- Pass 5: collapse multiple blank lines into one
 				local final = {}
 				local lastBlank = false
-				for _, line in ipairs(pass4) do
-					local isBlank = line:match("^%s*$") ~= nil
+				for _, line in ipairs(pass4b) do
+					local isBlank = line:match('^%s*$') ~= nil
 					if isBlank and lastBlank then continue end
 					lastBlank = isBlank
-					final[#final + 1] = line
+					final[#final+1] = line
 				end
 
-				return table.concat(final, "\n")
+				return table.concat(final,'\n')
 			end
-
 				ZukDecompile = Decompile
 				prettyPrint  = _ppImpl
 				cleanOutput  = _coImpl
@@ -30366,21 +30518,21 @@ DefaultSettings = (function()
 		},
 		Theme = {
 			_Recurse = true,
-			Main1 = rgb(52, 52, 52),
-			Main2 = rgb(45, 45, 45),
-			Outline1 = rgb(33, 33, 33),
-			Outline2 = rgb(55, 55, 55),
-			Outline3 = rgb(30, 30, 30),
-			TextBox = rgb(38, 38, 38),
-			Menu = rgb(32, 32, 32),
-			ListSelection = rgb(11, 90, 175),
-			Button = rgb(60, 60, 60),
-			ButtonHover = rgb(68, 68, 68),
-			ButtonPress = rgb(40, 40, 40),
-			Highlight = rgb(75, 75, 75),
-			Text = rgb(255, 255, 255),
-			PlaceholderText = rgb(100, 100, 100),
-			Important = rgb(255, 0, 0),
+			Main1 = rgb(30, 32, 38),
+			Main2 = rgb(24, 26, 32),
+			Outline1 = rgb(18, 19, 24),
+			Outline2 = rgb(42, 44, 54),
+			Outline3 = rgb(15, 16, 20),
+			TextBox = rgb(20, 22, 28),
+			Menu = rgb(18, 20, 26),
+			ListSelection = rgb(40, 100, 210),
+			Button = rgb(38, 42, 52),
+			ButtonHover = rgb(52, 58, 72),
+			ButtonPress = rgb(26, 28, 36),
+			Highlight = rgb(55, 62, 78),
+			Text = rgb(220, 225, 240),
+			PlaceholderText = rgb(90, 96, 116),
+			Important = rgb(255, 70, 70),
 			ExplorerIconMap = "",
 			MiscIconMap = "",
 			Syntax = {
@@ -30411,7 +30563,7 @@ DefaultSettings = (function()
 		},
 		Window = {
 			TitleOnMiddle = false,
-			Transparency = 0.2,
+			Transparency = 0.06,
 		},
 		RemoteBlockWriteAttribute = false,
 		ClassIcon = "NewDark",
