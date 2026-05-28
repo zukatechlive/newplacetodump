@@ -1,8 +1,10 @@
+--loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/random/bs.lua"))()
+
 local CFG = {
-	Name = "XENO",
+	Name = "ZukScanner",
 	Version = "4.5.0",
-	Prefix = ";",
-	ToggleKey = Enum.KeyCode.RightShift,
+	Prefix = ".",
+	ToggleKey = Enum.KeyCode.P,
 	FireDelay = 0.025,
 	FireJitter = 0.015,
 	BatchWait = 0.55,
@@ -12,19 +14,19 @@ local CFG = {
 	MaxHistory = 120,
 	Window = { Width = 680, Height = 470 },
 	Theme = {
-		Primary = Color3.fromRGB(140, 50, 235),
-		Accent = Color3.fromRGB(175, 100, 255),
-		Glow = Color3.fromRGB(155, 70, 255),
-		BG = Color3.fromRGB(14, 14, 22),
-		Surface = Color3.fromRGB(22, 22, 34),
-		Card = Color3.fromRGB(28, 28, 44),
-		Hover = Color3.fromRGB(36, 36, 56),
-		Border = Color3.fromRGB(50, 50, 72),
-		Text = Color3.fromRGB(210, 218, 245),
-		Sub = Color3.fromRGB(140, 148, 175),
-		OK = Color3.fromRGB(130, 220, 150),
-		Err = Color3.fromRGB(240, 120, 140),
-		Warn = Color3.fromRGB(245, 215, 130),
+		Primary = Color3.fromRGB(0, 200, 200),
+		Accent = Color3.fromRGB(80, 230, 230),
+		Glow = Color3.fromRGB(0, 180, 180),
+		BG = Color3.fromRGB(10, 12, 14),
+		Surface = Color3.fromRGB(16, 18, 20),
+		Card = Color3.fromRGB(20, 23, 26),
+		Hover = Color3.fromRGB(28, 32, 36),
+		Border = Color3.fromRGB(40, 50, 55),
+		Text = Color3.fromRGB(215, 225, 215),
+		Sub = Color3.fromRGB(110, 130, 120),
+		OK = Color3.fromRGB(90, 210, 130),
+		Err = Color3.fromRGB(220, 80, 100),
+		Warn = Color3.fromRGB(220, 190, 80),
 	},
 }
 local Svc = setmetatable({}, {
@@ -2220,7 +2222,6 @@ Notify = function(text, color, duration)
 		ClipsDescendants = true,
 		Parent = toastHolder,
 	}, {
-		U.new("UICorner", { CornerRadius = UDim.new(0, 8) }),
 		U.new("UIStroke", { Color = color, Thickness = 1, Transparency = 0.55 }),
 		U.new("Frame", { Size = UDim2.new(0, 3, 1, 0), BackgroundColor3 = color, BorderSizePixel = 0 }),
 		U.new("TextLabel", {
@@ -2230,7 +2231,7 @@ Notify = function(text, color, duration)
 			Text = text,
 			TextColor3 = T.Text,
 			TextSize = 13,
-			Font = Enum.Font.Gotham,
+			Font = Enum.Font.Code,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextTruncate = Enum.TextTruncate.AtEnd,
 		}),
@@ -2255,8 +2256,7 @@ local main = U.new("Frame", {
 	ClipsDescendants = true,
 	Parent = gui,
 }, {
-	U.new("UICorner", { CornerRadius = UDim.new(0, 12) }),
-	U.new("UIStroke", { Color = T.Border, Thickness = 1, Transparency = 0.3 }),
+	U.new("UIStroke", { Color = T.Border, Thickness = 1, Transparency = 0.1 }),
 })
 U.new("ImageLabel", {
 	Size = UDim2.new(1, 44, 1, 44),
@@ -2275,7 +2275,6 @@ local topBar = U.new(
 	"Frame",
 	{ Size = UDim2.new(1, 0, 0, 40), BackgroundColor3 = T.Surface, BorderSizePixel = 0, Parent = main },
 	{
-		U.new("UICorner", { CornerRadius = UDim.new(0, 12) }),
 		U.new(
 			"Frame",
 			{
@@ -2291,10 +2290,10 @@ U.new("TextLabel", {
 	Size = UDim2.new(0, 200, 1, 0),
 	Position = UDim2.new(0, 16, 0, 0),
 	BackgroundTransparency = 1,
-	Text = "⚡ XENO",
+	Text = " XENO",
 	TextColor3 = T.Primary,
 	TextSize = 16,
-	Font = Enum.Font.GothamBold,
+	Font = Enum.Font.Code,
 	TextXAlignment = Enum.TextXAlignment.Left,
 	Parent = topBar,
 })
@@ -2305,7 +2304,7 @@ U.new("TextLabel", {
 	Text = "v" .. CFG.Version,
 	TextColor3 = T.Sub,
 	TextSize = 11,
-	Font = Enum.Font.Gotham,
+	Font = Enum.Font.Code,
 	TextXAlignment = Enum.TextXAlignment.Left,
 	Parent = topBar,
 })
@@ -2316,7 +2315,7 @@ local statusDot = U.new("Frame", {
 	BackgroundColor3 = T.Sub,
 	BorderSizePixel = 0,
 	Parent = topBar,
-}, { U.new("UICorner", { CornerRadius = UDim.new(1, 0) }) })
+})
 local statusLabel = U.new("TextLabel", {
 	Size = UDim2.new(0, 160, 1, 0),
 	Position = UDim2.new(0, 164, 0, 0),
@@ -2324,7 +2323,7 @@ local statusLabel = U.new("TextLabel", {
 	Text = "Starting...",
 	TextColor3 = T.Sub,
 	TextSize = 11,
-	Font = Enum.Font.Gotham,
+	Font = Enum.Font.Code,
 	TextXAlignment = Enum.TextXAlignment.Left,
 	TextTruncate = Enum.TextTruncate.AtEnd,
 	Parent = topBar,
@@ -2356,11 +2355,11 @@ local function windowBtn(icon, order, cb)
 		Text = icon,
 		TextColor3 = T.Sub,
 		TextSize = 16,
-		Font = Enum.Font.GothamBold,
+		Font = Enum.Font.Code,
 		AutoButtonColor = false,
 		LayoutOrder = order,
 		Parent = controlsLayout,
-	}, { U.new("UICorner", { CornerRadius = UDim.new(0, 8) }) })
+	})
 	btn.MouseEnter:Connect(function()
 		U.tween(btn, { BackgroundTransparency = 0.2, TextColor3 = T.Text }, 0.18)
 	end)
@@ -2499,12 +2498,12 @@ for _, td in ipairs(tabDefs) do
 		Text = "  " .. td.icon .. "   " .. td.name,
 		TextColor3 = T.Sub,
 		TextSize = 13,
-		Font = Enum.Font.GothamSemibold,
+		Font = Enum.Font.Code,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		AutoButtonColor = false,
 		LayoutOrder = td.order,
 		Parent = sidebar,
-	}, { U.new("UICorner", { CornerRadius = UDim.new(0, 8) }) })
+	})
 	btn.MouseEnter:Connect(function()
 		if currentTab ~= td.name then
 			U.tween(btn, { BackgroundTransparency = 0.4 }, 0.15)
@@ -2528,8 +2527,7 @@ local function card(parent, height, order)
 		LayoutOrder = order or 0,
 		Parent = parent,
 	}, {
-		U.new("UICorner", { CornerRadius = UDim.new(0, 10) }),
-		U.new("UIStroke", { Color = T.Border, Thickness = 1, Transparency = 0.5 }),
+		U.new("UIStroke", { Color = T.Border, Thickness = 1, Transparency = 0.2 }),
 		U.new("UIPadding", {
 			PaddingTop = UDim.new(0, 10),
 			PaddingBottom = UDim.new(0, 10),
@@ -2545,7 +2543,7 @@ local function heading(parent, text, order)
 		Text = text,
 		TextColor3 = T.Text,
 		TextSize = 15,
-		Font = Enum.Font.GothamBold,
+		Font = Enum.Font.Code,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		LayoutOrder = order or 0,
 		Parent = parent,
@@ -2561,11 +2559,11 @@ local function actionBtn(parent, text, color, order, cb)
 		Text = text,
 		TextColor3 = T.Text,
 		TextSize = 12,
-		Font = Enum.Font.GothamSemibold,
+		Font = Enum.Font.Code,
 		AutoButtonColor = false,
 		LayoutOrder = order or 0,
 		Parent = parent,
-	}, { U.new("UICorner", { CornerRadius = UDim.new(0, 7) }) })
+	})
 	btn.MouseEnter:Connect(function()
 		U.tween(btn, { BackgroundTransparency = 0 }, 0.15)
 	end)
@@ -2587,14 +2585,13 @@ local function inputField(parent, ph, order)
 		PlaceholderColor3 = T.Sub,
 		TextColor3 = T.Text,
 		TextSize = 13,
-		Font = Enum.Font.Gotham,
+		Font = Enum.Font.Code,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		ClearTextOnFocus = false,
 		LayoutOrder = order or 0,
 		Parent = parent,
 	}, {
-		U.new("UICorner", { CornerRadius = UDim.new(0, 7) }),
-		U.new("UIStroke", { Color = T.Border, Thickness = 1, Transparency = 0.4 }),
+		U.new("UIStroke", { Color = T.Border, Thickness = 1, Transparency = 0.2 }),
 		U.new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10) }),
 	})
 	box.Focused:Connect(function()
@@ -2637,8 +2634,7 @@ do
 				Parent = infoRow,
 			},
 			{
-				U.new("UICorner", { CornerRadius = UDim.new(0, 8) }),
-				U.new("UIStroke", { Color = T.Border, Thickness = 1, Transparency = 0.6 }),
+				U.new("UIStroke", { Color = T.Border, Thickness = 1, Transparency = 0.2 }),
 			}
 		)
 		U.new("TextLabel", {
@@ -2648,7 +2644,7 @@ do
 			Text = label,
 			TextColor3 = T.Sub,
 			TextSize = 10,
-			Font = Enum.Font.Gotham,
+			Font = Enum.Font.Code,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = c,
 		})
@@ -2659,7 +2655,7 @@ do
 			Text = init,
 			TextColor3 = col,
 			TextSize = 17,
-			Font = Enum.Font.GothamBold,
+			Font = Enum.Font.Code,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = c,
 		})
@@ -2727,7 +2723,7 @@ do
 			local confirmed = BD:scan(function(phase, total, cur, name, extra)
 				if phase == "shielding" then
 					scanResultsLabel.Text =
-						'<font color="#F9E2AF">⚡ Activating scan shield (kick protection)...</font>'
+						'<font color="#F9E2AF"> Activating scan shield (kick protection)...</font>'
 					setStatus("Shielding...", T.Warn)
 				elseif phase == "shielded" then
 					scanResultsLabel.Text = '<font color="#A6E3A1">✓ Scan shield active — hooks deployed</font>'
@@ -2862,7 +2858,7 @@ do
 		Text = "Remote path:",
 		TextColor3 = T.Sub,
 		TextSize = 11,
-		Font = Enum.Font.Gotham,
+		Font = Enum.Font.Code,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = mc,
 	})
@@ -3139,8 +3135,7 @@ do
 		TextWrapped = true,
 		Parent = ec,
 	}, {
-		U.new("UICorner", { CornerRadius = UDim.new(0, 7) }),
-		U.new("UIStroke", { Color = T.Border, Thickness = 1, Transparency = 0.4 }),
+		U.new("UIStroke", { Color = T.Border, Thickness = 1, Transparency = 0.2 }),
 		U.new("UIPadding", {
 			PaddingTop = UDim.new(0, 8),
 			PaddingBottom = UDim.new(0, 8),
@@ -3166,7 +3161,7 @@ do
 	end)
 	heading(pg, "Hub", 7)
 	for idx, e in ipairs({
-		{ name = "Infinite Yield", url = "https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source" },
+		{ name = "Infinite Yield", url = "https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/panel.lua" },
 		{ name = "Dex Explorer", url = "https://raw.githubusercontent.com/infyiff/backup/main/dex.lua" },
 		{ name = "Remote Spy", url = "https://raw.githubusercontent.com/infyiff/backup/main/SimpleSpyV3/main.lua" },
 	}) do
@@ -3177,7 +3172,7 @@ do
 			Text = "📜 " .. e.name,
 			TextColor3 = T.Text,
 			TextSize = 13,
-			Font = Enum.Font.GothamBold,
+			Font = Enum.Font.Code,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = hc,
 		})
@@ -3375,7 +3370,7 @@ do
 		Text = "Script name to disable:",
 		TextColor3 = T.Sub,
 		TextSize = 11,
-		Font = Enum.Font.Gotham,
+		Font = Enum.Font.Code,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = mkc,
 	})
@@ -3413,7 +3408,7 @@ do
 					.. profile.desc,
 				TextColor3 = isActive and T.OK or T.Text,
 				TextSize = 12,
-				Font = isActive and Enum.Font.GothamBold or Enum.Font.Gotham,
+				Font = isActive and Enum.Font.Code or Enum.Font.Code,
 				TextXAlignment = Enum.TextXAlignment.Left,
 				Parent = gc,
 			})
@@ -3782,7 +3777,7 @@ do
 	task.wait(0.6)
 	switchTab("Dashboard")
 	local profile = AC:detectGame()
-	Notify("⚡ XENO v" .. CFG.Version .. " loaded", T.Primary)
+	Notify(" XENO v" .. CFG.Version .. " loaded", T.Primary)
 	Notify(" AC: " .. profile.name .. " — 10-Layer Venv + Kick-Safe Scan", T.OK)
 	Notify(
 		#BD.patterns .. " patterns · " .. #BD.fingerprints .. " fps · " .. #BD.remoteBlacklist .. " blacklisted",
@@ -3792,15 +3787,17 @@ do
 	statusValLbl.Text = "Ready"
 	statusValLbl.TextColor3 = T.Sub
 	print(string.format(
-		[[
-    ═══════════════════════════════════════
-     ⚡ XENO v%s — Kick-Safe Build
+	[[
+    
+     XENO v%s — Kick-Safe Build
      AC Profile: %s
      10-Layer Venv + Scan Shield
      Patterns: %d · Fingerprints: %d
      Blacklisted: %d keywords
      Toggle: RightShift | Prefix: %s
-    ═══════════════════════════════════════
+
+	 ZukaaTech <3
+    
     ]],
 		CFG.Version,
 		profile.name,
