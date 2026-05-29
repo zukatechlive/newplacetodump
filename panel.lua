@@ -7,7 +7,10 @@
 --  ####  #           #     #       
 --  #  #   ##         #      ##  
 --                                                 
---                                                 
+--
+
+
+
 --                               
 --  #                 #          
 --  #                 #          
@@ -19,8 +22,19 @@
 --                               
 ]]
 
+
+
+
+
+
+
+
+
 local genv = getgenv()
+
+
 local SPOOF_NAME, SPOOF_VER = "_gc", "debug"
+
 genv.identifyexecutor = function()
 	return SPOOF_NAME, SPOOF_VER
 end
@@ -1632,9 +1646,9 @@ function Modules.CommandBar:AddOutput(text: string, color: Color3?)
 	end)
 end
 function Modules.CommandBar:ListCommands()
-	self:AddOutput("╔══════════════════════════════════════════════╗", self.Theme.Accent)
-	self:AddOutput("║     Zuka-Tech Version 13.77  —  ArchBLOX     ║", self.Theme.Accent)
-	self:AddOutput("╚══════════════════════════════════════════════╝", self.Theme.Accent)
+	self:AddOutput("", self.Theme.Accent)
+	self:AddOutput("     Zuka-Tech Version 13.77  —  ArchBLOX     ", self.Theme.Accent)
+	self:AddOutput("", self.Theme.Accent)
 	self:AddOutput("")
 	local sorted = {}
 	for _, info in ipairs(CommandInfo) do table.insert(sorted, info) end
@@ -1648,7 +1662,7 @@ function Modules.CommandBar:ListCommands()
 		self:AddOutput("  " .. (info.Description or "No description"), self.Theme.Text)
 	end
 	self:AddOutput("")
-	self:AddOutput("─────────────────────────────────────────────", self.Theme.AccentDark)
+	self:AddOutput("", self.Theme.AccentDark)
 	self:AddOutput(#sorted .. " command(s) available.", self.Theme.Text)
 end
 function Modules.CommandBar:UpdateSuggestions()
@@ -1679,19 +1693,19 @@ function Modules.CommandBar:StartScan()
 	end
 	self.Scanner.ScanInProgress = true
 	self.Scanner.FoundModules   = {}
-	self:AddOutput("╔══════════════════════════════════════════════╗", self.Theme.Accent)
-	self:AddOutput("║           INITIATING MODULE SCAN…            ║", self.Theme.Text)
-	self:AddOutput("╚══════════════════════════════════════════════╝", self.Theme.Accent)
+	self:AddOutput("", self.Theme.Accent)
+	self:AddOutput("           INITIATING MODULE SCAN…            ", self.Theme.Text)
+	self:AddOutput("", self.Theme.Accent)
 	self:AddOutput("")
 	task.spawn(function()
 		self:ScanForModules()
 		self.Scanner.ScanInProgress = false
 		self:AddOutput("")
-		self:AddOutput("─────────────────────────────────────────────", self.Theme.Accent)
+		self:AddOutput("", self.Theme.Accent)
 		self:AddOutput(
 			string.format("SCAN COMPLETE — %d modules found", #self.Scanner.FoundModules),
 			self.Theme.Accent)
-		self:AddOutput("─────────────────────────────────────────────", self.Theme.Accent)
+		self:AddOutput("", self.Theme.Accent)
 		self:AddOutput("")
 	end)
 end
@@ -1754,9 +1768,9 @@ function Modules.CommandBar:ListModules()
 	if #self.Scanner.FoundModules == 0 then
 		self:AddOutput("No modules found. Run 'scan' first.", Color3.fromRGB(255, 255, 0)); return
 	end
-	self:AddOutput("─────────────────────────────────────────────", self.Theme.Accent)
+	self:AddOutput("", self.Theme.Accent)
 	self:AddOutput(string.format("FOUND %d MODULES:", #self.Scanner.FoundModules), self.Theme.Text)
-	self:AddOutput("─────────────────────────────────────────────", self.Theme.Accent)
+	self:AddOutput("", self.Theme.Accent)
 	self:AddOutput("")
 	for i, mod in pairs(self.Scanner.FoundModules) do
 		local status = self.Scanner.PoisonedModules[mod.Name] and " [POISONED]" or ""
@@ -1768,19 +1782,19 @@ function Modules.CommandBar:ListModules()
 end
 function Modules.CommandBar:InjectPoison(moduleData)
 	self:AddOutput("")
-	self:AddOutput("─────────────────────────────────────────────", self.Theme.Accent)
+	self:AddOutput("", self.Theme.Accent)
 	self:AddOutput(string.format("INJECTING POISON: %s", moduleData.Poison.Name), self.Theme.Accent)
-	self:AddOutput("─────────────────────────────────────────────", self.Theme.Accent)
+	self:AddOutput("", self.Theme.Accent)
 	self:AddOutput("")
 	local success, err = pcall(function() self:ApplyPoison(moduleData) end)
 	if success then
-		self:AddOutput(string.format("✓ Injected into: %s",        moduleData.Name),            self.Theme.Accent)
+		self:AddOutput(string.format(" Injected into: %s",        moduleData.Name),            self.Theme.Accent)
 		self:AddOutput(string.format("  %s",                        moduleData.Poison.Description), self.Theme.Text)
 		self:AddOutput("")
 		self.Scanner.PoisonedModules[moduleData.Name] = true
 		moduleData.Poison.Applied = true
 	else
-		self:AddOutput(string.format("✗ Injection failed: %s", tostring(err)), Color3.fromRGB(255, 80, 80))
+		self:AddOutput(string.format(" Injection failed: %s", tostring(err)), Color3.fromRGB(255, 80, 80))
 		self:AddOutput(""); self:PlayBeep()
 	end
 end
@@ -1922,9 +1936,9 @@ function Modules.CommandBar:PoisonWeapon(module): number
 	return hooked
 end
 function Modules.CommandBar:ShowStatus()
-	self:AddOutput("─────────────────────────────────────────────", self.Theme.Accent)
+	self:AddOutput("", self.Theme.Accent)
 	self:AddOutput("SCANNER STATUS", self.Theme.Text)
-	self:AddOutput("─────────────────────────────────────────────", self.Theme.Accent)
+	self:AddOutput("", self.Theme.Accent)
 	self:AddOutput(string.format("Modules Found:   %d", #self.Scanner.FoundModules), self.Theme.Text)
 	local poisonedCount = 0
 	for _ in pairs(self.Scanner.PoisonedModules) do poisonedCount += 1 end
@@ -2039,11 +2053,11 @@ function Modules.CommandBar:Initialize()
 		b.MouseButton1Click:Connect(cb)
 		return b
 	end
-	trafficBtn(T.Close, -22, "✕", function() self:Toggle() end)
-	trafficBtn(T.Minimize, -40, "─", function()
+	trafficBtn(T.Close, -22, "", function() self:Toggle() end)
+	trafficBtn(T.Minimize, -40, "", function()
 		if self.State.IsMinimized then self:Restore() else self:Minimize() end
 	end)
-	trafficBtn(T.Maximize, -58, "□", function() self:Maximize() end)
+	trafficBtn(T.Maximize, -58, "", function() self:Maximize() end)
 	local localPlayer = game:GetService("Players").LocalPlayer
 	local userName    = localPlayer and localPlayer.Name:lower() or "user"
 	mk("TextLabel", {
@@ -6381,7 +6395,7 @@ function Modules.TriggerRemoteTouch:TriggerAll()
 			end
 			if success then
 				triggered = triggered + 1
-				DoNotif(string.format("[%d/%d] ✓ %s", i, #self.State.FoundParts, item.Part.Name), 1)
+				DoNotif(string.format("[%d/%d]  %s", i, #self.State.FoundParts, item.Part.Name), 1)
 			else
 				failed = failed + 1
 				self:_debugLog(string.format("Failed: %s", item.Name))
@@ -6421,9 +6435,9 @@ function Modules.TriggerRemoteTouch:TriggerSingle(keyword)
 				self:_returnToOriginal()
 			end
 			if success then
-				DoNotif("✓ Triggered: " .. item.Part.Name, 2)
+				DoNotif(" Triggered: " .. item.Part.Name, 2)
 			else
-				DoNotif("✗ Failed: " .. item.Part.Name, 3)
+				DoNotif(" Failed: " .. item.Part.Name, 3)
 			end
 			return
 		end
@@ -6450,9 +6464,9 @@ function Modules.TriggerRemoteTouch:TriggerIndex(index)
 		self:_returnToOriginal()
 	end
 	if success then
-		DoNotif(string.format("[%d] ✓ %s", idx, item.Part.Name), 2)
+		DoNotif(string.format("[%d]  %s", idx, item.Part.Name), 2)
 	else
-		DoNotif(string.format("[%d] ✗ %s", idx, item.Part.Name), 3)
+		DoNotif(string.format("[%d]  %s", idx, item.Part.Name), 3)
 	end
 end
 function Modules.TriggerRemoteTouch:ToggleTeleportMode()
@@ -7224,18 +7238,18 @@ function Modules.InfoPanel:Toggle()
 		entryLabel.Text = string.format("<b>%s:</b> %s", key, tostring(value))
 		return entryLabel
 	end
-	createHeader("▼ Client Information")
+	createHeader(" Client Information")
 	createInfoEntry("Display Name", localPlayer.DisplayName)
 	createInfoEntry("Username", localPlayer.Name)
 	createInfoEntry("User ID", localPlayer.UserId)
 	createInfoEntry("Account Age", localPlayer.AccountAge .. " days")
 	local fpsLabel = createInfoEntry("Client FPS", "Calculating...")
-	createHeader("▼ Game Information")
+	createHeader(" Game Information")
 	createInfoEntry("Place ID", game.PlaceId)
 	createInfoEntry("Job ID", game.JobId)
 	createInfoEntry("Creator Type", game.CreatorType.Name)
 	createInfoEntry("Creator ID", game.CreatorId)
-	createHeader("▼ Server Players")
+	createHeader(" Server Players")
 	local playerListFrame = Instance.new("Frame", scroll)
 	playerListFrame.Size = UDim2.new(1, -12, 0, 0)
 	playerListFrame.BackgroundTransparency = 1
@@ -7696,7 +7710,7 @@ RegisterCommand({
 	toggleBtn.Position = UDim2.new(0, 10, 0, 103)
 	toggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 38)
 	toggleBtn.BorderSizePixel = 0
-	toggleBtn.Text = "▶  ENABLE"
+	toggleBtn.Text = "  ENABLE"
 	toggleBtn.TextColor3 = Color3.fromRGB(140, 110, 255)
 	toggleBtn.TextSize = 11
 	toggleBtn.Font = Enum.Font.GothamBold
@@ -9798,7 +9812,7 @@ function Modules.GrabTools:_tryGrab(tool, backpack)
 		self.State.Grabbed[tool] = true
 		self.State.TotalGrabbed = self.State.TotalGrabbed + 1
 		if self.Config.VerboseNotify then
-			DoNotif("🎒 Grabbed: " .. tool.Name, 1.2)
+			DoNotif(" Grabbed: " .. tool.Name, 1.2)
 		end
 		return true
 	else
@@ -9818,7 +9832,7 @@ function Modules.GrabTools:_scan()
 		end
 	end
 	if not self.Config.VerboseNotify and grabCount > 0 then
-		DoNotif("🎒 Grabbed " .. grabCount .. " tool" .. (grabCount > 1 and "s" or ""), 1.5)
+		DoNotif(" Grabbed " .. grabCount .. " tool" .. (grabCount > 1 and "s" or ""), 1.5)
 	end
 end
 function Modules.GrabTools:Enable()
@@ -10484,685 +10498,321 @@ RegisterCommand({
 }, function()
 	Modules.CFrameEditor:Toggle()
 end)
-RegisterCommand({
-	Name = "charmover",
-	Aliases = { "cha" },
-	Description = "Moves your characters serverside character around. basically position spoofer.",
-	ArgsDesc = {},
-	Permissions = {},
-}, function(args, speaker)
-	local CFrameDesync = {
-		State = {
-			IsEnabled = false,
-			DesyncActive = false,
-			RealCFrame = CFrame.new(),
-			VisualOffset = CFrame.new(),
-			UI = nil,
-			Mode = "position",
-			Increment = 1,
-			Connections = {},
-			FakeCharacter = nil,
-			GhostHighlight = nil,
-			PinnedParts = {},
+Modules.AdminSpoofDemonstration = {
+	State = {
+		IsSpoofing = false,
+		SpoofedId = -1,
+		SpoofedName = nil,
+		SpoofedDisplayName = nil,
+		OriginalIndex = nil,
+		OriginalNamecall = nil,
+		PlayerMetatable = nil,
+		GameMetatable = nil,
+		HookEnabled = true,
+		OriginalUserId = nil,
+		OriginalName = nil,
+		OriginalDisplayName = nil,
+		Stats = {
+			InterceptedCalls = 0,
+			LastSpoof = 0,
 		},
-		Config = {
-			HighlightColor = Color3.fromRGB(255, 0, 200),
-			PinnedColor = Color3.fromRGB(0, 220, 255),
-			ShowFakeCharacter = true,
+	},
+	Dependencies = { "Players" },
+	Config = {
+		SpoofName = true,
+		SpoofDisplayName = true,
+		InterceptRemoteCalls = true,
+		StealthMode = true,
+		DebugMode = false,
+		AllowedProperties = {
+			"UserId",
+			"Name",
+			"DisplayName",
+			"AccountAge",
 		},
-	}
-	local PART_GROUPS = {
-		{ label = "HEAD", parts = { "Head" } },
-		{ label = "TORSO", parts = { "UpperTorso", "LowerTorso", "Torso" } },
-		{ label = "LEFT ARM", parts = { "LeftUpperArm", "LeftLowerArm", "LeftHand", "Left Arm" } },
-		{ label = "RIGHT ARM", parts = { "RightUpperArm", "RightLowerArm", "RightHand", "Right Arm" } },
-		{ label = "LEFT LEG", parts = { "LeftUpperLeg", "LeftLowerLeg", "LeftFoot", "Left Leg" } },
-		{ label = "RIGHT LEG", parts = { "RightUpperLeg", "RightLowerLeg", "RightFoot", "Right Leg" } },
-	}
-	local RunService = game:GetService("RunService")
-	local Players = game:GetService("Players")
-	local CoreGui = game:GetService("CoreGui")
-	local UserInputService = game:GetService("UserInputService")
-	local LocalPlayer = Players.LocalPlayer
-	local function getChar()
-		local char = LocalPlayer.Character
-		local hrp = char and char:FindFirstChild("HumanoidRootPart")
-		local hum = char and char:FindFirstChild("Humanoid")
-		return char, hrp, hum
+	},
+}
+local function debugLog(message)
+	if Modules.AdminSpoofDemonstration.Config.DebugMode then
+		print("[AdminSpoof Debug]", message)
 	end
-	local function isPinned(self, partName)
-		return self.State.PinnedParts[partName] == true
-	end
-	function CFrameDesync:ActivateDesync()
-		local char, hrp = getChar()
-		if not hrp then
-			warn("[CFrameDesync] No character.")
-			return
-		end
-		self.State.DesyncActive = true
-		self.State.RealCFrame = hrp.CFrame
-		if self.Config.ShowFakeCharacter then
-			self:CreateFakeCharacter()
-		end
-		self.State.Connections.Heartbeat = RunService.Heartbeat:Connect(function()
-			local _, root = getChar()
-			if not root then
-				return
-			end
-			self.State.RealCFrame = root.CFrame
-			local rotOnly = CFrame.fromMatrix(
-				Vector3.zero,
-				self.State.VisualOffset.RightVector,
-				self.State.VisualOffset.UpVector,
-				-self.State.VisualOffset.LookVector
-			)
-			local spoof = CFrame.new(root.CFrame.Position + self.State.VisualOffset.Position)
-				* CFrame.fromMatrix(
-					Vector3.zero,
-					root.CFrame.RightVector,
-					root.CFrame.UpVector,
-					-root.CFrame.LookVector
-				)
-				* rotOnly
-			root.CFrame = spoof
-		end)
-		self.State.Connections.RenderStepped = RunService.RenderStepped:Connect(function()
-			local _, root = getChar()
-			if not root then
-				return
-			end
-			root.CFrame = self.State.RealCFrame
-			self:UpdateVisuals()
-		end)
-		local camera = workspace.CurrentCamera
-		local savedCameraType = camera.CameraType
-		camera.CameraType = Enum.CameraType.Custom
-		self.State.SavedCameraType = savedCameraType
-		local camAnchor = Instance.new("Part")
-		camAnchor.Name = "DesyncCamAnchor"
-		camAnchor.Size = Vector3.new(0.1, 0.1, 0.1)
-		camAnchor.Transparency = 1
-		camAnchor.CanCollide = false
-		camAnchor.CanTouch = false
-		camAnchor.CanQuery = false
-		camAnchor.Anchored = true
-		camAnchor.CFrame = self.State.RealCFrame
-		camAnchor.Parent = workspace
-		self.State.CamAnchor = camAnchor
-		camera.CameraSubject = camAnchor
-		self.State.Connections.CamAnchor = RunService.RenderStepped:Connect(function()
-			if camAnchor and camAnchor.Parent then
-				camAnchor.CFrame = self.State.RealCFrame
-			end
-		end)
-		local ui = self.State.UI.MainFrame
-		ui.Content.DesyncToggle.Text = "DEACTIVATE DESYNC"
-		ui.Content.DesyncToggle.BackgroundColor3 = Color3.fromRGB(110, 25, 45)
-		ui.TitleBar.StatusIndicator.Text = "ONLINE"
-		ui.TitleBar.StatusIndicator.BackgroundColor3 = self.Config.HighlightColor
-		ui.TitleBar.StatusIndicator.TextColor3 = Color3.fromRGB(10, 10, 20)
-		self:UpdateDisplay()
-	end
-	function CFrameDesync:DeactivateDesync()
-		self.State.DesyncActive = false
-		for _, conn in pairs(self.State.Connections) do
-			conn:Disconnect()
-		end
-		table.clear(self.State.Connections)
-		if self.State.FakeCharacter then
-			self.State.FakeCharacter:Destroy()
-			self.State.FakeCharacter = nil
-			self.State.GhostHighlight = nil
-		end
-		local camera = workspace.CurrentCamera
-		local char, hrp = getChar()
-		if hrp then
-			camera.CameraSubject = hrp
-		elseif char then
-			local hum = char:FindFirstChildOfClass("Humanoid")
-			if hum then
-				camera.CameraSubject = hum
+end
+local function fetchUserInfo(userId)
+	local success, result = pcall(function()
+		local HttpService = game:GetService("HttpService")
+		local url = "https://users.roblox.com/v1/users/" .. userId
+		if request then
+			local response = request({
+				Url = url,
+				Method = "GET",
+			})
+			if response.StatusCode == 200 then
+				return HttpService:JSONDecode(response.Body)
 			end
 		end
-		if self.State.CamAnchor then
-			self.State.CamAnchor:Destroy()
-			self.State.CamAnchor = nil
-		end
-		if not self.State.UI then
-			return
-		end
-		local ui = self.State.UI.MainFrame
-		ui.Content.DesyncToggle.Text = "ACTIVATE DESYNC"
-		ui.Content.DesyncToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
-		ui.TitleBar.StatusIndicator.Text = "OFFLINE"
-		ui.TitleBar.StatusIndicator.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
-		ui.TitleBar.StatusIndicator.TextColor3 = Color3.fromRGB(160, 160, 160)
-		self:UpdateDisplay()
+		local data = game:HttpGet(url)
+		return HttpService:JSONDecode(data)
+	end)
+	if success and result then
+		return {
+			name = result.name,
+			displayName = result.displayName,
+			id = result.id,
+		}
 	end
-	function CFrameDesync:ToggleDesync()
-		if self.State.DesyncActive then
-			self:DeactivateDesync()
+	return nil
+end
+function Modules.AdminSpoofDemonstration:Enable(targetId, targetName, targetDisplayName)
+	if self.State.IsSpoofing then
+		DoNotif("Already spoofing. Reset first with ;spoofid reset", 3)
+		return false
+	end
+	local localPlayer = self.Services.Players.LocalPlayer
+	if not localPlayer then
+		DoNotif("Error: LocalPlayer not found", 3)
+		return false
+	end
+	self.State.OriginalUserId = localPlayer.UserId
+	self.State.OriginalName = localPlayer.Name
+	self.State.OriginalDisplayName = localPlayer.DisplayName
+	self.State.SpoofedId = tonumber(targetId) or -1
+	if self.State.SpoofedId <= 0 then
+		DoNotif("Invalid UserId. Must be positive.", 3)
+		return false
+	end
+	if not targetName or not targetDisplayName then
+		DoNotif("Fetching user info...", 2)
+		local userInfo = fetchUserInfo(self.State.SpoofedId)
+		if userInfo then
+			targetName = userInfo.name
+			targetDisplayName = userInfo.displayName
+			debugLog("Fetched info: " .. targetName .. " | " .. targetDisplayName)
 		else
-			self:ActivateDesync()
+			debugLog("Failed to fetch user info, using defaults")
+			targetName = targetName or "Player" .. self.State.SpoofedId
+			targetDisplayName = targetDisplayName or targetName
 		end
 	end
-	function CFrameDesync:CreateFakeCharacter()
-		local char = LocalPlayer.Character
-		if not char then
-			return
+	self.State.SpoofedName = targetName
+	self.State.SpoofedDisplayName = targetDisplayName
+	local success, playerMetatable = pcall(getrawmetatable, localPlayer)
+	if not success or typeof(playerMetatable) ~= "table" then
+		DoNotif("Error: Could not access player metatable", 4)
+		return false
+	end
+	self.State.PlayerMetatable = playerMetatable
+	self.State.OriginalIndex = playerMetatable.__index
+	self.State.OriginalNamecall = playerMetatable.__namecall
+	local originalIndexCache = self.State.OriginalIndex
+	local originalNamecallCache = self.State.OriginalNamecall
+	pcall(setreadonly, playerMetatable, false)
+	playerMetatable.__index = newcclosure(function(self, key)
+		if
+			Modules.AdminSpoofDemonstration.State.IsSpoofing
+			and Modules.AdminSpoofDemonstration.State.HookEnabled
+			and self == localPlayer
+		then
+			if key == "UserId" then
+				Modules.AdminSpoofDemonstration.State.Stats.InterceptedCalls = Modules.AdminSpoofDemonstration.State.Stats.InterceptedCalls
+					+ 1
+				debugLog("Intercepted UserId access for LocalPlayer")
+				return Modules.AdminSpoofDemonstration.State.SpoofedId
+			elseif key == "Name" and Modules.AdminSpoofDemonstration.Config.SpoofName then
+				Modules.AdminSpoofDemonstration.State.Stats.InterceptedCalls = Modules.AdminSpoofDemonstration.State.Stats.InterceptedCalls
+					+ 1
+				debugLog("Intercepted Name access for LocalPlayer")
+				return Modules.AdminSpoofDemonstration.State.SpoofedName
+			elseif key == "DisplayName" and Modules.AdminSpoofDemonstration.Config.SpoofDisplayName then
+				Modules.AdminSpoofDemonstration.State.Stats.InterceptedCalls = Modules.AdminSpoofDemonstration.State.Stats.InterceptedCalls
+					+ 1
+				debugLog("Intercepted DisplayName access for LocalPlayer")
+				return Modules.AdminSpoofDemonstration.State.SpoofedDisplayName
+			end
 		end
-		local fake = Instance.new("Model")
-		fake.Name = "Desync_Visualizer"
-		for _, part in pairs(char:GetChildren()) do
-			if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-				local p = part:Clone()
-				p.CanCollide = false
-				p.CanTouch = false
-				p.CanQuery = false
-				p.CastShadow = false
-				p.Material = Enum.Material.Neon
-				p.Transparency = isPinned(self, part.Name) and 0.45 or 0.2
-				p.Color = isPinned(self, part.Name) and self.Config.PinnedColor or self.Config.HighlightColor
-				p.Parent = fake
-				for _, child in pairs(p:GetChildren()) do
-					if not child:IsA("SpecialMesh") then
-						child:Destroy()
+		if typeof(originalIndexCache) == "function" then
+			return originalIndexCache(self, key)
+		else
+			return originalIndexCache[key]
+		end
+	end)
+	if self.Config.InterceptRemoteCalls then
+		playerMetatable.__namecall = newcclosure(function(self, ...)
+			local args = { ... }
+			local method = getnamecallmethod()
+			if
+				Modules.AdminSpoofDemonstration.State.IsSpoofing
+				and (method == "FireServer" or method == "InvokeServer")
+			then
+				for i, arg in ipairs(args) do
+					if arg == Modules.AdminSpoofDemonstration.State.OriginalUserId then
+						args[i] = Modules.AdminSpoofDemonstration.State.SpoofedId
+						debugLog("Spoofed UserId in remote call")
+					elseif
+						arg == Modules.AdminSpoofDemonstration.State.OriginalName
+						and Modules.AdminSpoofDemonstration.Config.SpoofName
+					then
+						args[i] = Modules.AdminSpoofDemonstration.State.SpoofedName
+						debugLog("Spoofed Name in remote call")
+					elseif
+						arg == Modules.AdminSpoofDemonstration.State.OriginalDisplayName
+						and Modules.AdminSpoofDemonstration.Config.SpoofDisplayName
+					then
+						args[i] = Modules.AdminSpoofDemonstration.State.SpoofedDisplayName
+						debugLog("Spoofed DisplayName in remote call")
+					elseif arg == localPlayer then
+						debugLog("LocalPlayer instance passed in remote - hooks will handle properties")
 					end
 				end
 			end
-		end
-		local hl = Instance.new("Highlight", fake)
-		hl.FillColor = self.Config.HighlightColor
-		hl.OutlineColor = Color3.new(1, 1, 1)
-		hl.FillTransparency = 0.4
-		hl.OutlineTransparency = 0.0
-		hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-		self.State.GhostHighlight = hl
-		fake.Parent = workspace
-		self.State.FakeCharacter = fake
+			return originalNamecallCache(self, unpack(args))
+		end)
 	end
-	function CFrameDesync:_refreshFakeCharacterColors()
-		if not self.State.FakeCharacter then
-			return
-		end
-		for _, part in pairs(self.State.FakeCharacter:GetChildren()) do
-			if part:IsA("BasePart") then
-				local pinned = isPinned(self, part.Name)
-				part.Color = pinned and self.Config.PinnedColor or self.Config.HighlightColor
-				part.Transparency = pinned and 0.45 or 0.2
-			end
-		end
-		if self.State.GhostHighlight then
-			self.State.GhostHighlight.FillColor = self.Config.HighlightColor
-		end
+	pcall(setreadonly, playerMetatable, true)
+	self.State.IsSpoofing = true
+	self.State.Stats.LastSpoof = tick()
+	DoNotif(
+		string.format(
+			"Spoofing enabled:\nUserId: %d\nName: %s\nDisplay: %s",
+			self.State.SpoofedId,
+			self.State.SpoofedName,
+			self.State.SpoofedDisplayName
+		),
+		4
+	)
+	debugLog("Spoof enabled successfully for LocalPlayer only")
+	return true
+end
+function Modules.AdminSpoofDemonstration:Disable()
+	if not self.State.IsSpoofing then
+		DoNotif("Not currently spoofing", 2)
+		return false
 	end
-	function CFrameDesync:UpdateVisuals()
-		local char = LocalPlayer.Character
-		if not char or not self.State.FakeCharacter then
-			return
+	if self.State.PlayerMetatable then
+		pcall(setreadonly, self.State.PlayerMetatable, false)
+		if self.State.OriginalIndex then
+			self.State.PlayerMetatable.__index = self.State.OriginalIndex
 		end
-		local realHRP = char:FindFirstChild("HumanoidRootPart")
-		if not realHRP then
-			return
+		if self.State.OriginalNamecall then
+			self.State.PlayerMetatable.__namecall = self.State.OriginalNamecall
 		end
-		local rotOnly = CFrame.fromMatrix(
-			Vector3.zero,
-			self.State.VisualOffset.RightVector,
-			self.State.VisualOffset.UpVector,
-			-self.State.VisualOffset.LookVector
-		)
-		local spoof = CFrame.new(self.State.RealCFrame.Position + self.State.VisualOffset.Position)
-			* CFrame.fromMatrix(
-				Vector3.zero,
-				self.State.RealCFrame.RightVector,
-				self.State.RealCFrame.UpVector,
-				-self.State.RealCFrame.LookVector
-			)
-			* rotOnly
-		for _, part in pairs(self.State.FakeCharacter:GetChildren()) do
-			if part:IsA("BasePart") then
-				local realPart = char:FindFirstChild(part.Name)
-				if realPart then
-					local relative = realHRP.CFrame:Inverse() * realPart.CFrame
-					if isPinned(self, part.Name) then
-						part.CFrame = self.State.RealCFrame * relative
-					else
-						part.CFrame = spoof * relative
-					end
-				end
-			end
-		end
+		pcall(setreadonly, self.State.PlayerMetatable, true)
 	end
-	function CFrameDesync:AdjustOffset(vec)
-		local inc = self.State.Increment
-		if self.State.Mode == "position" then
-			local cur = self.State.VisualOffset.Position
-			self.State.VisualOffset = CFrame.new(cur + vec * inc)
+	local interceptCount = self.State.Stats.InterceptedCalls
+	self.State.IsSpoofing = false
+	self.State.SpoofedId = -1
+	self.State.SpoofedName = nil
+	self.State.SpoofedDisplayName = nil
+	self.State.OriginalIndex = nil
+	self.State.OriginalNamecall = nil
+	self.State.PlayerMetatable = nil
+	self.State.OriginalUserId = nil
+	self.State.OriginalName = nil
+	self.State.OriginalDisplayName = nil
+	self.State.Stats.InterceptedCalls = 0
+	DoNotif(string.format("Spoof disabled. Intercepted %d calls.", interceptCount), 3)
+	debugLog("Spoof disabled, cleaned up hooks")
+	return true
+end
+function Modules.AdminSpoofDemonstration:Toggle()
+	if self.State.IsSpoofing then
+		self:Disable()
+	else
+		DoNotif("Usage: ;spoofid <userid> or ;spoofid <username>", 3)
+	end
+end
+function Modules.AdminSpoofDemonstration:ToggleHook(enabled)
+	self.State.HookEnabled = enabled
+	DoNotif("Spoof hook " .. (enabled and "enabled" or "disabled"), 2)
+end
+function Modules.AdminSpoofDemonstration:GetStats()
+	return {
+		IsSpoofing = self.State.IsSpoofing,
+		SpoofedId = self.State.SpoofedId,
+		SpoofedName = self.State.SpoofedName,
+		InterceptedCalls = self.State.Stats.InterceptedCalls,
+		Uptime = self.State.IsSpoofing and (tick() - self.State.Stats.LastSpoof) or 0,
+	}
+end
+function Modules.AdminSpoofDemonstration:SpoofByUsername(username)
+	local success, result = pcall(function()
+		local Players = game:GetService("Players")
+		return Players:GetUserIdFromNameAsync(username)
+	end)
+	if success and result then
+		return self:Enable(result)
+	else
+		DoNotif("Failed to find user: " .. username, 3)
+		return false
+	end
+end
+function Modules.AdminSpoofDemonstration:Initialize()
+	local module = self
+	module.Services = {}
+	for _, serviceName in ipairs(module.Dependencies or {}) do
+		module.Services[serviceName] = game:GetService(serviceName)
+	end
+	RegisterCommand({
+		Name = "spoofid",
+		Aliases = { "setid", "fakeid", "adminspoof" },
+		Description = "Spoofs your UserId/Name for vulnerable admin scripts.",
+	}, function(args)
+		local argument = args[1]
+		if not argument then
+			return DoNotif("Usage: ;spoofid <userid|username|reset>", 3)
+		end
+		if argument:lower() == "reset" or argument:lower() == "clear" or argument:lower() == "off" then
+			module:Disable()
+		elseif argument:lower() == "stats" then
+			local stats = module:GetStats()
+			print("=== Admin Spoof Stats ===")
+			print("Spoofing:", stats.IsSpoofing)
+			print("Spoofed ID:", stats.SpoofedId)
+			print("Spoofed Name:", stats.SpoofedName or "N/A")
+			print("Intercepted Calls:", stats.InterceptedCalls)
+			print("Uptime:", string.format("%.1f", stats.Uptime) .. "s")
+		elseif argument:lower() == "toggle" then
+			module:Toggle()
 		else
-			local r = vec * math.rad(inc * 5)
-			self.State.VisualOffset = self.State.VisualOffset * CFrame.Angles(r.X, r.Y, r.Z)
-		end
-		self:UpdateDisplay()
-	end
-	function CFrameDesync:UpdateDisplay()
-		if not self.State.UI then
-			return
-		end
-		local info = self.State.UI.MainFrame.Content.InfoBox
-		if not info then
-			return
-		end
-		if not self.State.DesyncActive then
-			info.Text = "STATUS: INACTIVE\nAWAITING ACTIVATION..."
-			return
-		end
-		local pinnedCount = 0
-		for _, v in pairs(self.State.PinnedParts) do
-			if v then
-				pinnedCount += 1
-			end
-		end
-		local pos = self.State.VisualOffset.Position
-		local rx, ry, rz = self.State.VisualOffset:ToEulerAnglesXYZ()
-		info.Text = string.format(
-			"STATUS: DESYNCED  |  PINNED: %d PARTS\n\nSPOOF OFFSET:\n  X: %.2f  |  Y: %.2f  |  Z: %.2f\n\nROT OFFSET:\n  X: %.1f\xc2\xb0  |  Y: %.1f\xc2\xb0  |  Z: %.1f\xc2\xb0",
-			pinnedCount,
-			pos.X,
-			pos.Y,
-			pos.Z,
-			math.deg(rx),
-			math.deg(ry),
-			math.deg(rz)
-		)
-	end
-	function CFrameDesync:_createUI()
-		local existing = CoreGui:FindFirstChild("CFrameDesync_SA")
-		if existing then
-			existing:Destroy()
-		end
-		local screenGui = Instance.new("ScreenGui")
-		screenGui.Name = "CFrameDesync_SA"
-		screenGui.ResetOnSpawn = false
-		screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-		screenGui.DisplayOrder = 9999
-		self.State.UI = screenGui
-		local mainFrame = Instance.new("Frame")
-		mainFrame.Name = "MainFrame"
-		mainFrame.Size = UDim2.fromOffset(360, 640)
-		mainFrame.Position = UDim2.new(1, -375, 0.5, -320)
-		mainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 18)
-		mainFrame.BorderSizePixel = 0
-		mainFrame.ClipsDescendants = false
-		mainFrame.Parent = screenGui
-		Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 10)
-		local stroke = Instance.new("UIStroke", mainFrame)
-		stroke.Color = self.Config.HighlightColor
-		stroke.Thickness = 1.5
-		local titleBar = Instance.new("Frame", mainFrame)
-		titleBar.Name = "TitleBar"
-		titleBar.Size = UDim2.new(1, 0, 0, 38)
-		titleBar.BackgroundColor3 = Color3.fromRGB(8, 8, 14)
-		titleBar.BorderSizePixel = 0
-		Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 10)
-		local title = Instance.new("TextLabel", titleBar)
-		title.Size = UDim2.new(1, -110, 1, 0)
-		title.Position = UDim2.fromOffset(12, 0)
-		title.BackgroundTransparency = 1
-		title.Font = Enum.Font.Code
-		title.Text = "▸ CFRAME DESYNC  //  STANDALONE"
-		title.TextColor3 = self.Config.HighlightColor
-		title.TextSize = 13
-		title.TextXAlignment = Enum.TextXAlignment.Left
-		local si = Instance.new("TextLabel", titleBar)
-		si.Name = "StatusIndicator"
-		si.Size = UDim2.fromOffset(70, 20)
-		si.Position = UDim2.new(1, -82, 0.5, -10)
-		si.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
-		si.Font = Enum.Font.GothamBold
-		si.Text = "OFFLINE"
-		si.TextColor3 = Color3.fromRGB(160, 160, 160)
-		si.TextSize = 10
-		Instance.new("UICorner", si).CornerRadius = UDim.new(0, 4)
-		local dragging, dragStart, startPos
-		titleBar.InputBegan:Connect(function(inp)
-			if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-				dragging = true
-				dragStart = inp.Position
-				startPos = mainFrame.Position
-			end
-		end)
-		UserInputService.InputChanged:Connect(function(inp)
-			if dragging and inp.UserInputType == Enum.UserInputType.MouseMovement then
-				local d = inp.Position - dragStart
-				mainFrame.Position =
-					UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
-			end
-		end)
-		titleBar.InputEnded:Connect(function(inp)
-			if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-				dragging = false
-			end
-		end)
-		local scroll = Instance.new("ScrollingFrame", mainFrame)
-		scroll.Name = "Content"
-		scroll.Size = UDim2.new(1, -16, 1, -48)
-		scroll.Position = UDim2.fromOffset(8, 44)
-		scroll.BackgroundTransparency = 1
-		scroll.BorderSizePixel = 0
-		scroll.ScrollBarThickness = 3
-		scroll.ScrollBarImageColor3 = self.Config.HighlightColor
-		scroll.CanvasSize = UDim2.fromOffset(0, 0)
-		scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-		local layout = Instance.new("UIListLayout", scroll)
-		layout.Padding = UDim.new(0, 8)
-		layout.FillDirection = Enum.FillDirection.Vertical
-		layout.SortOrder = Enum.SortOrder.LayoutOrder
-		local function sectionLabel(text, order)
-			local l = Instance.new("TextLabel", scroll)
-			l.LayoutOrder = order
-			l.Size = UDim2.new(1, -8, 0, 18)
-			l.BackgroundTransparency = 1
-			l.Text = text
-			l.TextColor3 = Color3.fromRGB(130, 130, 150)
-			l.Font = Enum.Font.Code
-			l.TextSize = 11
-			l.TextXAlignment = Enum.TextXAlignment.Left
-		end
-		local function bigBtn(text, color, order, name)
-			local b = Instance.new("TextButton", scroll)
-			b.LayoutOrder = order
-			b.Size = UDim2.new(1, -8, 0, 40)
-			b.BackgroundColor3 = color
-			b.Font = Enum.Font.GothamBold
-			b.Text = text
-			b.TextColor3 = Color3.new(1, 1, 1)
-			b.TextSize = 13
-			b.BorderSizePixel = 0
-			if name then
-				b.Name = name
-			end
-			Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
-			return b
-		end
-		local tog = bigBtn("ACTIVATE DESYNC", Color3.fromRGB(35, 35, 50), 10, "DesyncToggle")
-		local ts = Instance.new("UIStroke", tog)
-		ts.Color = self.Config.HighlightColor
-		ts.Thickness = 1
-		tog.MouseButton1Click:Connect(function()
-			self:ToggleDesync()
-		end)
-		sectionLabel("MANIPULATION MODE", 20)
-		local modeRow = Instance.new("Frame", scroll)
-		modeRow.LayoutOrder = 21
-		modeRow.Size = UDim2.new(1, -8, 0, 34)
-		modeRow.BackgroundTransparency = 1
-		local ml = Instance.new("UIListLayout", modeRow)
-		ml.FillDirection = Enum.FillDirection.Horizontal
-		ml.Padding = UDim.new(0, 6)
-		local modeButtons = {}
-		for _, mode in ipairs({ "POSITION", "ROTATION" }) do
-			local b = Instance.new("TextButton", modeRow)
-			b.Size = UDim2.new(0.5, -3, 1, 0)
-			b.BackgroundColor3 = (mode:lower() == self.State.Mode) and self.Config.HighlightColor
-				or Color3.fromRGB(28, 28, 38)
-			b.Font = Enum.Font.GothamBold
-			b.Text = mode
-			b.TextColor3 = Color3.new(1, 1, 1)
-			b.TextSize = 12
-			b.BorderSizePixel = 0
-			Instance.new("UICorner", b).CornerRadius = UDim.new(0, 5)
-			modeButtons[mode:lower()] = b
-			b.MouseButton1Click:Connect(function()
-				self.State.Mode = mode:lower()
-				for m, btn in pairs(modeButtons) do
-					btn.BackgroundColor3 = m == self.State.Mode and self.Config.HighlightColor
-						or Color3.fromRGB(28, 28, 38)
-				end
-			end)
-		end
-		sectionLabel("INCREMENT VALUE", 30)
-		local inc = Instance.new("TextBox", scroll)
-		inc.LayoutOrder = 31
-		inc.Size = UDim2.new(1, -8, 0, 34)
-		inc.BackgroundColor3 = Color3.fromRGB(18, 18, 26)
-		inc.Text = "1"
-		inc.TextColor3 = Color3.new(1, 1, 1)
-		inc.Font = Enum.Font.Code
-		inc.TextSize = 13
-		inc.PlaceholderText = "Enter increment..."
-		inc.PlaceholderColor3 = Color3.fromRGB(80, 80, 100)
-		inc.BorderSizePixel = 0
-		Instance.new("UICorner", inc).CornerRadius = UDim.new(0, 5)
-		Instance.new("UIStroke", inc).Color = Color3.fromRGB(40, 40, 55)
-		inc.FocusLost:Connect(function()
-			local v = tonumber(inc.Text)
-			if v and v > 0 then
-				self.State.Increment = v
+			local targetId = tonumber(argument)
+			if targetId and targetId > 0 then
+				module:Enable(targetId)
 			else
-				inc.Text = tostring(self.State.Increment)
+				module:SpoofByUsername(argument)
 			end
-		end)
-		sectionLabel("SPOOF OFFSET CONTROLS", 40)
-		local grid = Instance.new("Frame", scroll)
-		grid.LayoutOrder = 41
-		grid.Size = UDim2.new(1, -8, 0, 76)
-		grid.BackgroundTransparency = 1
-		local axes = {
-			{ t = "+X", o = Vector3.new(1, 0, 0) },
-			{ t = "-X", o = Vector3.new(-1, 0, 0) },
-			{ t = "+Y", o = Vector3.new(0, 1, 0) },
-			{ t = "-Y", o = Vector3.new(0, -1, 0) },
-			{ t = "+Z", o = Vector3.new(0, 0, 1) },
-			{ t = "-Z", o = Vector3.new(0, 0, -1) },
-		}
-		local axColors = {
-			Color3.fromRGB(180, 60, 60),
-			Color3.fromRGB(130, 30, 30),
-			Color3.fromRGB(60, 180, 60),
-			Color3.fromRGB(30, 130, 30),
-			Color3.fromRGB(60, 60, 180),
-			Color3.fromRGB(30, 30, 130),
-		}
-		for i, ax in ipairs(axes) do
-			local c = (i - 1) % 3
-			local r = math.floor((i - 1) / 3)
-			local b = Instance.new("TextButton", grid)
-			b.Size = UDim2.fromOffset(106, 34)
-			b.Position = UDim2.fromOffset(c * 112, r * 40)
-			b.BackgroundColor3 = axColors[i]
-			b.Font = Enum.Font.GothamBold
-			b.Text = ax.t
-			b.TextColor3 = Color3.new(1, 1, 1)
-			b.TextSize = 13
-			b.BorderSizePixel = 0
-			Instance.new("UICorner", b).CornerRadius = UDim.new(0, 5)
-			local vec = ax.o
-			b.MouseButton1Click:Connect(function()
-				self:AdjustOffset(vec)
-			end)
 		end
-		local rst = bigBtn("↺  RESET OFFSET", Color3.fromRGB(70, 30, 30), 50)
-		rst.MouseButton1Click:Connect(function()
-			self.State.VisualOffset = CFrame.new()
-			self:UpdateDisplay()
-		end)
-		sectionLabel("PART PIN CONTROL  (CYAN = PINNED / STAYS AT REAL POS IN GHOST)", 60)
-		local pinButtons = {}
-		for gi, group in ipairs(PART_GROUPS) do
-			local row = Instance.new("Frame", scroll)
-			row.LayoutOrder = 60 + gi
-			row.Size = UDim2.new(1, -8, 0, 34)
-			row.BackgroundTransparency = 1
-			local rl = Instance.new("UIListLayout", row)
-			rl.FillDirection = Enum.FillDirection.Horizontal
-			rl.Padding = UDim.new(0, 6)
-			rl.VerticalAlignment = Enum.VerticalAlignment.Center
-			local lbl = Instance.new("TextLabel", row)
-			lbl.Size = UDim2.new(0.42, 0, 1, 0)
-			lbl.BackgroundTransparency = 1
-			lbl.Text = group.label
-			lbl.Font = Enum.Font.Code
-			lbl.TextColor3 = Color3.fromRGB(200, 200, 210)
-			lbl.TextSize = 11
-			lbl.TextXAlignment = Enum.TextXAlignment.Left
-			local pb = Instance.new("TextButton", row)
-			pb.Size = UDim2.new(0.58, -6, 0.9, 0)
-			pb.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
-			pb.Font = Enum.Font.GothamBold
-			pb.Text = "FREE"
-			pb.TextColor3 = Color3.fromRGB(160, 160, 170)
-			pb.TextSize = 11
-			pb.BorderSizePixel = 0
-			Instance.new("UICorner", pb).CornerRadius = UDim.new(0, 5)
-			pinButtons[gi] = { btn = pb, group = group }
-			local function refreshBtn(pinned)
-				if pinned then
-					pb.BackgroundColor3 = self.Config.PinnedColor
-					pb.TextColor3 = Color3.fromRGB(5, 5, 15)
-					pb.Text = "PINNED"
-				else
-					pb.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
-					pb.TextColor3 = Color3.fromRGB(160, 160, 170)
-					pb.Text = "FREE"
-				end
-			end
-			local function groupPinned()
-				for _, p in ipairs(group.parts) do
-					if not self.State.PinnedParts[p] then
-						return false
-					end
-				end
-				return true
-			end
-			refreshBtn(groupPinned())
-			pb.MouseButton1Click:Connect(function()
-				local now = groupPinned()
-				for _, p in ipairs(group.parts) do
-					self.State.PinnedParts[p] = not now
-				end
-				refreshBtn(not now)
-				if self.State.FakeCharacter then
-					self:_refreshFakeCharacterColors()
-				end
-			end)
+	end)
+	RegisterCommand({
+		Name = "spoofname",
+		Aliases = { "fakename" },
+		Description = "Toggle name spoofing on/off.",
+	}, function(args)
+		module.Config.SpoofName = not module.Config.SpoofName
+		DoNotif("Name spoofing: " .. (module.Config.SpoofName and "ON" or "OFF"), 2)
+	end)
+	RegisterCommand({
+		Name = "spoofdisplay",
+		Aliases = { "fakedisplay" },
+		Description = "Toggle display name spoofing on/off.",
+	}, function(args)
+		module.Config.SpoofDisplayName = not module.Config.SpoofDisplayName
+		DoNotif("Display name spoofing: " .. (module.Config.SpoofDisplayName and "ON" or "OFF"), 2)
+	end)
+	RegisterCommand({
+		Name = "spoofstats",
+		Aliases = { "spoofinfo" },
+		Description = "Shows spoofing statistics.",
+	}, function(args)
+		local stats = module:GetStats()
+		print("=== Admin Spoof Stats ===")
+		print("Active:", stats.IsSpoofing)
+		if stats.IsSpoofing then
+			print("Spoofed ID:", stats.SpoofedId)
+			print("Spoofed Name:", stats.SpoofedName)
+			print("Intercepted:", stats.InterceptedCalls)
+			print("Uptime:", string.format("%.1fs", stats.Uptime))
 		end
-		sectionLabel("QUICK PRESETS", 80)
-		local presetRow = Instance.new("Frame", scroll)
-		presetRow.LayoutOrder = 81
-		presetRow.Size = UDim2.new(1, -8, 0, 34)
-		presetRow.BackgroundTransparency = 1
-		local pl = Instance.new("UIListLayout", presetRow)
-		pl.FillDirection = Enum.FillDirection.Horizontal
-		pl.Padding = UDim.new(0, 6)
-		local presets = {
-			{ label = "PIN ARMS", pinned = { ["LEFT ARM"] = true, ["RIGHT ARM"] = true } },
-			{ label = "PIN LEGS", pinned = { ["LEFT LEG"] = true, ["RIGHT LEG"] = true } },
-			{ label = "ALL FREE", pinned = {} },
-			{
-				label = "ALL PIN",
-				pinned = {
-					["HEAD"] = true,
-					["TORSO"] = true,
-					["LEFT ARM"] = true,
-					["RIGHT ARM"] = true,
-					["LEFT LEG"] = true,
-					["RIGHT LEG"] = true,
-				},
-			},
-		}
-		for _, preset in ipairs(presets) do
-			local pb = Instance.new("TextButton", presetRow)
-			pb.Size = UDim2.new(0.25, -5, 1, 0)
-			pb.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
-			pb.Font = Enum.Font.GothamBold
-			pb.Text = preset.label
-			pb.TextColor3 = Color3.fromRGB(180, 180, 200)
-			pb.TextSize = 9
-			pb.BorderSizePixel = 0
-			Instance.new("UICorner", pb).CornerRadius = UDim.new(0, 5)
-			Instance.new("UIStroke", pb).Color = Color3.fromRGB(50, 50, 70)
-			local cap = preset.pinned
-			pb.MouseButton1Click:Connect(function()
-				self.State.PinnedParts = {}
-				for _, group in ipairs(PART_GROUPS) do
-					for _, p in ipairs(group.parts) do
-						self.State.PinnedParts[p] = cap[group.label] or false
-					end
-				end
-				for _, info in ipairs(pinButtons) do
-					local all = true
-					for _, p in ipairs(info.group.parts) do
-						if not self.State.PinnedParts[p] then
-							all = false
-							break
-						end
-					end
-					if all then
-						info.btn.BackgroundColor3 = self.Config.PinnedColor
-						info.btn.TextColor3 = Color3.fromRGB(5, 5, 15)
-						info.btn.Text = "PINNED"
-					else
-						info.btn.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
-						info.btn.TextColor3 = Color3.fromRGB(160, 160, 170)
-						info.btn.Text = "FREE"
-					end
-				end
-				if self.State.FakeCharacter then
-					self:_refreshFakeCharacterColors()
-				end
-			end)
-		end
-		sectionLabel("LIVE STATUS", 90)
-		local infoBox = Instance.new("TextLabel", scroll)
-		infoBox.Name = "InfoBox"
-		infoBox.LayoutOrder = 91
-		infoBox.Size = UDim2.new(1, -8, 0, 110)
-		infoBox.BackgroundColor3 = Color3.fromRGB(8, 8, 14)
-		infoBox.Font = Enum.Font.Code
-		infoBox.Text = "STATUS: IDLE\nAWAITING ACTIVATION..."
-		infoBox.TextColor3 = self.Config.HighlightColor
-		infoBox.TextSize = 11
-		infoBox.TextXAlignment = Enum.TextXAlignment.Left
-		infoBox.TextYAlignment = Enum.TextYAlignment.Top
-		infoBox.BorderSizePixel = 0
-		infoBox.TextWrapped = true
-		Instance.new("UICorner", infoBox).CornerRadius = UDim.new(0, 6)
-		Instance.new("UIStroke", infoBox).Color = Color3.fromRGB(30, 30, 45)
-		local ip = Instance.new("UIPadding", infoBox)
-		ip.PaddingLeft = UDim.new(0, 8)
-		ip.PaddingTop = UDim.new(0, 6)
-		ip.PaddingBottom = UDim.new(0, 6)
-		local spacer = Instance.new("Frame", scroll)
-		spacer.LayoutOrder = 99
-		spacer.Size = UDim2.new(1, 0, 0, 6)
-		spacer.BackgroundTransparency = 1
-		screenGui.Parent = CoreGui
-	end
-	function CFrameDesync:Enable()
-		if self.State.IsEnabled then
-			return
-		end
-		self.State.IsEnabled = true
-		self:_createUI()
-	end
-	function CFrameDesync:Disable()
-		self:DeactivateDesync()
-		if self.State.UI then
-			self.State.UI:Destroy()
-			self.State.UI = nil
-		end
-		self.State.IsEnabled = false
-	end
-	function CFrameDesync:Toggle()
-		if self.State.IsEnabled then
-			self:Disable()
-		else
-			self:Enable()
-		end
-	end
-	CFrameDesync:Enable()
-	return CFrameDesync
-end)
+	end)
+end
 Modules.HeadCam = {
 	State = {
 		IsEnabled = false,
@@ -11593,7 +11243,7 @@ RegisterCommand({
 		title.Position = UDim2.fromOffset(12, 0)
 		title.BackgroundTransparency = 1
 		title.Font = Enum.Font.Code
-		title.Text = "▸ CFRAME DESYNC  //  STANDALONE"
+		title.Text = " CFRAME DESYNC  //  STANDALONE"
 		title.TextColor3 = self.Config.HighlightColor
 		title.TextSize = 13
 		title.TextXAlignment = Enum.TextXAlignment.Left
@@ -11949,7 +11599,7 @@ RegisterCommand({
 end)
 RegisterCommand({
 	Name = "instantspawn",
-	Aliases = { "die" },
+	Aliases = {},
 	Description = "attempts instant respawn",
 	ArgsDesc = {},
 	Permissions = {},
@@ -12989,7 +12639,7 @@ function Modules.ProximityPromptTP:_createUI()
 	title.Position = UDim2.fromOffset(10, 0)
 	title.BackgroundTransparency = 1
 	title.Font = Enum.Font.Code
-	title.Text = "▸ PROXIMITY TP"
+	title.Text = " PROXIMITY TP"
 	title.TextColor3 = Color3.fromRGB(255, 200, 0)
 	title.TextSize = 16
 	title.TextXAlignment = Enum.TextXAlignment.Left
@@ -13233,7 +12883,7 @@ end
 function Modules.ProximityPromptTP:ScanForPrompts()
 	local myChar = LocalPlayer.Character
 	if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then
-		print("✗ Character not found")
+		print(" Character not found")
 		return
 	end
 	local myPos = myChar.HumanoidRootPart.Position
@@ -13258,7 +12908,7 @@ function Modules.ProximityPromptTP:ScanForPrompts()
 	table.sort(self.State.FoundPrompts, function(a, b)
 		return a.Distance < b.Distance
 	end)
-	print(string.format("✓ Found %d prompts", #self.State.FoundPrompts))
+	print(string.format(" Found %d prompts", #self.State.FoundPrompts))
 	self:UpdateDisplay()
 end
 function Modules.ProximityPromptTP:SelectPrompt(promptData)
@@ -13280,67 +12930,67 @@ function Modules.ProximityPromptTP:SelectPrompt(promptData)
 		highlight.Color3 = self.Config.HighlightColor
 		highlight.Parent = promptData.Part
 	end
-	print(string.format("✓ Selected: %s", promptData.Name))
+	print(string.format(" Selected: %s", promptData.Name))
 	self:UpdateDisplay()
 end
 function Modules.ProximityPromptTP:TeleportToPrompt()
 	if not self.State.SelectedPrompt then
-		print("⚠ No prompt selected")
+		print(" No prompt selected")
 		return
 	end
 	local myChar = LocalPlayer.Character
 	if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then
-		print("✗ Character not found")
+		print(" Character not found")
 		return
 	end
 	local promptPart = self.State.SelectedPrompt.Part
 	if not promptPart or not promptPart.Parent then
-		print("✗ Prompt no longer exists")
+		print(" Prompt no longer exists")
 		return
 	end
 	self.State.OriginalPosition = myChar.HumanoidRootPart.CFrame
 	local offset = Vector3.new(0, 3, 0)
 	myChar.HumanoidRootPart.CFrame = CFrame.new(promptPart.Position + offset)
-	print(string.format("✓ Teleported to: %s", self.State.SelectedPrompt.Name))
+	print(string.format(" Teleported to: %s", self.State.SelectedPrompt.Name))
 end
 function Modules.ProximityPromptTP:ReturnToOriginal()
 	if not self.State.OriginalPosition then
-		print("⚠ No saved position")
+		print(" No saved position")
 		return
 	end
 	local myChar = LocalPlayer.Character
 	if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then
-		print("✗ Character not found")
+		print(" Character not found")
 		return
 	end
 	myChar.HumanoidRootPart.CFrame = self.State.OriginalPosition
-	print("✓ Returned to original position")
+	print(" Returned to original position")
 end
 function Modules.ProximityPromptTP:ExecutePrompt()
 	if not self.State.SelectedPrompt then
-		print("⚠ No prompt selected")
+		print(" No prompt selected")
 		return
 	end
 	if self.State.IsExecuting then
-		print("⚠ Already executing a prompt")
+		print(" Already executing a prompt")
 		return
 	end
 	local myChar = LocalPlayer.Character
 	if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then
-		print("✗ Character not found")
+		print(" Character not found")
 		return
 	end
 	local prompt = self.State.SelectedPrompt.Prompt
 	local promptPart = self.State.SelectedPrompt.Part
 	if not prompt or not prompt.Parent or not promptPart or not promptPart.Parent then
-		print("✗ Prompt no longer exists")
+		print(" Prompt no longer exists")
 		return
 	end
 	self.State.IsExecuting = true
 	self.State.OriginalPosition = myChar.HumanoidRootPart.CFrame
 	print(
 		string.format(
-			"💾 Saved position: %.1f, %.1f, %.1f",
+			" Saved position: %.1f, %.1f, %.1f",
 			self.State.OriginalPosition.X,
 			self.State.OriginalPosition.Y,
 			self.State.OriginalPosition.Z
@@ -13348,15 +12998,15 @@ function Modules.ProximityPromptTP:ExecutePrompt()
 	)
 	local offset = Vector3.new(0, 3, 0)
 	myChar.HumanoidRootPart.CFrame = CFrame.new(promptPart.Position + offset)
-	print(string.format("📍 Teleported to: %s", self.State.SelectedPrompt.Name))
+	print(string.format(" Teleported to: %s", self.State.SelectedPrompt.Name))
 	task.wait(0.1)
 	local success = pcall(function()
 		fireproximityprompt(prompt)
 	end)
 	if success then
-		print(string.format("✓ Triggered prompt: %s", self.State.SelectedPrompt.ActionText))
+		print(string.format(" Triggered prompt: %s", self.State.SelectedPrompt.ActionText))
 	else
-		print("⚠ Failed to trigger prompt")
+		print(" Failed to trigger prompt")
 	end
 	task.wait(self.Config.ReturnDelay)
 	if myChar and myChar:FindFirstChild("HumanoidRootPart") then
@@ -13456,7 +13106,7 @@ function Modules.ProximityPromptTP:Enable()
 			self:ScanForPrompts()
 		end
 	end)
-	print("✓ Proximity Prompt TP enabled")
+	print(" Proximity Prompt TP enabled")
 end
 function Modules.ProximityPromptTP:Disable()
 	if not self.State.IsEnabled then
@@ -13481,7 +13131,7 @@ function Modules.ProximityPromptTP:Disable()
 	end
 	self.State.FoundPrompts = {}
 	self.State.SelectedPrompt = nil
-	print("✓ Proximity Prompt TP disabled")
+	print(" Proximity Prompt TP disabled")
 end
 function Modules.ProximityPromptTP:Toggle()
 	if self.State.IsEnabled then
@@ -13920,7 +13570,7 @@ function Modules.AntiAim:_setupAdaptiveDetection()
 					if self.Config.InversionEnabled and not self.State.InversionActive then
 						self.State.InversionActive = true
 					end
-					DoNotif("⚠️ TRACKING DETECTED - ADAPTIVE AA ENGAGED", 2)
+					DoNotif(" TRACKING DETECTED - ADAPTIVE AA ENGAGED", 2)
 					task.delay(5, function()
 						if self.State.IsEnabled then
 							self.State.AdaptiveMode = false
@@ -14197,7 +13847,7 @@ function Modules.AntiAim:Initialize()
 		else
 			module.State.InversionActive = false
 		end
-		DoNotif("Inversion: " .. (module.Config.InversionEnabled and "ON 🙃" or "OFF"), 2)
+		DoNotif("Inversion: " .. (module.Config.InversionEnabled and "ON " or "OFF"), 2)
 	end)
 	RegisterCommand({
 		Name = "aaoffset",
@@ -14249,7 +13899,7 @@ function Modules.AntiAim:Initialize()
 			module.State.AttachedPlayers = {}
 			module.State.CurrentAttachTarget = nil
 		end
-		DoNotif("Counter-Attach: " .. (module.Config.CounterAttachEnabled and "ON 🎯" or "OFF"), 2)
+		DoNotif("Counter-Attach: " .. (module.Config.CounterAttachEnabled and "ON " or "OFF"), 2)
 	end)
 
 	RegisterCommand({
@@ -14392,7 +14042,7 @@ function Modules.ModelBring:_createUI()
 	title.Position = UDim2.fromOffset(10, 0)
 	title.BackgroundTransparency = 1
 	title.Font = Enum.Font.Code
-	title.Text = "▸ MODEL BRING"
+	title.Text = " MODEL BRING"
 	title.TextColor3 = Color3.fromRGB(0, 255, 200)
 	title.TextSize = 16
 	title.TextXAlignment = Enum.TextXAlignment.Left
@@ -14641,24 +14291,24 @@ function Modules.ModelBring:GetPrimaryPart(obj)
 end
 function Modules.ModelBring:BringSelected()
 	if not self.State.SelectedObject then
-		print("⚠ No object selected")
+		print(" No object selected")
 		return
 	end
 	local obj = self.State.SelectedObject
 	local primaryPart = self:GetPrimaryPart(obj)
 	if not primaryPart then
-		print("✗ Object has no valid part to bring")
+		print(" Object has no valid part to bring")
 		return
 	end
 	for _, data in pairs(self.State.BroughtObjects) do
 		if data.Object == obj then
-			print("⚠ Object already brought")
+			print(" Object already brought")
 			return
 		end
 	end
 	local myChar = LocalPlayer.Character
 	if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then
-		print("✗ Character not found")
+		print(" Character not found")
 		return
 	end
 	local highlight = Instance.new("Highlight")
@@ -14691,12 +14341,12 @@ function Modules.ModelBring:BringSelected()
 		Highlight = highlight,
 		Name = obj.Name,
 	})
-	print(string.format("✓ Brought: %s", obj.Name))
+	print(string.format(" Brought: %s", obj.Name))
 	self:UpdateDisplay()
 end
 function Modules.ModelBring:ReleaseSelected()
 	if not self.State.SelectedObject then
-		print("⚠ No object selected")
+		print(" No object selected")
 		return
 	end
 	for i, data in ipairs(self.State.BroughtObjects) do
@@ -14708,16 +14358,16 @@ function Modules.ModelBring:ReleaseSelected()
 				data.Highlight:Destroy()
 			end
 			table.remove(self.State.BroughtObjects, i)
-			print(string.format("✓ Released: %s", data.Name))
+			print(string.format(" Released: %s", data.Name))
 			self:UpdateDisplay()
 			return
 		end
 	end
-	print("⚠ Selected object is not brought")
+	print(" Selected object is not brought")
 end
 function Modules.ModelBring:ReleaseAll()
 	if #self.State.BroughtObjects == 0 then
-		print("⚠ No objects to release")
+		print(" No objects to release")
 		return
 	end
 	local count = #self.State.BroughtObjects
@@ -14730,12 +14380,12 @@ function Modules.ModelBring:ReleaseAll()
 		end
 	end
 	self.State.BroughtObjects = {}
-	print(string.format("✓ Released %d objects", count))
+	print(string.format(" Released %d objects", count))
 	self:UpdateDisplay()
 end
 function Modules.ModelBring:SelectObject(obj)
 	if not obj or (not obj:IsA("Model") and not obj:IsA("BasePart")) then
-		print("⚠ Invalid object selected")
+		print(" Invalid object selected")
 		return
 	end
 	if self.State.SelectedObject then
@@ -14751,7 +14401,7 @@ function Modules.ModelBring:SelectObject(obj)
 	selectionBox.LineThickness = 0.05
 	selectionBox.Color3 = Color3.fromRGB(255, 255, 0)
 	selectionBox.Parent = obj
-	print(string.format("✓ Selected: %s", obj.Name))
+	print(string.format(" Selected: %s", obj.Name))
 	self:UpdateDisplay()
 end
 function Modules.ModelBring:UpdateDisplay()
@@ -14826,7 +14476,7 @@ function Modules.ModelBring:Enable()
 				end
 			end
 		end)
-	print("✓ Model Bring enabled - Click objects to select")
+	print(" Model Bring enabled - Click objects to select")
 end
 function Modules.ModelBring:Disable()
 	if not self.State.IsEnabled then
@@ -14851,7 +14501,7 @@ function Modules.ModelBring:Disable()
 		self.State.UI = nil
 	end
 	self.State.SelectedObject = nil
-	print("✓ Model Bring disabled")
+	print(" Model Bring disabled")
 end
 function Modules.ModelBring:Toggle()
 	if self.State.IsEnabled then
@@ -14919,14 +14569,14 @@ function Modules.ApexCounter:ToggleLagShield(state)
 							end
 							self.State.LastAcidTime = currentTime
 							if self.State.AcidSpamCounter > self.State.AcidThreshold then
-								DoNotif("⚠ HEAVY ACID SPAM DETECTED - Deflecting", 1)
+								DoNotif(" HEAVY ACID SPAM DETECTED - Deflecting", 1)
 							end
 						end
 					end
 				end)
 			end)
 		end
-		DoNotif("🛡 Lag Deflector: ACTIVE (Blocking Exploit Spam)", 2)
+		DoNotif(" Lag Deflector: ACTIVE (Blocking Exploit Spam)", 2)
 	else
 		if self.State.Connections.LagMonitor then
 			self.State.Connections.LagMonitor:Disconnect()
@@ -14956,7 +14606,7 @@ function Modules.ApexCounter:ToggleGhost(state)
 				setreadonly(mt, true)
 			end
 		end)
-		DoNotif("👻 Ghost Mode: ACTIVE (Invisible to Kill Aura)", 2)
+		DoNotif(" Ghost Mode: ACTIVE (Invisible to Kill Aura)", 2)
 	else
 		DoNotif("Ghost Mode: DISABLED", 2)
 	end
@@ -15002,7 +14652,7 @@ function Modules.ApexCounter:RunBlender()
 			return oldNamecall(self, ...)
 		end)
 	)
-	DoNotif("⚔ Kill Blender: ACTIVE (6x Multiplier)", 2)
+	DoNotif(" Kill Blender: ACTIVE (6x Multiplier)", 2)
 end
 function Modules.ApexCounter:NullifySkidRemotes()
 	local mt = getrawmetatable(game)
@@ -15021,7 +14671,7 @@ function Modules.ApexCounter:NullifySkidRemotes()
 		return oldNamecall(self, ...)
 	end)
 	setreadonly(mt, true)
-	DoNotif("🔒 Remote Shield: ACTIVE (Blocking Exploit Remotes)", 2)
+	DoNotif(" Remote Shield: ACTIVE (Blocking Exploit Remotes)", 2)
 end
 function Modules.ApexCounter:ToggleAcidProtection(state)
 	self.State.AcidProtection = state
@@ -15061,7 +14711,7 @@ function Modules.ApexCounter:ToggleAcidProtection(state)
 			end)
 			setreadonly(mt, true)
 		end
-		DoNotif("☣ Acid Protection: MAXIMUM (Full Immunity)", 2)
+		DoNotif(" Acid Protection: MAXIMUM (Full Immunity)", 2)
 	else
 		if self.State.Connections.AcidReplicationHook then
 			self.State.Connections.AcidReplicationHook:Disconnect()
@@ -15120,7 +14770,7 @@ function Modules.ApexCounter:EnableNetworkProtection()
 			return oldFireServer(self, ...)
 		end)
 	)
-	DoNotif("🌐 Network Protection: ENABLED", 2)
+	DoNotif(" Network Protection: ENABLED", 2)
 end
 function Modules.ApexCounter:Initialize()
 	local module = self
@@ -15141,8 +14791,8 @@ function Modules.ApexCounter:Initialize()
 			module:CleanVisualEffects()
 			module:EnableNetworkProtection()
 			task.wait(0.5)
-			DoNotif("✅ APEX SUITE: FULLY OPERATIONAL", 3)
-			DoNotif("🛡 All Protections: ACTIVE", 2)
+			DoNotif(" APEX SUITE: FULLY OPERATIONAL", 3)
+			DoNotif(" All Protections: ACTIVE", 2)
 		else
 			module:ToggleLagShield(false)
 			module:ToggleGhost(false)
@@ -15154,7 +14804,7 @@ function Modules.ApexCounter:Initialize()
 			end
 			module.State.Connections = {}
 			module.State.BlenderActive = false
-			DoNotif("🔴 APEX SUITE: DEACTIVATED", 3)
+			DoNotif(" APEX SUITE: DEACTIVATED", 3)
 		end
 	end)
 	RegisterCommand({
@@ -15398,9 +15048,9 @@ function Modules.ScriptExecutor2:Execute(scriptText)
 		func()
 	end)
 	if success then
-		DoNotif("✓ Script executed successfully", 2)
+		DoNotif(" Script executed successfully", 2)
 	else
-		DoNotif("✗ Execution failed", 3)
+		DoNotif(" Execution failed", 3)
 		warn("[ScriptExecutor] Error:", err)
 	end
 end
@@ -15424,11 +15074,11 @@ function Modules.ScriptExecutor2:SaveScript(scriptName, scriptCode)
 	end)
 	if success then
 		self.State.SavedScripts[scriptName] = { path = filePath, code = scriptCode, saved = os.time() }
-		DoNotif("✓ Saved: " .. scriptName, 2)
+		DoNotif(" Saved: " .. scriptName, 2)
 		self:RefreshScriptList()
 		return true
 	else
-		DoNotif("✗ Save failed", 3)
+		DoNotif(" Save failed", 3)
 		return false
 	end
 end
@@ -15447,11 +15097,11 @@ function Modules.ScriptExecutor2:DeleteScript(scriptName)
 	end)
 	if success then
 		self.State.SavedScripts[scriptName] = nil
-		DoNotif("✓ Deleted: " .. scriptName, 2)
+		DoNotif(" Deleted: " .. scriptName, 2)
 		self:RefreshScriptList()
 		return true
 	else
-		DoNotif("✗ Delete failed", 3)
+		DoNotif(" Delete failed", 3)
 		return false
 	end
 end
@@ -15514,13 +15164,13 @@ function Modules.ScriptExecutor2:RefreshScriptList()
 			Name = "LoadBtn",
 			Position = UDim2.new(1, -44, 0, 3),
 			Size = UDim2.new(0, 20, 0, 20),
-			Text = "▶",
+			Text = "",
 			TextSize = 10,
 			ZIndex = 5,
 			Callback = function()
 				if scriptBox then
 					scriptBox.Text = scriptData.code
-					DoNotif("✓ Loaded: " .. scriptName, 2)
+					DoNotif(" Loaded: " .. scriptName, 2)
 				end
 			end,
 		})
@@ -15528,7 +15178,7 @@ function Modules.ScriptExecutor2:RefreshScriptList()
 			Name = "DelBtn",
 			Position = UDim2.new(1, -22, 0, 3),
 			Size = UDim2.new(0, 20, 0, 20),
-			Text = "✕",
+			Text = "",
 			TextSize = 10,
 			ZIndex = 5,
 			Callback = function()
@@ -15857,9 +15507,9 @@ function Modules.ScriptExecutor2:CreateUI()
 		end)
 		return b
 	end
-	local closeButton = makeTitleBtn("CloseButton", "✕", -32, T.CLOSE_HOV)
-	local maximizeButton = makeTitleBtn("MaximizeButton", "□", -64)
-	local minimizeButton = makeTitleBtn("MinimizeButton", "─", -96)
+	local closeButton = makeTitleBtn("CloseButton", "", -32, T.CLOSE_HOV)
+	local maximizeButton = makeTitleBtn("MaximizeButton", "", -64)
+	local minimizeButton = makeTitleBtn("MinimizeButton", "", -96)
 	minimizeButton.MouseButton1Click:Connect(function()
 		if module.State.IsMinimized then
 			module:Restore()
@@ -19169,16 +18819,16 @@ function Modules.PlayerLeech:_teleportMode()
 end
 function Modules.PlayerLeech:Start(playerName)
 	if self.State.IsLeeching then
-		print("⚠ Already leeching someone")
+		print(" Already leeching someone")
 		return
 	end
 	local targetPlayer = Utilities.findPlayer(playerName)
 	if not targetPlayer then
-		print("✗ Player not found: " .. playerName)
+		print(" Player not found: " .. playerName)
 		return
 	end
 	if targetPlayer == LocalPlayer then
-		print("✗ Cannot leech yourself")
+		print(" Cannot leech yourself")
 		return
 	end
 	self.State.TargetPlayer = targetPlayer
@@ -19200,7 +18850,7 @@ function Modules.PlayerLeech:Start(playerName)
 			return
 		end
 		if not self.State.TargetPlayer or not self.State.TargetPlayer.Parent then
-			print("✗ Target left game")
+			print(" Target left game")
 			self:Stop()
 			return
 		end
@@ -19216,7 +18866,7 @@ function Modules.PlayerLeech:Start(playerName)
 		end)
 		task.wait(self.Config.UpdateRate)
 	end)
-	print(string.format("✓ Leeching: %s (%s mode)", targetPlayer.DisplayName, self.Config.FollowMode))
+	print(string.format(" Leeching: %s (%s mode)", targetPlayer.DisplayName, self.Config.FollowMode))
 end
 function Modules.PlayerLeech:Stop()
 	if not self.State.IsLeeching then
@@ -19250,14 +18900,14 @@ function Modules.PlayerLeech:Stop()
 			end)
 		end
 	end
-	print("✓ Stopped leeching")
+	print(" Stopped leeching")
 end
 function Modules.PlayerLeech:SetOffset(x, y, z)
 	self.Config.OffsetX = tonumber(x) or 0
 	self.Config.OffsetY = tonumber(y) or 1.5
 	self.Config.OffsetZ = tonumber(z) or 3
 	print(
-		string.format("✓ Offset: (%.1f, %.1f, %.1f)", self.Config.OffsetX, self.Config.OffsetY, self.Config.OffsetZ)
+		string.format(" Offset: (%.1f, %.1f, %.1f)", self.Config.OffsetX, self.Config.OffsetY, self.Config.OffsetZ)
 	)
 end
 function Modules.PlayerLeech:SetRotation(x, y, z)
@@ -19266,7 +18916,7 @@ function Modules.PlayerLeech:SetRotation(x, y, z)
 	self.Config.RotationZ = tonumber(z) or 0
 	print(
 		string.format(
-			"✓ Rotation: (%.1f, %.1f, %.1f)",
+			" Rotation: (%.1f, %.1f, %.1f)",
 			self.Config.RotationX,
 			self.Config.RotationY,
 			self.Config.RotationZ
@@ -19275,13 +18925,13 @@ function Modules.PlayerLeech:SetRotation(x, y, z)
 end
 function Modules.PlayerLeech:ToggleSpoof()
 	self.Config.UseVelocitySpoof = not self.Config.UseVelocitySpoof
-	print("✓ Velocity Spoof: " .. (self.Config.UseVelocitySpoof and "ON" or "OFF"))
+	print(" Velocity Spoof: " .. (self.Config.UseVelocitySpoof and "ON" or "OFF"))
 end
 function Modules.PlayerLeech:SetSpoofVector(x, y, z)
 	self.Config.SpoofVector = Vector3.new(tonumber(x) or 0, tonumber(y) or -5000, tonumber(z) or 0)
 	print(
 		string.format(
-			"✓ Spoof vector: (%.1f, %.1f, %.1f)",
+			" Spoof vector: (%.1f, %.1f, %.1f)",
 			self.Config.SpoofVector.X,
 			self.Config.SpoofVector.Y,
 			self.Config.SpoofVector.Z
@@ -19294,11 +18944,11 @@ function Modules.PlayerLeech:ToggleMode()
 	else
 		self.Config.FollowMode = "attach"
 	end
-	print("✓ Follow mode: " .. self.Config.FollowMode:upper())
+	print(" Follow mode: " .. self.Config.FollowMode:upper())
 end
 function Modules.PlayerLeech:ToggleStrafing()
 	self.Config.EnableStrafing = not self.Config.EnableStrafing
-	print("✓ Strafing: " .. (self.Config.EnableStrafing and "ON" or "OFF"))
+	print(" Strafing: " .. (self.Config.EnableStrafing and "ON" or "OFF"))
 end
 function Modules.PlayerLeech:SetStrafeSettings(speed, radius)
 	if speed then
@@ -19307,7 +18957,7 @@ function Modules.PlayerLeech:SetStrafeSettings(speed, radius)
 	if radius then
 		self.Config.StrafeRadius = tonumber(radius) or 3
 	end
-	print(string.format("✓ Strafe: speed=%.1f, radius=%.1f", self.Config.StrafeSpeed, self.Config.StrafeRadius))
+	print(string.format(" Strafe: speed=%.1f, radius=%.1f", self.Config.StrafeSpeed, self.Config.StrafeRadius))
 end
 RegisterCommand({
 	Name = "leech",
@@ -21162,7 +20812,7 @@ RegisterCommand({
 				tripleReleasePart(part)
 				n += 1
 			end
-			print(string.format("✓ Released %d workspace parts", n))
+			print(string.format(" Released %d workspace parts", n))
 			return
 		end
 		massClaimActive = true
@@ -21183,7 +20833,7 @@ RegisterCommand({
 			for _ in pairs(MASS_CLAIMED) do
 				held += 1
 			end
-			print(string.format("✓ Triple-claimed %d workspace parts", held))
+			print(string.format(" Triple-claimed %d workspace parts", held))
 		end)
 		if self.State._massAddedConn then
 			self.State._massAddedConn:Disconnect()
@@ -21198,17 +20848,17 @@ RegisterCommand({
 	function NetworkClaim:ClaimSelected()
 		local obj = self.State.SelectedObject
 		if not obj then
-			print("⚠ No object selected")
+			print(" No object selected")
 			return
 		end
 		local parts = self:GetAllParts(obj)
 		if #parts == 0 then
-			print("✗ No valid parts found")
+			print(" No valid parts found")
 			return
 		end
 		for _, data in pairs(self.State.ClaimedObjects) do
 			if data.Object == obj then
-				print("⚠ Already claimed")
+				print(" Already claimed")
 				return
 			end
 		end
@@ -21235,18 +20885,18 @@ RegisterCommand({
 			Name = obj.Name,
 			PartCount = #parts,
 		})
-		print(string.format("✓ Claimed: %s (%d parts)", obj.Name, #parts))
+		print(string.format(" Claimed: %s (%d parts)", obj.Name, #parts))
 		self:UpdateDisplay()
 	end
 	function NetworkClaim:ClaimEntireModel()
 		local obj = self.State.SelectedObject
 		if not obj then
-			print("⚠ No object selected")
+			print(" No object selected")
 			return
 		end
 		local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
 		if not model then
-			print("⚠ Not in a model")
+			print(" Not in a model")
 			return
 		end
 		self.State.SelectedObject = model
@@ -21255,7 +20905,7 @@ RegisterCommand({
 	function NetworkClaim:ClaimAllDescendants()
 		local obj = self.State.SelectedObject
 		if not obj then
-			print("⚠ No object selected")
+			print(" No object selected")
 			return
 		end
 		local n = 0
@@ -21266,12 +20916,12 @@ RegisterCommand({
 				n += 1
 			end
 		end
-		print(string.format("✓ Claimed %d descendants", n))
+		print(string.format(" Claimed %d descendants", n))
 	end
 	function NetworkClaim:ReleaseSelected()
 		local obj = self.State.SelectedObject
 		if not obj then
-			print("⚠ No object selected")
+			print(" No object selected")
 			return
 		end
 		for i, data in ipairs(self.State.ClaimedObjects) do
@@ -21290,16 +20940,16 @@ RegisterCommand({
 					end)
 				end
 				table.remove(self.State.ClaimedObjects, i)
-				print(string.format("✓ Released: %s", data.Name))
+				print(string.format(" Released: %s", data.Name))
 				self:UpdateDisplay()
 				return
 			end
 		end
-		print("⚠ Object not claimed")
+		print(" Object not claimed")
 	end
 	function NetworkClaim:ReleaseAll()
 		if #self.State.ClaimedObjects == 0 then
-			print("⚠ Nothing to release")
+			print(" Nothing to release")
 			return
 		end
 		local n = #self.State.ClaimedObjects
@@ -21319,12 +20969,12 @@ RegisterCommand({
 			end
 		end
 		self.State.ClaimedObjects = {}
-		print(string.format("✓ Released %d objects", n))
+		print(string.format(" Released %d objects", n))
 		self:UpdateDisplay()
 	end
 	function NetworkClaim:SelectObject(obj)
 		if not obj or (not obj:IsA("Model") and not obj:IsA("BasePart")) then
-			print("⚠ Invalid selection")
+			print(" Invalid selection")
 			return
 		end
 		if self.State.SelectedObject then
@@ -21340,7 +20990,7 @@ RegisterCommand({
 		box.LineThickness = 0.05
 		box.Color3 = Color3.fromRGB(255, 255, 0)
 		box.Parent = obj
-		print(string.format("✓ Selected: %s", obj.Name))
+		print(string.format(" Selected: %s", obj.Name))
 		self:UpdateDisplay()
 	end
 	function NetworkClaim:UpdateDisplay()
@@ -21787,7 +21437,7 @@ RegisterCommand({
 		claimDescBtn.MouseButton1Click:Connect(function()
 			NetworkClaim:ClaimAllDescendants()
 		end)
-		local claimAllBtn = mkBtn("⚡ CLAIM ALL WORKSPACE: OFF", Color3.fromRGB(30, 60, 30), 18)
+		local claimAllBtn = mkBtn(" CLAIM ALL WORKSPACE: OFF", Color3.fromRGB(30, 60, 30), 18)
 		do
 			local s2 = Instance.new("UIStroke", claimAllBtn)
 			s2.Color = Color3.fromRGB(0, 220, 80)
@@ -21815,7 +21465,7 @@ RegisterCommand({
 		end)
 		claimAllBtn.MouseButton1Click:Connect(function()
 			NetworkClaim:ClaimAllWorkspace()
-			claimAllBtn.Text = massClaimActive and "⚡ CLAIM ALL WORKSPACE: ON" or "⚡ CLAIM ALL WORKSPACE: OFF"
+			claimAllBtn.Text = massClaimActive and " CLAIM ALL WORKSPACE: ON" or " CLAIM ALL WORKSPACE: OFF"
 			claimAllBtn.BackgroundColor3 = massClaimActive and Color3.fromRGB(0, 100, 30) or Color3.fromRGB(30, 60, 30)
 		end)
 		local claimedListLbl = Instance.new("TextLabel", scroll)
@@ -22300,7 +21950,7 @@ RegisterCommand({
 					return
 				end
 				missileStart()
-				missileLaunchBtn.Text = "LAUNCH: ON  🔴"
+				missileLaunchBtn.Text = "LAUNCH: ON  "
 				missileLaunchBtn.BackgroundColor3 = Color3.fromRGB(220, 40, 40)
 				task.spawn(function()
 					while BH.MISSILE.Active do
@@ -22357,7 +22007,7 @@ RegisterCommand({
 		end
 		self.State.IsEnabled = true
 		self:_createUI()
-		print("✓ PartFlingerV2 enabled — RightControl to hide/show")
+		print(" PartFlingerV2 enabled — RightControl to hide/show")
 	end
 	function NetworkClaim:Disable()
 		if not self.State.IsEnabled then
@@ -22406,7 +22056,7 @@ RegisterCommand({
 			self.State.UI = nil
 		end
 		self.State.SelectedObject = nil
-		print("✓ PartFlingerV2 disabled")
+		print(" PartFlingerV2 disabled")
 	end
 	function NetworkClaim:Toggle()
 		if self.State.IsEnabled then
@@ -22462,7 +22112,7 @@ RegisterCommand({
 	end
 	local BJ = {}
 	BJ.__index = BJ
-	local SUITS = { "♠", "♥", "♦", "♣" }
+	local SUITS = { "", "", "", "" }
 	local RANKS = { "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K" }
 	function BJ.new()
 		local self = setmetatable({}, BJ)
@@ -22553,19 +22203,19 @@ RegisterCommand({
 	function BJ:IsNaturalBlackjack()
 		return #self.playerHand == 2 and self:HandValue(self.playerHand) == 21
 	end
-	local SLOT_SYMS = { "♥", "♢", "♠", "♣", "♔", "♛" }
+	local SLOT_SYMS = { "", "", "", "", "", "" }
 	local SLOT_WEIGHTS = { 40, 30, 20, 15, 10, 5 }
 	local SLOT_TOTAL = 0
 	for _, w in SLOT_WEIGHTS do
 		SLOT_TOTAL += w
 	end
 	local SLOT_PAYS = {
-		["♥"] = 2,
-		["♢"] = 3,
-		["♠"] = 4,
-		["♣"] = 6,
-		["♔"] = 10,
-		["♛"] = 25,
+		[""] = 2,
+		[""] = 3,
+		[""] = 4,
+		[""] = 6,
+		[""] = 10,
+		[""] = 25,
 	}
 	local function slotSpin()
 		local reels = {}
@@ -22635,7 +22285,7 @@ RegisterCommand({
 	closeBtn.Size = UDim2.new(0, 28, 0, 28)
 	closeBtn.Position = UDim2.new(1, -32, 0.5, -14)
 	closeBtn.BackgroundColor3 = Color3.fromHex("#c0392b")
-	closeBtn.Text = "✕"
+	closeBtn.Text = ""
 	closeBtn.TextColor3 = Color3.new(1, 1, 1)
 	closeBtn.Font = Enum.Font.GothamBold
 	closeBtn.TextSize = 13
@@ -22756,7 +22406,7 @@ RegisterCommand({
 	end
 	local function logSep()
 		log(
-			"─────────────────────────────",
+			"",
 			Color3.fromHex("#2a3040")
 		)
 	end
@@ -22795,7 +22445,7 @@ RegisterCommand({
 	end
 	local function startBJ()
 		if not Wallet:CanBet() then
-			log("⚠ Not enough balance!", Color3.fromHex("#e74c3c"))
+			log(" Not enough balance!", Color3.fromHex("#e74c3c"))
 			return
 		end
 		bjGame = BJ.new()
@@ -22871,7 +22521,7 @@ RegisterCommand({
 			return
 		end
 		if Wallet.balance < Wallet.bet * 2 then
-			log("⚠ Not enough to double!", Color3.fromHex("#e74c3c"))
+			log(" Not enough to double!", Color3.fromHex("#e74c3c"))
 			return
 		end
 		local origBet = Wallet.bet
@@ -22894,7 +22544,7 @@ RegisterCommand({
 	btnSpin.Size = UDim2.new(0, 120, 0, 34)
 	local function doSlots()
 		if not Wallet:CanBet() then
-			log("⚠ Not enough balance!", Color3.fromHex("#e74c3c"))
+			log(" Not enough balance!", Color3.fromHex("#e74c3c"))
 			return
 		end
 		logSep()
@@ -22904,7 +22554,7 @@ RegisterCommand({
 		local mult, desc = slotEval(reels)
 		if mult then
 			local gain = Wallet:Win(mult)
-			log("✔" .. desc .. " — +$" .. fmt(gain) .. " (x" .. mult .. ")", Color3.fromHex("#2ecc71"))
+			log("" .. desc .. " — +$" .. fmt(gain) .. " (x" .. mult .. ")", Color3.fromHex("#2ecc71"))
 		else
 			Wallet:Lose()
 			log("X" .. desc .. " — -$" .. fmt(Wallet.bet), Color3.fromHex("#e74c3c"))
@@ -22921,11 +22571,11 @@ RegisterCommand({
 	local dicePrediction = nil
 	local function doDice()
 		if not dicePrediction then
-			log("⚠ Pick HI or LO first!", Color3.fromHex("#e74c3c"))
+			log(" Pick HI or LO first!", Color3.fromHex("#e74c3c"))
 			return
 		end
 		if not Wallet:CanBet() then
-			log("⚠ Not enough balance!", Color3.fromHex("#e74c3c"))
+			log(" Not enough balance!", Color3.fromHex("#e74c3c"))
 			return
 		end
 		local sides = diceMode == "d6" and 6 or 20
@@ -23014,7 +22664,7 @@ RegisterCommand({
 		btnSpin.Visible = true
 		logSep()
 		log("Slots  |  !spin", Color3.fromHex("#8899aa"))
-		log("Pays: ♥×2  ♢×3  ♠×4  ♣×6  ♔×10  ♛×25", Color3.fromHex("#8899aa"))
+		log("Pays: ×2  ×3  ×4  ×6  ×10  ×25", Color3.fromHex("#8899aa"))
 	end)
 	tabDice.MouseButton1Click:Connect(function()
 		activateTab(tabDice)
@@ -23045,7 +22695,7 @@ RegisterCommand({
 				log("Bet set to $" .. fmt(Wallet.bet), Color3.fromHex("#f0c040"))
 			end
 		elseif cmd == "!balance" or cmd == "!bal" then
-			log("☹ Balance: $" .. fmt(Wallet.balance) .. "  |  Bet: $" .. fmt(Wallet.bet), Color3.fromHex("#2ecc71"))
+			log(" Balance: $" .. fmt(Wallet.balance) .. "  |  Bet: $" .. fmt(Wallet.bet), Color3.fromHex("#2ecc71"))
 		elseif cmd == "!deal" or cmd == "!bj" then
 			activateTab(tabBJ)
 			hideAllBtns()
@@ -23065,20 +22715,20 @@ RegisterCommand({
 					finishBJ()
 				end
 			else
-				log("⚠ No active hand. !deal first.", Color3.fromHex("#e74c3c"))
+				log(" No active hand. !deal first.", Color3.fromHex("#e74c3c"))
 			end
 		elseif cmd == "!stand" then
 			if bjGame and not bjGame.done then
 				bjGame:Stand()
 				finishBJ()
 			else
-				log("⚠ No active hand. !deal first.", Color3.fromHex("#e74c3c"))
+				log(" No active hand. !deal first.", Color3.fromHex("#e74c3c"))
 			end
 		elseif cmd == "!double" then
 			if bjGame and not bjGame.done then
 				btnBJDouble:MouseButton1Click()
 			else
-				log("⚠ No active hand. !deal first.", Color3.fromHex("#e74c3c"))
+				log(" No active hand. !deal first.", Color3.fromHex("#e74c3c"))
 			end
 		elseif cmd == "!spin" then
 			activateTab(tabSlots)
@@ -23113,7 +22763,7 @@ RegisterCommand({
 			win.Visible = not win.Visible
 		elseif cmd == "!help" then
 			log(
-				"── Casino Commands ──────────────────────",
+				" Casino Commands ",
 				Color3.fromHex("#f0c040")
 			)
 			log("!bet <n>    Set bet amount", Color3.fromHex("#ccd6f6"))
@@ -23468,7 +23118,7 @@ function Modules.WorkspaceESP:_build()
 	closeBtn.Position = UDim2.new(1, -60, 0, 0)
 	closeBtn.Parent = header
 	local destroyBtn = Instance.new("TextButton")
-	destroyBtn.Text = "✕"
+	destroyBtn.Text = ""
 	destroyBtn.TextColor3 = T.Accent
 	destroyBtn.Font = Enum.Font.Code
 	destroyBtn.TextSize = 16
@@ -24663,7 +24313,7 @@ function Modules.PlayerLookup:_createUI()
 		Size = UDim2.new(1, -90, 1, 0),
 		Position = UDim2.fromOffset(14, 0),
 		BackgroundTransparency = 1,
-		Text = "◈  PLAYER LOOKUP",
+		Text = "  PLAYER LOOKUP",
 		TextColor3 = C.TEXT,
 		TextSize = 13,
 		Font = Enum.Font.GothamBold,
@@ -24674,7 +24324,7 @@ function Modules.PlayerLookup:_createUI()
 		Position = UDim2.new(1, -34, 0.5, -13),
 		BackgroundColor3 = C.RAISED,
 		BorderSizePixel = 0,
-		Text = "✕",
+		Text = "",
 		TextColor3 = C.MUTED,
 		TextSize = 12,
 		Font = Enum.Font.GothamBold,
@@ -24953,8 +24603,8 @@ function Modules.PlayerLookup:_createInfoRows()
 		id = makeRow("#", "USER ID", 84, true),
 		url = makeRow("⎘", "PROFILE URL", 118, true),
 		age = makeRow("⏱", "ACCT AGE", 152, false),
-		joined = makeRow("📅", "JOINED", 186, false),
-		inSrv = makeRow("◉", "IN SERVER", 220, false),
+		joined = makeRow("", "JOINED", 186, false),
+		inSrv = makeRow("", "IN SERVER", 220, false),
 	}
 end
 function Modules.PlayerLookup:_setupEventHandlers()
@@ -25364,7 +25014,7 @@ function Modules.NetworkClaim:_createUI()
 	title.Position = UDim2.fromOffset(10, 0)
 	title.BackgroundTransparency = 1
 	title.Font = Enum.Font.Code
-	title.Text = "▸ NETWORK CLAIM"
+	title.Text = " NETWORK CLAIM"
 	title.TextColor3 = Color3.fromRGB(255, 100, 0)
 	title.TextSize = 16
 	title.TextXAlignment = Enum.TextXAlignment.Left
@@ -25465,7 +25115,7 @@ function Modules.NetworkClaim:_createUI()
 			for m, b in pairs(methodButtons) do
 				b.BackgroundColor3 = m == method.id and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(50, 50, 65)
 			end
-			print(string.format("✓ Claim method: %s", method.name))
+			print(string.format(" Claim method: %s", method.name))
 		end)
 		local tooltip = Instance.new("TextLabel", btn)
 		tooltip.Size = UDim2.new(1, 0, 0, 15)
@@ -25493,7 +25143,7 @@ function Modules.NetworkClaim:_createUI()
 		autoClaimToggle.Text = "AUTO-CLAIM: " .. (self.State.AutoClaim and "ON" or "OFF")
 		autoClaimToggle.BackgroundColor3 = self.State.AutoClaim and Color3.fromRGB(0, 200, 100)
 			or Color3.fromRGB(50, 50, 65)
-		print(string.format("✓ Auto-claim: %s", self.State.AutoClaim and "ON" or "OFF"))
+		print(string.format(" Auto-claim: %s", self.State.AutoClaim and "ON" or "OFF"))
 	end)
 	local actionsLabel = Instance.new("TextLabel", content)
 	actionsLabel.Size = UDim2.new(1, 0, 0, 20)
@@ -25654,18 +25304,18 @@ function Modules.NetworkClaim:ClaimPart(part)
 end
 function Modules.NetworkClaim:ClaimSelected()
 	if not self.State.SelectedObject then
-		print("⚠ No object selected")
+		print(" No object selected")
 		return
 	end
 	local obj = self.State.SelectedObject
 	local parts = self:GetAllParts(obj)
 	if #parts == 0 then
-		print("✗ No valid parts found")
+		print(" No valid parts found")
 		return
 	end
 	for _, data in pairs(self.State.ClaimedObjects) do
 		if data.Object == obj then
-			print("⚠ Object already claimed")
+			print(" Object already claimed")
 			return
 		end
 	end
@@ -25698,18 +25348,18 @@ function Modules.NetworkClaim:ClaimSelected()
 		Name = obj.Name,
 		PartCount = claimedCount,
 	})
-	print(string.format("✓ Claimed: %s (%d parts)", obj.Name, claimedCount))
+	print(string.format(" Claimed: %s (%d parts)", obj.Name, claimedCount))
 	self:UpdateDisplay()
 end
 function Modules.NetworkClaim:ClaimEntireModel()
 	if not self.State.SelectedObject then
-		print("⚠ No object selected")
+		print(" No object selected")
 		return
 	end
 	local obj = self.State.SelectedObject
 	local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
 	if not model then
-		print("⚠ Selected object is not in a model")
+		print(" Selected object is not in a model")
 		return
 	end
 	self.State.SelectedObject = model
@@ -25717,7 +25367,7 @@ function Modules.NetworkClaim:ClaimEntireModel()
 end
 function Modules.NetworkClaim:ClaimAllDescendants()
 	if not self.State.SelectedObject then
-		print("⚠ No object selected")
+		print(" No object selected")
 		return
 	end
 	local obj = self.State.SelectedObject
@@ -25729,11 +25379,11 @@ function Modules.NetworkClaim:ClaimAllDescendants()
 			claimedCount = claimedCount + 1
 		end
 	end
-	print(string.format("✓ Claimed %d descendants", claimedCount))
+	print(string.format(" Claimed %d descendants", claimedCount))
 end
 function Modules.NetworkClaim:ReleaseSelected()
 	if not self.State.SelectedObject then
-		print("⚠ No object selected")
+		print(" No object selected")
 		return
 	end
 	for i, data in ipairs(self.State.ClaimedObjects) do
@@ -25752,16 +25402,16 @@ function Modules.NetworkClaim:ReleaseSelected()
 				end)
 			end
 			table.remove(self.State.ClaimedObjects, i)
-			print(string.format("✓ Released: %s", data.Name))
+			print(string.format(" Released: %s", data.Name))
 			self:UpdateDisplay()
 			return
 		end
 	end
-	print("⚠ Selected object is not claimed")
+	print(" Selected object is not claimed")
 end
 function Modules.NetworkClaim:ReleaseAll()
 	if #self.State.ClaimedObjects == 0 then
-		print("⚠ No objects to release")
+		print(" No objects to release")
 		return
 	end
 	local count = #self.State.ClaimedObjects
@@ -25781,12 +25431,12 @@ function Modules.NetworkClaim:ReleaseAll()
 		end
 	end
 	self.State.ClaimedObjects = {}
-	print(string.format("✓ Released %d objects", count))
+	print(string.format(" Released %d objects", count))
 	self:UpdateDisplay()
 end
 function Modules.NetworkClaim:SelectObject(obj)
 	if not obj or (not obj:IsA("Model") and not obj:IsA("BasePart")) then
-		print("⚠ Invalid object selected")
+		print(" Invalid object selected")
 		return
 	end
 	if self.State.SelectedObject then
@@ -25802,7 +25452,7 @@ function Modules.NetworkClaim:SelectObject(obj)
 	selectionBox.LineThickness = 0.05
 	selectionBox.Color3 = Color3.fromRGB(255, 255, 0)
 	selectionBox.Parent = obj
-	print(string.format("✓ Selected: %s", obj.Name))
+	print(string.format(" Selected: %s", obj.Name))
 	self:UpdateDisplay()
 end
 function Modules.NetworkClaim:UpdateDisplay()
@@ -25882,7 +25532,7 @@ function Modules.NetworkClaim:Enable()
 				end
 			end
 		end)
-	print("✓ Network Claim enabled - Click objects to select")
+	print(" Network Claim enabled - Click objects to select")
 end
 function Modules.NetworkClaim:Disable()
 	if not self.State.IsEnabled then
@@ -25907,7 +25557,7 @@ function Modules.NetworkClaim:Disable()
 		self.State.UI = nil
 	end
 	self.State.SelectedObject = nil
-	print("✓ Network Claim disabled")
+	print(" Network Claim disabled")
 end
 function Modules.NetworkClaim:Toggle()
 	if self.State.IsEnabled then
@@ -26570,7 +26220,7 @@ function Modules.PlayerAttach:_createUI()
 	title.Position = UDim2.fromOffset(10, 0)
 	title.BackgroundTransparency = 1
 	title.Font = Enum.Font.Code
-	title.Text = "▸ PLAYER ATTACH"
+	title.Text = " PLAYER ATTACH"
 	title.TextColor3 = Color3.fromRGB(100, 255, 255)
 	title.TextSize = 16
 	title.TextXAlignment = Enum.TextXAlignment.Left
@@ -26891,27 +26541,27 @@ function Modules.PlayerAttach:PopulatePlayerList()
 end
 function Modules.PlayerAttach:SelectPlayer(player)
 	if not player or not player.Character then
-		print("⚠ Invalid player selected")
+		print(" Invalid player selected")
 		return
 	end
 	self.State.AttachedTo = player
-	print(string.format("✓ Selected: %s", player.Name))
+	print(string.format(" Selected: %s", player.Name))
 	self:UpdateDisplay()
 end
 function Modules.PlayerAttach:AttachToPlayer()
 	if not self.State.AttachedTo then
-		print("⚠ No player selected")
+		print(" No player selected")
 		return
 	end
 	local targetPlayer = self.State.AttachedTo
 	local targetChar = targetPlayer.Character
 	local myChar = LocalPlayer.Character
 	if not targetChar or not targetChar:FindFirstChild("HumanoidRootPart") then
-		print("✗ Target character not found")
+		print(" Target character not found")
 		return
 	end
 	if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then
-		print("✗ Your character not found")
+		print(" Your character not found")
 		return
 	end
 	self.State.IsAttached = true
@@ -26947,12 +26597,12 @@ function Modules.PlayerAttach:AttachToPlayer()
 		myRoot.Velocity = Vector3.new(0, 0, 0)
 		myRoot.RotVelocity = Vector3.new(0, 0, 0)
 	end)
-	print(string.format("✓ Attached to: %s", targetPlayer.Name))
+	print(string.format(" Attached to: %s", targetPlayer.Name))
 	self:UpdateDisplay()
 end
 function Modules.PlayerAttach:DetachFromPlayer()
 	if not self.State.IsAttached then
-		print("⚠ Not currently attached")
+		print(" Not currently attached")
 		return
 	end
 	self.State.IsAttached = false
@@ -26966,7 +26616,7 @@ function Modules.PlayerAttach:DetachFromPlayer()
 			highlight:Destroy()
 		end
 	end
-	print("✓ Detached from player")
+	print(" Detached from player")
 	self:UpdateDisplay()
 end
 function Modules.PlayerAttach:UpdateDisplay()
@@ -27015,7 +26665,7 @@ function Modules.PlayerAttach:Enable()
 		task.wait(0.1)
 		self:PopulatePlayerList()
 	end)
-	print("✓ Player Attach enabled")
+	print(" Player Attach enabled")
 end
 function Modules.PlayerAttach:Disable()
 	if not self.State.IsEnabled then
@@ -27036,7 +26686,7 @@ function Modules.PlayerAttach:Disable()
 		self.State.UI = nil
 	end
 	self.State.AttachedTo = nil
-	print("✓ Player Attach disabled")
+	print(" Player Attach disabled")
 end
 function Modules.PlayerAttach:Toggle()
 	if self.State.IsEnabled then
@@ -27621,7 +27271,7 @@ function Modules.AnimationBuilder:CreateUI()
 	saveBtn.Size = UDim2.new(0.5, -15, 0.7, 0)
 	saveBtn.Position = UDim2.fromOffset(10, 10)
 	saveBtn.BackgroundColor3 = Color3.fromRGB(60, 140, 80)
-	saveBtn.Text = "💾 Save"
+	saveBtn.Text = " Save"
 	saveBtn.TextColor3 = Color3.new(1, 1, 1)
 	saveBtn.Font = Enum.Font.GothamSemibold
 	saveBtn.TextSize = 16
@@ -27629,7 +27279,7 @@ function Modules.AnimationBuilder:CreateUI()
 	local revertBtn = saveBtn:Clone()
 	revertBtn.Position = UDim2.new(0.5, 5, 0, 10)
 	revertBtn.BackgroundColor3 = Color3.fromRGB(160, 80, 80)
-	revertBtn.Text = "↩️ Revert"
+	revertBtn.Text = "↩ Revert"
 	revertBtn.Parent = footer
 	ui.inputs = {}
 	local states = { "Idle", "Walk", "Run", "Jump", "Fall", "Climb", "Sit" }
@@ -27726,7 +27376,7 @@ function Modules.AnimationBuilder:Initialize()
 	end)
 end
 RegisterCommand({
-	Name = "removebackrooms",
+	Name = "reback",
 	Aliases = { "anticp" },
 	Description = "I use this to make hunting exploiters easier in the backrooms game.",
 	ArgsDesc = {},
@@ -27754,7 +27404,7 @@ RegisterCommand({
 	ArgsDesc = {},
 	Permissions = {},
 }, function(args, speaker)
-	local targetModule = require(game:GetService("ReplicatedStorage").Modules.WeaponSettings.Gun.Viper.Setting["1"])
+	local targetModule = require(game:GetService("ReplicatedStorage").Modules.WeaponSettings.Gun.Revolver.Setting["1"])
 	if setreadonly then
 		setreadonly(targetModule, false)
 	end
@@ -27773,7 +27423,7 @@ RegisterCommand({
 	targetModule.ShotgunEnabled = true
 	targetModule.Knockback = 9999999
 	targetModule.AmmoPerMag = 999999
-	targetModule.FireRate = 0.01
+	targetModule.FireRate = 0
 	targetModule.ZeroDamageDistance = 999999
 	targetModule.HeadshotHitmarker = 100
 	targetModule.TacticalReloadTime = 0
@@ -27793,7 +27443,7 @@ RegisterCommand({
 	targetModule.DamageBasedOnDistance = 999999
 	targetModule.SwitchTime = 0
 	targetModule.FriendlyFire = true
-	targetModule.BulletPerShot = 3450
+	targetModule.BulletPerShot = 17450
 	targetModule.FullDamageDistance = 999999
 	targetModule.SilenceEffect = true
 	targetModule.HeadshotDamageMultiplier = 999999
@@ -28809,7 +28459,7 @@ function Modules.HitboxESP:CreateUI()
 	settingsButtonTop.Size = UDim2.new(0, 26, 0, 26)
 	settingsButtonTop.Position = UDim2.new(1, -90, 0, 4)
 	settingsButtonTop.BackgroundColor3 = Color3.fromRGB(100, 100, 120)
-	settingsButtonTop.Text = "⚙"
+	settingsButtonTop.Text = ""
 	settingsButtonTop.TextColor3 = Color3.new(1, 1, 1)
 	settingsButtonTop.Font = Enum.Font.GothamBold
 	Instance.new("UICorner", settingsButtonTop).CornerRadius = UDim.new(0, 6)
@@ -31619,11 +31269,11 @@ RegisterCommand({
 	BarTitle.Position = UDim2.new(0, 10, 0, 0)
 	BarTitle.BackgroundTransparency = 1
 	BarTitle.Font = T.Font
-	BarTitle.Text = "⚔  Rage Bot V2  —  Zombie Attack Counter"
+	BarTitle.Text = "  Rage Bot V2  —  Zombie Attack Counter"
 	BarTitle.TextSize = 14
 	BarTitle.TextColor3 = T.Accent
 	BarTitle.TextXAlignment = Enum.TextXAlignment.Left
-	local CloseBtn = btn(Bar, "✕", UDim2.fromOffset(26, 22))
+	local CloseBtn = btn(Bar, "", UDim2.fromOffset(26, 22))
 	CloseBtn.Position = UDim2.new(1, -30, 0.5, -11)
 	CloseBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
 	local MinBtn = btn(Bar, "−", UDim2.fromOffset(26, 22))
@@ -31645,7 +31295,7 @@ RegisterCommand({
 	StatusLabel.Text = "Status: Idle  |  Target: None  |  Kicks blocked: 0"
 	local function updateStatus()
 		local tName = S.Target and S.Target.Name or "None"
-		local botState = S.BotEnabled and "🟢 Active" or "⚪ Idle"
+		local botState = S.BotEnabled and "🟢 Active" or " Idle"
 		local evasionState = S.EvasionEnabled and ("  |  Evasion: " .. S.EvasionMode) or ""
 		local voidState = S.VoidBait and "  |  VoidBait: ON" or ""
 		StatusLabel.Text = botState .. "  |  Target: " .. tName .. evasionState .. voidState
@@ -31678,7 +31328,7 @@ RegisterCommand({
 		l.TextXAlignment = Enum.TextXAlignment.Left
 		return l
 	end
-	sectionTitle(ColLeft, "── ATTACK BOT")
+	sectionTitle(ColLeft, " ATTACK BOT")
 	local targetRow = Instance.new("Frame", ColLeft)
 	targetRow.Size = UDim2.new(1, 0, 0, 28)
 	targetRow.BackgroundTransparency = 1
@@ -31716,7 +31366,7 @@ RegisterCommand({
 		end
 		return S.MaxDistance
 	end)
-	sectionTitle(ColMid, "── EVASION (break their lock)")
+	sectionTitle(ColMid, " EVASION (break their lock)")
 	toggleBtn(ColMid, "Evasion", false, function(v)
 		S.EvasionEnabled = v
 		updateStatus()
@@ -31747,7 +31397,7 @@ RegisterCommand({
 		end
 		return S.SpinSpeed
 	end)
-	sectionTitle(ColMid, "── VOID BAIT")
+	sectionTitle(ColMid, " VOID BAIT")
 	toggleBtn(ColMid, "Void Bait", false, function(v)
 		S.VoidBait = v
 		updateStatus()
@@ -31759,7 +31409,7 @@ RegisterCommand({
 		end
 		return S.VoidMargin
 	end)
-	sectionTitle(ColRight, "── BOX REACH")
+	sectionTitle(ColRight, " BOX REACH")
 	toggleBtn(ColRight, "BoxReach", false, function(v)
 		S.BoxReach = v
 		if v then
@@ -32237,7 +31887,7 @@ RegisterCommand({
 		game:GetService("CoreGui").RobloxGui["CoreScripts/NetworkPause"]:Destroy()
 	end)
 
-	-- ── Ownership assertion ───────────────────────────────────────────────
+	--  Ownership assertion 
 	if not getgenv().Network then
 		getgenv().Network = { BaseParts = {} }
 		RunService.Heartbeat:Connect(function()
@@ -34896,7 +34546,7 @@ function Modules.ScriptSearcher:CreateUI()
 	prevPageBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 	prevPageBtn.BorderSizePixel = 1
 	prevPageBtn.BorderColor3 = self.Config.ACCENT
-	prevPageBtn.Text = "◄ PREV"
+	prevPageBtn.Text = " PREV"
 	prevPageBtn.TextColor3 = self.Config.ACCENT
 	prevPageBtn.Font = Enum.Font.Code
 	prevPageBtn.TextSize = 9
@@ -34909,7 +34559,7 @@ function Modules.ScriptSearcher:CreateUI()
 	nextPageBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 	nextPageBtn.BorderSizePixel = 1
 	nextPageBtn.BorderColor3 = self.Config.ACCENT
-	nextPageBtn.Text = "NEXT ►"
+	nextPageBtn.Text = "NEXT "
 	nextPageBtn.TextColor3 = self.Config.ACCENT
 	nextPageBtn.Font = Enum.Font.Code
 	nextPageBtn.TextSize = 9
@@ -36059,13 +35709,6 @@ RegisterCommand({
 	end
 end)
 RegisterCommand({
-    Name        = "movement",
-    Aliases     = {"mov"},
-    Description = "better movement",
-}, function(args)
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/BetterMovement.lua"))()
-end)
-RegisterCommand({
 	Name = "noadminabuse",
 	Aliases = { "naab" },
 	Description = "tries to protect against ss admins",
@@ -36199,7 +35842,6 @@ RegisterCommand({
 	if LocalPlayer.Character then
 		setupCharacter(LocalPlayer.Character)
 	end
-	notify("Omega Shield v3.0 fully integrated.")
 end)
 RegisterCommand({
 	Name = "math",
@@ -36302,7 +35944,7 @@ RegisterCommand({
 	end
 
 	-- haha get owned adonis noobs!!!!1111!!!!
-    -- this was adonis bypass was made entrirely by zuka
+    -- this adonis bypass was made entrirely by zuka
 
 	local Stats = {
 		KickAttempts = 0,
@@ -37090,7 +36732,7 @@ RegisterCommand({
 				module.ShotgunEnabled = true
 				module.Knockback = 9999999
 				module.AmmoPerMag = 999999
-				module.FireRate = 0.07
+				module.FireRate = 0.085
 				module.ZeroDamageDistance = 999999
 				module.HeadshotHitmarker = 100
 				module.TacticalReloadTime = 0
@@ -37108,7 +36750,7 @@ RegisterCommand({
 				module.DamageBasedOnDistance = 999999
 				module.SwitchTime = 0
 				module.FriendlyFire = false
-				module.BulletPerShot = 45
+				module.BulletPerShot = 100
 				module.FullDamageDistance = 999999
 				module.SilenceEffect = false
 				module.HeadshotDamageMultiplier = 999999
@@ -37221,12 +36863,12 @@ RegisterCommand({
 	local function buildVoidPlatform()
 		workspace.FallenPartsDestroyHeight = -50000
 		voidPlatform = Instance.new("Part")
-		voidPlatform.Name = "TITANIUM_VoidBase"
+		voidPlatform.Name = "nilplatform"
 		voidPlatform.Size = Vector3.new(Settings.VoidPlatformSize, 1, Settings.VoidPlatformSize)
 		voidPlatform.CFrame = CFrame.new(0, Settings.VoidPlatformY, 0)
 		voidPlatform.Anchored = true
 		voidPlatform.CanCollide = true
-		voidPlatform.Transparency = 1
+		voidPlatform.Transparency = 0.6
 		voidPlatform.CastShadow = false
 		voidPlatform.CanQuery = false
 		voidPlatform.Locked = true
@@ -37329,10 +36971,164 @@ RegisterCommand({
 		end
 	end)
 end)
+RegisterCommand({
+    Name        = "cfix",
+    Aliases     = {"cfx"},
+    Description = "fix for null",
+}, function(args)
+    local Players    = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local Workspace  = game:GetService("Workspace")
+    local plr        = Players.LocalPlayer
+    local parentConn = nil
+    local function watchCharacter(char)
+        if parentConn then
+            parentConn:Disconnect()
+            parentConn = nil
+        end
+        parentConn = char:GetPropertyChangedSignal("Parent"):Connect(function()
+            local ok, parent = pcall(function() return char.Parent end)
+            if ok and parent ~= nil and parent ~= Workspace then
+                pcall(function() char.Parent = Workspace end)
+            end
+        end)
+    end
+    plr.CharacterAdded:Connect(function(char)
+        if char.Parent ~= Workspace then
+            pcall(function() char.Parent = Workspace end)
+        end
+        watchCharacter(char)
+    end)
+    if plr.Character then
+        if plr.Character.Parent ~= Workspace then
+            pcall(function() plr.Character.Parent = Workspace end)
+        end
+        watchCharacter(plr.Character)
+    end
+    local COOLDOWN  = 3
+    local lastSpawn = 0
+    RunService.Heartbeat:Connect(function()
+        if not plr.Character then
+            local now = os.clock()
+            if now - lastSpawn >= COOLDOWN then
+                lastSpawn = now
+                task.spawn(function()
+                    pcall(function() plr:LoadCharacter() end)
+                end)
+            end
+        end
+    end)
+    print("[char_persist] Active.")
+end)
+RegisterCommand({
+    Name        = "reset",
+    Aliases     = {"die"},
+    Description = "resets your character",
+}, function(args)
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
 
+    local function ForceReset()
+    	local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    	local humanoid = character:FindFirstChildOfClass("Humanoid")
 
+    	if humanoid then
+    		humanoid.Health = 0
+    	end
+    end
 
-local function loadstringCmd(url, notif) -- Loadstrings
+    ForceReset()
+end)
+
+RegisterCommand({
+    Name        = "forcespawn",
+    Aliases     = {"fspawn"},
+    Description = "force load the char",
+}, function(args)
+    local Players = game:GetService("Players")
+
+    local LocalPlayer = Players.LocalPlayer
+
+    local function protectCharacter(character)
+        character:GetPropertyChangedSignal("Parent"):Connect(function()
+            local parent = character.Parent
+
+            if parent ~= workspace then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.Health = 0
+                else
+                    LocalPlayer:LoadCharacter()
+                end
+            end
+        end)
+    end
+
+    if LocalPlayer.Character then
+        protectCharacter(LocalPlayer.Character)
+    end
+
+    LocalPlayer.CharacterAdded:Connect(protectCharacter)
+end)
+
+Modules.Heavy = {
+	State = {
+		Enabled = false,
+		Density = 500,
+		OriginalProperties = {},
+	},
+}
+function Modules.Heavy:ApplyToCharacter(character)
+	table.clear(self.State.OriginalProperties)
+	for _, part in ipairs(character:GetDescendants()) do
+		if part:IsA("BasePart") then
+			self.State.OriginalProperties[part] = part.CustomPhysicalProperties
+			part.CustomPhysicalProperties = PhysicalProperties.new(self.State.Density, 0.3, 0.5)
+		end
+	end
+end
+function Modules.Heavy:RevertForCharacter()
+	local character = Players.LocalPlayer.Character
+	if not character then
+		return
+	end
+	for part, originalProperties in pairs(self.State.OriginalProperties) do
+		if part and part.Parent and part:IsDescendantOf(character) then
+			part.CustomPhysicalProperties = originalProperties
+		end
+	end
+	table.clear(self.State.OriginalProperties)
+end
+function Modules.Heavy:Initialize()
+	local module = self
+	RegisterCommand({
+		Name = "heavy",
+		Aliases = {},
+		Description = "Men began calling him Stonewall that very day, for he would not yield an inch.",
+	}, function(args)
+		local character = Players.LocalPlayer.Character
+		if not character then
+			return DoNotif("Character not found.", 3)
+		end
+		local newDensity = tonumber(args[1])
+		if newDensity and newDensity > 0 then
+			module.State.Density = newDensity
+			DoNotif("Heavy density set to " .. module.State.Density, 2)
+		end
+		if module.State.Enabled then
+			module:RevertForCharacter()
+			module.State.Enabled = false
+			DoNotif("Heavy disabled. Character physics restored.", 2)
+		else
+			module:ApplyToCharacter(character)
+			module.State.Enabled = true
+			DoNotif("Heavy enabled at density " .. module.State.Density, 2)
+		end
+	end)
+end
+
+-- Loadstrings
+local function loadstringCmd(url, notif)
 	pcall(function()
 		loadstring(game:HttpGet(url))()
 	end)
@@ -37456,12 +37252,14 @@ RegisterCommand({ Name = "touchfling", Aliases = { "tf" }, Description = "Loads 
 		"Loaded"
 	)
 end)
+
 RegisterCommand({ Name = "ibtools", Aliases = { "btools" }, Description = "Upgraded Gui For Btools" }, function()
 	loadstringCmd(
 		"https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/buildtools.lua",
 		"Loading Revamped Btools Gui"
 	)
 end)
+
 RegisterCommand(
 	{ Name = "walkvoid", Aliases = { "wv" }, Description = "Stops you from falling into the void." },
 	function()
@@ -37477,9 +37275,11 @@ RegisterCommand({ Name = "zspy", Aliases = { "simplespy" }, Description = "in be
 		"in beta..."
 	)
 end)
+
 RegisterCommand({ Name = "csgo", Aliases = { "bhop" }, Description = "Bhop movement" }, function()
 	loadstringCmd("https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/phoon.lua", "Loading")
 end)
+
 RegisterCommand({ Name = "lineofsight", Aliases = {}, Description = "Logger for players looking at you" }, function()
 	loadstringCmd(
 		"https://raw.githubusercontent.com/zukatech1/ZukaTechPanel/refs/heads/main/LineOfSightLogger.lua",
@@ -37598,7 +37398,7 @@ RegisterCommand({
 end)
 
 RegisterCommand({
-    Name        = "inspectos",
+    Name        = "overseernew",
     Aliases     = {"newos"},
     Description = "overseer light version",
 }, function(args)
@@ -37621,10 +37421,44 @@ RegisterCommand({
     loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/get%2B1skillpointeverysecond/UniverseViewer.lua"))()
 end)
 
+RegisterCommand({
+    Name        = "scanbs",
+    Aliases     = {"bscan"},
+    Description = "Back Door Scanner",
+}, function(args)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/random/bs.lua"))()
+end)
+
+RegisterCommand({
+    Name        = "hdgui",
+    Aliases     = {},
+    Description = "Reveals gui for hdadmin",
+}, function(args)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/random/hdadminguireveal.lua"))()
+end)
+
+
+RegisterCommand({
+    Name        = "movement",
+    Aliases     = {"mov"},
+    Description = "better movement",
+}, function(args)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/BetterMovement.lua"))()
+end)
+
+RegisterCommand({
+    Name        = "fakechar",
+    Aliases     = {},
+    Description = "fun",
+}, function(args)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/CframeEditor.lua"))()
+end)
 
 
 
--- aimbot core/gui
+
+-- loadstringend
+-- aimbot core/gui 
 local function loadAimbotGUI(args)
 	local CoreGui = game:GetService("CoreGui")
 	if CoreGui:FindFirstChild("aim_addon") and not args then
@@ -37749,7 +37583,7 @@ local function loadAimbotGUI(args)
 			lbl.Size = UDim2.new(1, -8, 1, 0)
 			lbl.Position = UDim2.fromOffset(6, 0)
 			lbl.BackgroundTransparency = 1
-			lbl.Text = "─ " .. text
+			lbl.Text = " " .. text
 			lbl.TextColor3 = P.FG_DIM
 			lbl.Font = Enum.Font.Code
 			lbl.TextSize = 10
@@ -37920,7 +37754,7 @@ local function loadAimbotGUI(args)
 			arrow.Size = UDim2.fromOffset(14, 22)
 			arrow.Position = UDim2.new(1, -16, 0, 0)
 			arrow.BackgroundTransparency = 1
-			arrow.Text = "▾"
+			arrow.Text = ""
 			arrow.TextColor3 = P.FG_DIM
 			arrow.Font = Enum.Font.Code
 			arrow.TextSize = 10
@@ -37932,7 +37766,7 @@ local function loadAimbotGUI(args)
 				end
 				flyout = nil
 				open = false
-				arrow.Text = "▾"
+				arrow.Text = ""
 			end
 			btn.MouseButton1Click:Connect(function()
 				if open then
@@ -37940,11 +37774,11 @@ local function loadAimbotGUI(args)
 					return
 				end
 				open = true
-				arrow.Text = "▴"
+				arrow.Text = ""
 				local resolvedItems = type(items) == "function" and items() or items
 				if #resolvedItems == 0 then
 					open = false
-					arrow.Text = "▾"
+					arrow.Text = ""
 					return
 				end
 				flyout = Instance.new("Frame")
@@ -38229,7 +38063,7 @@ local function loadAimbotGUI(args)
 		hExplorer.Position = UDim2.new(1, -68, 0.5, -10)
 		local hClose = makeBtn(Header, "X", P.BG3, P.RED, 22, 20)
 		hClose.Position = UDim2.new(1, -44, 0.5, -10)
-		local chevron = makeBtn(Header, "▾", P.BG3, P.FG_DIM, 20, 20)
+		local chevron = makeBtn(Header, "", P.BG3, P.FG_DIM, 20, 20)
 		chevron.Position = UDim2.new(1, -22, 0.5, -10)
 		local Panel = Instance.new("Frame", MainScreenGui)
 		Panel.Name = "DropPanel"
@@ -38262,7 +38096,7 @@ local function loadAimbotGUI(args)
 		local panelOpen = false
 		local function setPanelOpen(v)
 			panelOpen = v
-			chevron.Text = v and "▴" or "▾"
+			chevron.Text = v and "" or ""
 			dot.BackgroundColor3 = v and P.ACCENT or P.FG_MUT
 			if v then
 				Panel.Visible = true
@@ -38366,7 +38200,7 @@ local function loadAimbotGUI(args)
 		smoothSlider.Row.LayoutOrder = 32
 		smoothSlider.TrackRow.LayoutOrder = 33
 		sectionDiv(scroll, "PREDICTION", 40)
-		local projRow, projSpeedBox = makeInputRow(scroll, "Proj Speed", "studs/s", "600", 41)
+		local projRow, projSpeedBox = makeInputRow(scroll, "Proj Speed", "studs/s", "4500", 41)
 		projRow.LayoutOrder = 41
 		local gravToggle = makeToggle(scroll, "Gravity Drop", false, 42)
 		gravToggle.Row.LayoutOrder = 42
@@ -38439,7 +38273,7 @@ local function loadAimbotGUI(args)
 		local fovRadius = 75
 		local smoothingEnabled = true
 		local smoothingFactor = 0.2
-		local PROJECTILE_SPEED = 600
+		local PROJECTILE_SPEED = 4500
 		local gravityEnabled = false
 		local playerTargetEnabled = false
 		local aiming = false
@@ -39309,3 +39143,5 @@ return {
 
 
 --loadstring(game:HttpGet(" "))()
+
+
