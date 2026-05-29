@@ -2202,7 +2202,72 @@ function TI:CreatePatchRow(patchId, patch)
 	valLbl.TextSize = 9
 	valLbl.TextXAlignment = Enum.TextXAlignment.Left
 	valLbl.TextTruncate = Enum.TextTruncate.AtEnd
-	local del = self:_createButton(row, "X", UDim2.fromOffset(16, 16), UDim2.new(0.88, 0, 0.5, -8), function()
+	-- ── Copy snippet button ───────────────────────────────────────────────────
+	local function buildSnippet()
+		local keyStr
+		if type(patch.Key) == "string" then
+			keyStr = string.format("%q", patch.Key)
+		else
+			keyStr = tostring(patch.Key)
+		end
+
+		local valStr
+		local vt = type(patch.NewValue)
+		if vt == "string" then
+			valStr = string.format("%q", patch.NewValue)
+		elseif vt == "boolean" or vt == "number" then
+			valStr = tostring(patch.NewValue)
+		elseif vt == "nil" then
+			valStr = "nil"
+		else
+			valStr = "-- [" .. vt .. ": " .. tostring(patch.NewValue) .. "]"
+		end
+
+		local lines = {}
+		table.insert(lines, "-- Patch: " .. tostring(patch.Key))
+		table.insert(lines, "-- Type:  " .. vt)
+		if patch.Frozen then
+			table.insert(lines, "-- [Frozen — value is kept on Heartbeat]")
+			table.insert(lines, "RunService.Heartbeat:Connect(function()")
+			table.insert(lines, "\tpcall(function()")
+			table.insert(lines, "\t\tif setreadonly then setreadonly(tbl, false) end")
+			table.insert(lines, "\t\trawset(tbl, " .. keyStr .. ", " .. valStr .. ")")
+			table.insert(lines, "\t\tif setreadonly then setreadonly(tbl, true) end")
+			table.insert(lines, "\tend)")
+			table.insert(lines, "end)")
+		else
+			table.insert(lines, "pcall(function()")
+			table.insert(lines, "\tif setreadonly then setreadonly(tbl, false) end")
+			table.insert(lines, "\trawset(tbl, " .. keyStr .. ", " .. valStr .. ")")
+			table.insert(lines, "\tif setreadonly then setreadonly(tbl, true) end")
+			table.insert(lines, "end)")
+		end
+		return table.concat(lines, "\n")
+	end
+
+	local copyBtn = self:_createButton(
+		row, "Copy",
+		UDim2.fromOffset(34, 16),
+		UDim2.new(0.80, 0, 0.5, -8),
+		function()
+			local snippet = buildSnippet()
+			local ok = pcall(function()
+				if setclipboard then
+					setclipboard(snippet)
+				elseif toclipboard then
+					toclipboard(snippet)
+				end
+			end)
+			self:_showNotification(
+				ok and ("Copied snippet for: " .. tostring(patch.Key)) or "Clipboard unavailable",
+				ok and "success" or "warning"
+			)
+		end
+	)
+	copyBtn.TextSize = 9
+	copyBtn.BackgroundColor3 = Color3.fromRGB(200, 230, 255)
+
+	local del = self:_createButton(row, "X", UDim2.fromOffset(16, 16), UDim2.new(0.93, 0, 0.5, -8), function()
 		self:RemovePatch(patchId)
 	end)
 	del.TextSize = 10
