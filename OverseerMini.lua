@@ -2575,8 +2575,8 @@ function TI:CreateUI()
 	content.BackgroundTransparency = 1
 	content.BorderSizePixel = 0
 	local modPanel = Instance.new("Frame", content)
-	modPanel.Size = UDim2.fromOffset(210, 688)
-	modPanel.Position = UDim2.fromOffset(0, 0)
+	modPanel.Size = UDim2.new(0.198, 0, 1, 0)
+	modPanel.Position = UDim2.new(0, 0, 0, 0)
 	modPanel.BackgroundColor3 = self.Config.BG_PANEL
 	modPanel.BorderSizePixel = 0
 	self:_createBorder(modPanel, false)
@@ -2642,8 +2642,8 @@ function TI:CreateUI()
 		end
 	end)
 	local inspPanel = Instance.new("Frame", content)
-	inspPanel.Size = UDim2.fromOffset(650, 688)
-	inspPanel.Position = UDim2.fromOffset(214, 0)
+	inspPanel.Size = UDim2.new(0.6155, 0, 1, 0)
+	inspPanel.Position = UDim2.new(0.2026, 0, 0, 0)
 	inspPanel.BackgroundColor3 = self.Config.BG_PANEL
 	inspPanel.BorderSizePixel = 0
 	self:_createBorder(inspPanel, false)
@@ -2875,8 +2875,8 @@ function TI:CreateUI()
 		svSwitchTab("scriptviewer")
 	end)
 	local patchPanel = Instance.new("Frame", content)
-	patchPanel.Size = UDim2.fromOffset(190, 688)
-	patchPanel.Position = UDim2.fromOffset(868, 0)
+	patchPanel.Size = UDim2.new(0.1799, 0, 1, 0)
+	patchPanel.Position = UDim2.new(0.8220, 0, 0, 0)
 	patchPanel.BackgroundColor3 = self.Config.BG_PANEL
 	patchPanel.BorderSizePixel = 0
 	self:_createBorder(patchPanel, false)
@@ -3030,6 +3030,48 @@ function TI:CreateUI()
 			tabDragging = false
 		end
 	end)
+
+	-- ── Resize grip ───────────────────────────────────────────────────────────
+	local MIN_W, MIN_H = 600, 400
+	local resizeGrip = Instance.new("Frame", main)
+	resizeGrip.Name = "ResizeGrip"
+	resizeGrip.Size = UDim2.fromOffset(14, 14)
+	resizeGrip.Position = UDim2.new(1, -14, 1, -14)
+	resizeGrip.BackgroundColor3 = self.Config.BG_DARK
+	resizeGrip.BorderSizePixel = 0
+	resizeGrip.ZIndex = 500
+	-- draw a small diagonal lines icon in the grip
+	for k = 1, 3 do
+		local dot = Instance.new("Frame", resizeGrip)
+		dot.Size = UDim2.fromOffset(2, 2)
+		dot.Position = UDim2.fromOffset(3 + (k-1)*3, 14 - 3 - (k-1)*3)
+		dot.BackgroundColor3 = self.Config.BORDER_DARK
+		dot.BorderSizePixel = 0
+		dot.ZIndex = 501
+	end
+	local resizing, resizeDragStart, resizeStartSize = false, nil, nil
+	resizeGrip.InputBegan:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.MouseButton1 then
+			resizing = true
+			resizeDragStart = i.Position
+			resizeStartSize = main.AbsoluteSize
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(i)
+		if resizing and i.UserInputType == Enum.UserInputType.MouseMovement then
+			local dx = i.Position.X - resizeDragStart.X
+			local dy = i.Position.Y - resizeDragStart.Y
+			local newW = math.max(MIN_W, resizeStartSize.X + dx)
+			local newH = math.max(MIN_H, resizeStartSize.Y + dy)
+			main.Size = UDim2.fromOffset(newW, newH)
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.MouseButton1 then
+			resizing = false
+		end
+	end)
+
 	self.State.UI = {
 		ScreenGui = sg,
 		Main = main,
