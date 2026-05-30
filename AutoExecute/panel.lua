@@ -30,7 +30,7 @@
 
 
 
-local genv = getgenv()
+--[[local genv = getgenv()
 
 
 local SPOOF_NAME, SPOOF_VER = "_gc", "debug"
@@ -102,7 +102,8 @@ local function invokeServer(name, ...)
 	if r then
 		return r.invoke(r.instance, ...)
 	end
-end
+end]]
+
 local function detectEnvironment()
 	local env = {
 		executor = identifyexecutor and identifyexecutor() or "Unknown",
@@ -39143,5 +39144,4 @@ return {
 
 
 --loadstring(game:HttpGet(" "))()
-
 
