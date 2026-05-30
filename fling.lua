@@ -27,7 +27,8 @@ local function IsValidPart(part)
 	if not part:IsA("BasePart") then
 		return false
 	end
-	if part.Anchored then
+	-- STRICT: must be unanchored (part.Anchored == true means skip it)
+	if part.Anchored == true then
 		return false
 	end
 	if
@@ -88,6 +89,10 @@ local function ApplyFling(part)
 	if not Session.Active then
 		return
 	end
+	-- Double-check: absolutely no anchored parts
+	if part.Anchored then
+		return
+	end
 	TryClaimOwnership(part)
 	local bv = Instance.new("BodyVelocity")
 	bv.Name = "GSF_BV"
@@ -97,6 +102,11 @@ local function ApplyFling(part)
 	local lastClaim = 0
 	local conn = RunService.Heartbeat:Connect(function(dt)
 		if not Session.Active or not IsValidPart(part) then
+			ReleasePart(part)
+			return
+		end
+		-- Extra safety: release if part becomes anchored
+		if part.Anchored then
 			ReleasePart(part)
 			return
 		end
@@ -139,7 +149,8 @@ local function GhostSweep()
 			if not part then
 				break
 			end
-			if part.Parent and not part.Anchored then
+			-- Only touch unanchored parts
+			if part.Parent and part.Anchored == false then
 				hrp.CFrame = part.CFrame
 				TryClaimOwnership(part)
 			end
@@ -177,7 +188,7 @@ local function StartSession(target)
 	task.spawn(function()
 		GhostSweep()
 		for _, v in ipairs(Workspace:GetDescendants()) do
-			if Session.Active then
+			if Session.Active and IsValidPart(v) then
 				ApplyFling(v)
 			end
 		end
