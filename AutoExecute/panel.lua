@@ -30,7 +30,7 @@
 
 
 
---[[local genv = getgenv()
+local genv = getgenv()
 
 
 local SPOOF_NAME, SPOOF_VER = "_gc", "debug"
@@ -79,30 +79,6 @@ local origNC = rawget(mt, "__namecall")
 if origNC and iscclosure and not iscclosure(origNC) then
 	warn("Hook detected -- possible remote spy")
 end
-local _rem = {}
-local RS = game:GetService("ReplicatedStorage")
-for _, obj in ipairs(RS:GetDescendants()) do
-	if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-		_rem[obj.Name] = {
-			instance = obj,
-			fireServer = obj.FireServer,
-			invoke = obj.InvokeServer,
-		}
-	end
-end
-table.freeze(_rem)
-local function fireServer(name, ...)
-	local r = _rem[name]
-	if r then
-		r.fireServer(r.instance, ...)
-	end
-end
-local function invokeServer(name, ...)
-	local r = _rem[name]
-	if r then
-		return r.invoke(r.instance, ...)
-	end
-end]]
 
 local function detectEnvironment()
 	local env = {
