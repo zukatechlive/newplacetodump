@@ -1,3 +1,27 @@
+-- by zuka
+
+--[[
+
+
+
+
+ ________  ___      ___ _______   ________  ________  _______   _______   ________
+|\   __  \|\  \    /  /|\  ___ \ |\   __  \|\   ____\|\  ___ \ |\  ___ \ |\   __  \
+\ \  \|\  \ \  \  /  / | \   __/|\ \  \|\  \ \  \___|\ \   __/|\ \   __/|\ \  \|\  \
+ \ \  \\\  \ \  \/  / / \ \  \_|/_\ \   _  _\ \_____  \ \  \_|/_\ \  \_|/_\ \   _  _\
+  \ \  \\\  \ \    / /   \ \  \_|\ \ \  \\  \\|____|\  \ \  \_|\ \ \  \_|\ \ \  \\  \|
+   \ \_______\ \__/ /     \ \_______\ \__\\ _\ ____\_\  \ \_______\ \_______\ \__\\ _\
+    \|_______|\|__|/       \|_______|\|__|\|__|\_________\|_______|\|_______|\|__|\|__|
+                                              \|_________|
+
+
+
+
+
+
+]]--
+
+
 do
 	local _zukSource = [=[
 local function main()
@@ -1238,14 +1262,14 @@ local function main()
 		w("  Entry proto  : #"..parsed.entryProto)
 		w("  Strings total: "..#parsed.stringTable)
 		w("")
-		w("── STRING TABLE ─────────────────────────────────────")
+		w(" STRING TABLE ")
 		for i,s in ipairs(parsed.stringTable) do w(string.format("  [%3d] %q",i,s)) end
 		w("")
 		local function walkProto(proto,idx)
 			if proto.error then w("  [Proto #"..idx.."] PARSE ERROR: "..proto.error); return end
 			local ind=string.rep("  ",proto.depth+1)
 			local dn=proto.debugName~="" and (" '"..proto.debugName.."'") or ""
-			w(string.format("%s── Proto #%d%s",ind,idx,dn))
+			w(string.format("%s Proto #%d%s",ind,idx,dn))
 			w(string.format("%s   params=%d  upvals=%d  maxStack=%d  vararg=%s",
 				ind,proto.numParams,proto.numUpvals,proto.maxStack,tostring(proto.isVararg)))
 			if #proto.upvalues>0 then w(ind.."   Upvalues: "..table.concat(proto.upvalues,", ")) end
@@ -1266,7 +1290,7 @@ local function main()
 			w("")
 			for i2,inner in ipairs(proto.protos) do walkProto(inner,i2) end
 		end
-		w("── PROTO TREE ───────────────────────────────────────")
+		w(" PROTO TREE ")
 		for i,proto in ipairs(parsed.protos) do walkProto(proto,i) end
 		return table.concat(lines,"\n")
 	end
@@ -1483,6 +1507,331 @@ Modules.TI = {
 	},
 }
 local TI = Modules.TI
+
+-- commit/undo workflow, and edit history.
+local FunctionEditor = {}
+FunctionEditor.__index = FunctionEditor
+
+local _FE_CONFIG = {
+	EDITOR_WIDTH = 500,
+	EDITOR_HEIGHT = 300,
+	SYNTAX_CHECK_DELAY = 0.5,
+	MAX_EDIT_HISTORY = 20,
+	COLORS = {
+		EDITOR_BG = Color3.fromRGB(40, 40, 40),
+		EDITOR_BORDER = Color3.fromRGB(60, 60, 60),
+		EDITOR_TEXT = Color3.fromRGB(220, 220, 220),
+		VALID = Color3.fromRGB(76, 175, 80),
+		INVALID = Color3.fromRGB(244, 67, 54),
+		WARNING = Color3.fromRGB(255, 193, 7),
+		MODIFIED = Color3.fromRGB(33, 150, 243),
+	},
+}
+
+function FunctionEditor.new()
+	local self = setmetatable({}, FunctionEditor)
+	self.History = {}
+	self.EditSessions = {}
+	return self
+end
+
+local function _fe_serialize(v)
+	local t = type(v)
+	if t == "string" then
+		return string.format("%q", v)
+	elseif t == "number" then
+		return tostring(v)
+	elseif t == "boolean" then
+		return tostring(v)
+	elseif t == "table" then
+		local parts = {}
+		for k, val in pairs(v) do
+			table.insert(
+				parts,
+				string.format(
+					"[%s] = %s",
+					(type(k) == "string") and string.format("%q", k) or tostring(k),
+					_fe_serialize(val)
+				)
+			)
+		end
+		return "{ " .. table.concat(parts, ", ") .. " }"
+	else
+		return "-- [non-editable type]"
+	end
+end
+
+local function _fe_deserialize(code)
+	local chunk, err = load("return " .. code)
+	if not chunk then
+		return nil, "Syntax error: " .. err
+	end
+	local ok, result = pcall(chunk)
+	if not ok then
+		return nil, "Runtime error: " .. result
+	end
+	return result, nil
+end
+
+local function _fe_validateExpr(code)
+	local chunk, err = load("return " .. code)
+	if not chunk then
+		return false, "Invalid expression: " .. err
+	end
+	return true, "Valid expression"
+end
+
+function FunctionEditor:CreateEditSession(tableRef, keyName, originalValue)
+	local sessionId = "edit_" .. tostring(os.clock()):gsub("%.", "_")
+	local serialized = _fe_serialize(originalValue)
+	local session = {
+		Id = sessionId,
+		TableRef = tableRef,
+		KeyName = keyName,
+		OriginalValue = originalValue,
+		OriginalType = type(originalValue),
+		OriginalSerialized = serialized,
+		CurrentCode = serialized,
+		IsModified = false,
+		ValidationStatus = "valid",
+		ValidationMessage = "Valid expression",
+	}
+	self.EditSessions[sessionId] = session
+	return sessionId, session
+end
+
+function FunctionEditor:UpdateEditSession(sessionId, newCode)
+	local session = self.EditSessions[sessionId]
+	if not session then
+		return false
+	end
+	session.CurrentCode = newCode
+	session.IsModified = (newCode ~= session.OriginalSerialized)
+	local isValid, msg = _fe_validateExpr(newCode)
+	session.ValidationStatus = isValid and "valid" or "invalid"
+	session.ValidationMessage = msg
+	return true, session
+end
+
+function FunctionEditor:CommitEditSession(sessionId)
+	local session = self.EditSessions[sessionId]
+	if not session then
+		return false, "Session not found"
+	end
+	local newValue, err = _fe_deserialize(session.CurrentCode)
+	if not newValue and err then
+		return false, err
+	end
+	session.TableRef[session.KeyName] = newValue
+	table.insert(self.History, {
+		SessionId = sessionId,
+		TableRef = session.TableRef,
+		KeyName = session.KeyName,
+		OldValue = session.OriginalValue,
+		NewValue = newValue,
+	})
+	if #self.History > _FE_CONFIG.MAX_EDIT_HISTORY then
+		table.remove(self.History, 1)
+	end
+	session.IsModified = false
+	return true, "Changes applied"
+end
+
+function FunctionEditor:UndoLastEdit()
+	if #self.History == 0 then
+		return false, "No edits to undo"
+	end
+	local edit = table.remove(self.History)
+	edit.TableRef[edit.KeyName] = edit.OldValue
+	return true, "Edit undone: " .. tostring(edit.KeyName)
+end
+
+function FunctionEditor:CreateEditPanel(parent, sessionId, session, showNotificationFn, TI_ref)
+	local C = _FE_CONFIG.COLORS
+	local editorFrame = Instance.new("Frame", parent)
+	editorFrame.Name = "FunctionEditor_" .. sessionId
+	editorFrame.Size = UDim2.fromOffset(_FE_CONFIG.EDITOR_WIDTH, _FE_CONFIG.EDITOR_HEIGHT)
+	editorFrame.Position = UDim2.new(0.5, -_FE_CONFIG.EDITOR_WIDTH / 2, 0.1, 0)
+	editorFrame.BackgroundColor3 = C.EDITOR_BG
+	editorFrame.BorderSizePixel = 2
+	editorFrame.ZIndex = 200
+	editorFrame.ClipsDescendants = true
+
+	local header = Instance.new("Frame", editorFrame)
+	header.Size = UDim2.new(1, 0, 0, 24)
+	header.BackgroundColor3 = C.EDITOR_BORDER
+	header.BorderSizePixel = 0
+	header.ZIndex = 201
+
+	local titleLbl = Instance.new("TextLabel", header)
+	titleLbl.Size = UDim2.new(1, -26, 1, 0)
+	titleLbl.Position = UDim2.fromOffset(4, 0)
+	titleLbl.BackgroundTransparency = 1
+	titleLbl.Text = " Edit  [" .. session.KeyName .. " : " .. session.OriginalType .. "]"
+	titleLbl.TextColor3 = C.EDITOR_TEXT
+	titleLbl.Font = Enum.Font.GothamBold
+	titleLbl.TextSize = 11
+	titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+	titleLbl.ZIndex = 202
+
+	local closeBtn = Instance.new("TextButton", header)
+	closeBtn.Size = UDim2.fromOffset(20, 20)
+	closeBtn.Position = UDim2.new(1, -22, 0, 2)
+	closeBtn.BackgroundColor3 = C.INVALID
+	closeBtn.TextColor3 = Color3.new(1, 1, 1)
+	closeBtn.Font = Enum.Font.GothamBold
+	closeBtn.TextSize = 12
+	closeBtn.Text = "×"
+	closeBtn.BorderSizePixel = 0
+	closeBtn.ZIndex = 202
+
+	local dragging, dragStart, panelStart = false, nil, nil
+	header.InputBegan:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = true
+			dragStart = i.Position
+			panelStart = editorFrame.Position
+		end
+	end)
+	game:GetService("UserInputService").InputChanged:Connect(function(i)
+		if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+			local d = i.Position - dragStart
+			editorFrame.Position =
+				UDim2.new(panelStart.X.Scale, panelStart.X.Offset + d.X, panelStart.Y.Scale, panelStart.Y.Offset + d.Y)
+		end
+	end)
+	game:GetService("UserInputService").InputEnded:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = false
+		end
+	end)
+
+	local textBox = Instance.new("TextBox", editorFrame)
+	textBox.Name = "CodeInput"
+	textBox.Size = UDim2.new(1, -8, 0, 180)
+	textBox.Position = UDim2.fromOffset(4, 28)
+	textBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	textBox.TextColor3 = C.EDITOR_TEXT
+	textBox.Font = Enum.Font.Code
+	textBox.TextSize = 10
+	textBox.ClearTextOnFocus = false
+	textBox.TextWrapped = true
+	textBox.MultiLine = true
+	textBox.Text = session.CurrentCode
+	textBox.TextXAlignment = Enum.TextXAlignment.Left
+	textBox.TextYAlignment = Enum.TextYAlignment.Top
+	textBox.ZIndex = 201
+
+	local statusLbl = Instance.new("TextLabel", editorFrame)
+	statusLbl.Size = UDim2.new(1, -8, 0, 18)
+	statusLbl.Position = UDim2.fromOffset(4, 212)
+	statusLbl.BackgroundTransparency = 1
+	statusLbl.TextColor3 = C.VALID
+	statusLbl.Font = Enum.Font.GothamMonospace
+	statusLbl.TextSize = 9
+	statusLbl.TextXAlignment = Enum.TextXAlignment.Left
+	statusLbl.Text = session.ValidationMessage
+	statusLbl.ZIndex = 201
+
+	local validTimer = nil
+	textBox.Changed:Connect(function(prop)
+		if prop == "Text" then
+			if validTimer then
+				task.cancel(validTimer)
+			end
+			validTimer = task.delay(_FE_CONFIG.SYNTAX_CHECK_DELAY, function()
+				self:UpdateEditSession(sessionId, textBox.Text)
+				local s = self.EditSessions[sessionId]
+				if s then
+					statusLbl.Text = s.ValidationMessage
+					statusLbl.TextColor3 = (s.ValidationStatus == "valid") and C.VALID or C.INVALID
+				end
+			end)
+		end
+	end)
+
+	local btnRow = Instance.new("Frame", editorFrame)
+	btnRow.Size = UDim2.new(1, 0, 0, 32)
+	btnRow.Position = UDim2.new(0, 0, 1, -32)
+	btnRow.BackgroundColor3 = C.EDITOR_BORDER
+	btnRow.BorderSizePixel = 0
+	btnRow.ZIndex = 201
+
+	local function makeBtn(text, xOff, w, bgCol, cb)
+		local b = Instance.new("TextButton", btnRow)
+		b.Size = UDim2.fromOffset(w, 24)
+		b.Position = UDim2.fromOffset(xOff, 4)
+		b.BackgroundColor3 = bgCol
+		b.TextColor3 = Color3.new(1, 1, 1)
+		b.Font = Enum.Font.GothamBold
+		b.TextSize = 10
+		b.Text = text
+		b.BorderSizePixel = 0
+		b.ZIndex = 202
+		b.MouseButton1Click:Connect(cb)
+		return b
+	end
+
+	makeBtn(" Apply", 4, 100, C.VALID, function()
+		local ok, msg = self:CommitEditSession(sessionId)
+		if ok then
+			statusLbl.Text = " Applied!"
+			statusLbl.TextColor3 = C.VALID
+			if showNotificationFn then
+				showNotificationFn("Edited: " .. tostring(session.KeyName), "success")
+			end
+			task.wait(1)
+			editorFrame:Destroy()
+			if TI_ref then
+				TI_ref:RefreshInspector()
+			end
+		else
+			statusLbl.Text = " " .. msg
+			statusLbl.TextColor3 = C.INVALID
+		end
+	end)
+
+	makeBtn(" Cancel", 108, 100, C.INVALID, function()
+		editorFrame:Destroy()
+	end)
+
+	makeBtn("↶ Undo", 212, 80, C.WARNING, function()
+		local ok, msg = self:UndoLastEdit()
+		statusLbl.Text = ok and (" " .. msg) or (" " .. msg)
+		statusLbl.TextColor3 = ok and C.WARNING or C.INVALID
+		if ok and showNotificationFn then
+			showNotificationFn(msg, "success")
+		end
+		if ok and TI_ref then
+			TI_ref:RefreshInspector()
+		end
+	end)
+
+	local histLbl = Instance.new("TextLabel", btnRow)
+	histLbl.Size = UDim2.fromOffset(90, 24)
+	histLbl.Position = UDim2.new(1, -94, 0, 4)
+	histLbl.BackgroundTransparency = 1
+	histLbl.TextColor3 = C.EDITOR_TEXT
+	histLbl.Font = Enum.Font.GothamMonospace
+	histLbl.TextSize = 9
+	histLbl.Text = "History: " .. #self.History
+	histLbl.ZIndex = 202
+
+	closeBtn.MouseButton1Click:Connect(function()
+		editorFrame:Destroy()
+	end)
+
+	return editorFrame
+end
+
+function FunctionEditor:OpenFor(tableRef, keyName, parentFrame, showNotificationFn, TI_ref)
+	local sessionId, session = self:CreateEditSession(tableRef, keyName, tableRef[keyName])
+	local panel = self:CreateEditPanel(parentFrame, sessionId, session, showNotificationFn, TI_ref)
+	return sessionId, session, panel
+end
+
+TI.FunctionEditor = FunctionEditor.new()
+
 function TI:_generateUID()
 	local cs = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 	local r = ""
@@ -1574,9 +1923,9 @@ function TI:_showNotification(message, msgType)
 	icon.Position = UDim2.fromOffset(8, 8)
 	icon.BackgroundTransparency = 1
 	icon.ZIndex = 1001
-	icon.Text = msgType == "success" and "✓"
-		or msgType == "error" and "✗"
-		or msgType == "warning" and "⚠"
+	icon.Text = msgType == "success" and ""
+		or msgType == "error" and ""
+		or msgType == "warning" and ""
 		or "ℹ"
 	icon.TextColor3 = msgType == "success" and self.Config.SUCCESS_GREEN
 		or msgType == "error" and self.Config.FROZEN_RED
@@ -2030,11 +2379,15 @@ function TI:CreateInspectorRow(key, value, parentTable, isMetatable)
 			end
 		end
 	end)
-	local actionBtn = self:_createButton(row, "Patch", UDim2.fromOffset(45, 16), UDim2.new(0.80, 2, 0.5, -8), function()
+	local actionBtn = self:_createButton(row, "Patch", UDim2.fromOffset(36, 16), UDim2.new(0.80, 2, 0.5, -8), function()
 		if valueType == "table" then
 			self:DrillDown(key, value)
 		elseif valueType == "function" then
-			self:_showNotification("Function at: " .. tostring(key) .. " — hook from full tool", "info")
+			if self.State.UI and self.State.UI.InspectorScroll then
+				self.FunctionEditor:OpenFor(parentTable, key, self.State.UI.InspectorScroll, function(msg, t)
+					self:_showNotification(msg, t)
+				end, self)
+			end
 		else
 			local nv = self:ParseValue(valueBox.Text, valueType)
 			if nv ~= nil then
@@ -2049,14 +2402,33 @@ function TI:CreateInspectorRow(key, value, parentTable, isMetatable)
 		actionBtn.Text = "Dive"
 		actionBtn.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
 	elseif valueType == "function" then
-		actionBtn.Text = "Info"
+		actionBtn.Text = " Edit"
 		actionBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 100)
 	end
+
+	if valueType ~= "table" and valueType ~= "function" then
+		local editBtn = self:_createButton(
+			row,
+			" Edit",
+			UDim2.fromOffset(36, 16),
+			UDim2.new(0.855, 2, 0.5, -8),
+			function()
+				if self.State.UI and self.State.UI.InspectorScroll then
+					self.FunctionEditor:OpenFor(parentTable, key, self.State.UI.InspectorScroll, function(msg, t)
+						self:_showNotification(msg, t)
+					end, self)
+				end
+			end
+		)
+		editBtn.TextSize = 8
+		editBtn.BackgroundColor3 = Color3.fromRGB(80, 160, 120)
+	end
+
 	local freezeBtn = self:_createButton(
 		row,
 		"Freeze",
-		UDim2.fromOffset(45, 16),
-		UDim2.new(0.88, 2, 0.5, -8),
+		UDim2.fromOffset(36, 16),
+		UDim2.new(0.910, 2, 0.5, -8),
 		function()
 			if valueBox.TextEditable then
 				local nv = self:ParseValue(valueBox.Text, valueType)
@@ -2070,7 +2442,7 @@ function TI:CreateInspectorRow(key, value, parentTable, isMetatable)
 			end
 		end
 	)
-	freezeBtn.TextSize = 9
+	freezeBtn.TextSize = 8
 	if valueType == "table" then
 		local lastClick = 0
 		row.InputBegan:Connect(function(input)
@@ -2116,7 +2488,7 @@ function TI:DisplayMetatableChain(chain)
 		lbl.Size = UDim2.new(1, -8, 1, 0)
 		lbl.Position = UDim2.fromOffset(4, 0)
 		lbl.BackgroundTransparency = 1
-		lbl.Text = (entry.Locked and "🔒 " or "🔓 ")
+		lbl.Text = (entry.Locked and " " or " ")
 			.. "METATABLE #"
 			.. i
 			.. " (depth "
@@ -2136,7 +2508,7 @@ function TI:DisplayMetatableChain(chain)
 			il.Size = UDim2.new(1, -8, 1, 0)
 			il.Position = UDim2.fromOffset(4, 0)
 			il.BackgroundTransparency = 1
-			il.Text = "  ℹ️ " .. (entry.UnlockMessage or ("Access: " .. entry.AccessMethod))
+			il.Text = "  ℹ " .. (entry.UnlockMessage or ("Access: " .. entry.AccessMethod))
 			il.TextColor3 = Color3.fromRGB(100, 100, 0)
 			il.Font = Enum.Font.SourceSansItalic
 			il.TextSize = 9
@@ -2202,7 +2574,6 @@ function TI:CreatePatchRow(patchId, patch)
 	valLbl.TextSize = 9
 	valLbl.TextXAlignment = Enum.TextXAlignment.Left
 	valLbl.TextTruncate = Enum.TextTruncate.AtEnd
-	-- ── Copy snippet button ───────────────────────────────────────────────────
 	local function buildSnippet()
 		local keyStr
 		if type(patch.Key) == "string" then
@@ -2245,25 +2616,20 @@ function TI:CreatePatchRow(patchId, patch)
 		return table.concat(lines, "\n")
 	end
 
-	local copyBtn = self:_createButton(
-		row, "Copy",
-		UDim2.fromOffset(34, 16),
-		UDim2.new(0.80, 0, 0.5, -8),
-		function()
-			local snippet = buildSnippet()
-			local ok = pcall(function()
-				if setclipboard then
-					setclipboard(snippet)
-				elseif toclipboard then
-					toclipboard(snippet)
-				end
-			end)
-			self:_showNotification(
-				ok and ("Copied snippet for: " .. tostring(patch.Key)) or "Clipboard unavailable",
-				ok and "success" or "warning"
-			)
-		end
-	)
+	local copyBtn = self:_createButton(row, "Copy", UDim2.fromOffset(34, 16), UDim2.new(0.80, 0, 0.5, -8), function()
+		local snippet = buildSnippet()
+		local ok = pcall(function()
+			if setclipboard then
+				setclipboard(snippet)
+			elseif toclipboard then
+				toclipboard(snippet)
+			end
+		end)
+		self:_showNotification(
+			ok and ("Copied snippet for: " .. tostring(patch.Key)) or "Clipboard unavailable",
+			ok and "success" or "warning"
+		)
+	end)
 	copyBtn.TextSize = 9
 	copyBtn.BackgroundColor3 = Color3.fromRGB(200, 230, 255)
 
@@ -2542,7 +2908,7 @@ function TI:CreateUI()
 	end)
 	local minimizeBtn = self:_createButton(
 		titleBar,
-		"─",
+		"",
 		UDim2.fromOffset(20, 18),
 		UDim2.new(1, -44, 0, 2),
 		function()
@@ -3031,7 +3397,6 @@ function TI:CreateUI()
 		end
 	end)
 
-	-- ── Resize grip ───────────────────────────────────────────────────────────
 	local MIN_W, MIN_H = 600, 400
 	local resizeGrip = Instance.new("Frame", main)
 	resizeGrip.Name = "ResizeGrip"
@@ -3040,11 +3405,10 @@ function TI:CreateUI()
 	resizeGrip.BackgroundColor3 = self.Config.BG_DARK
 	resizeGrip.BorderSizePixel = 0
 	resizeGrip.ZIndex = 500
-	-- draw a small diagonal lines icon in the grip
 	for k = 1, 3 do
 		local dot = Instance.new("Frame", resizeGrip)
 		dot.Size = UDim2.fromOffset(2, 2)
-		dot.Position = UDim2.fromOffset(3 + (k-1)*3, 14 - 3 - (k-1)*3)
+		dot.Position = UDim2.fromOffset(3 + (k - 1) * 3, 14 - 3 - (k - 1) * 3)
 		dot.BackgroundColor3 = self.Config.BORDER_DARK
 		dot.BorderSizePixel = 0
 		dot.ZIndex = 501
