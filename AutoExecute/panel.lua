@@ -37112,6 +37112,67 @@ function Modules.Heavy:Initialize()
 	end)
 end
 
+RegisterCommand({
+    Name        = "jump",
+    Aliases     = {"jmp"},
+    Description = "allows jumping if the game restricts it",
+}, function(args)
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+    local LocalPlayer = Players.LocalPlayer
+
+    getgenv().RestoredJumpPower = 50
+    getgenv().BypassEnabled = true
+
+    local mt = getrawmetatable(game)
+    local old_newindex = mt.__newindex
+    setreadonly(mt, false)
+
+    mt.__newindex = newcclosure(function(t, k, v)
+    	if getgenv().BypassEnabled and (k == "JumpPower" or k == "JumpHeight") then
+    		if v == 0 then
+    			return old_newindex(t, k, getgenv().RestoredJumpPower)
+    		end
+    	end
+    	return old_newindex(t, k, v)
+    end)
+
+    setreadonly(mt, true)
+
+    local function ApplyBypass(character)
+    	local humanoid = character:WaitForChild("Humanoid")
+
+    	RunService.Stepped:Connect(function()
+    		if getgenv().BypassEnabled and humanoid then
+    			humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+
+    			if humanoid.JumpPower == 0 then
+    				humanoid.JumpPower = getgenv().RestoredJumpPower
+    			end
+    		end
+    	end)
+    end
+
+    UserInputService.JumpRequest:Connect(function()
+    	if getgenv().BypassEnabled then
+    		local character = LocalPlayer.Character
+    		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+    		if humanoid then
+    			humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+    		end
+    	end
+    end)
+
+    LocalPlayer.CharacterAdded:Connect(ApplyBypass)
+    if LocalPlayer.Character then
+    	ApplyBypass(LocalPlayer.Character)
+    end
+
+    print("Syn: Jump Restoration Active.")
+end)
+
 -- Loadstrings
 local function loadstringCmd(url, notif)
 	pcall(function()
