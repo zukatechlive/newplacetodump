@@ -16196,7 +16196,7 @@ Modules.HumanShield = {
 		CharacterConnections = {},
 	},
 	Config = {
-		DISTANCE = 4.5,
+		DISTANCE = 5.5,
 		VERTICAL_OFFSET = 0,
 	},
 	Dependencies = { "Players", "RunService" },
@@ -16321,7 +16321,6 @@ function Modules.HumanShield:Possess(targetName)
 	end
 	self.State.IsEnabled = true
 	self:_trackPlayer(targetPlr)
-	DoNotif("Shield Active: " .. targetPlr.Name .. " (persistent)", 2)
 end
 function Modules.HumanShield:Initialize()
 	local module = self
@@ -16393,7 +16392,7 @@ Modules.NPCShield = {
 		Connections = {},
 	},
 	Config = {
-		DISTANCE = 7.5,
+		DISTANCE = 10.5,
 		VERTICAL_OFFSET = 0,
 	},
 }
