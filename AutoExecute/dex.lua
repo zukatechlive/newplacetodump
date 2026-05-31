@@ -27305,209 +27305,194 @@ local RETURN_ELAPSED_TIME = false
 				for _, v in ipairs(ROBLOX_GLOBALS) do if v == key then return true end end
 				return false
 			end
-local function Decompile(bytecode, options)
-    local bytecodeVersion, typeEncodingVersion
-    Reader:Set(options.ReaderFloatPrecision)
-    local reader = Reader.new(bytecode)
-
-    -- version must be read HERE before disassemble() references it
-    local ok, verByte = pcall(function() return reader:nextByte() end)
-    if not ok then
-        return nil, string.format(Strings.COMPILATION_FAILURE, "bytecode too short to read version")
-    end
-    bytecodeVersion = verByte
-    if bytecodeVersion == 0 then
-        -- version 0 means compile error; rest of buffer is the error string
-        local errMsg = ""
-        pcall(function() errMsg = reader:nextString(reader:len() - 1) end)
-        return nil, string.format(Strings.COMPILATION_FAILURE, errMsg)
-    end
-    local BTag = LuauBytecodeTag
-    if bytecodeVersion < BTag.LBC_VERSION_MIN or bytecodeVersion > BTag.LBC_VERSION_MAX then
-        return nil, string.format(Strings.UNSUPPORTED_LBC_VERSION,
-            bytecodeVersion, BTag.LBC_VERSION_MIN, BTag.LBC_VERSION_MAX)
-    end
-
-    local function disassemble()
-        if bytecodeVersion >= 4 then
-            typeEncodingVersion = reader:nextByte()
-        end
-        local stringTable = {}
-        local function readStringTable()
-            local n = reader:nextVarInt()
-            for i = 1, n do stringTable[i] = reader:nextString() end
-        end
-        local userdataTypes = {}
-        local function readUserdataTypes()
-            if LuauCompileUserdataInfo then
-                while true do
-                    local idx = reader:nextByte()
-                    if idx == 0 then break end
-                    userdataTypes[idx] = reader:nextVarInt()
-                end
-            end
-        end
-        local protoTable = {}
-        local function readProtoTable()
-            local n = reader:nextVarInt()
-            for i = 1, n do
-                local protoId = i - 1
-                local proto = {
-                    id=protoId, instructions={}, constants={},
-                    captures={}, innerProtos={}, instructionLineInfo={},
-                }
-                protoTable[protoId] = proto
-                proto.maxStackSize  = reader:nextByte()
-                proto.numParams     = reader:nextByte()
-                proto.numUpvalues   = reader:nextByte()
-                proto.isVarArg      = toBoolean(reader:nextByte())
-                if bytecodeVersion >= 4 then
-                    proto.flags = reader:nextByte()
-                    local resultTypedParams, resultTypedUpvalues, resultTypedLocals = {}, {}, {}
-                    local allTypeInfoSize = reader:nextVarInt()
-                    local hasTypeInfo = allTypeInfoSize > 0
-                    proto.hasTypeInfo = hasTypeInfo
-                    if hasTypeInfo then
-                        if typeEncodingVersion and typeEncodingVersion > 1 then
-                            for _ = 1, allTypeInfoSize do reader:nextByte() end
-                        else
-                            local blob = reader:nextBytes(allTypeInfoSize)
-                            table.remove(blob, 1)
-                            table.remove(blob, 1)
-                            resultTypedParams = blob
-                        end
-                    end
-                    proto.typedParams   = resultTypedParams
-                    proto.typedUpvalues = resultTypedUpvalues
-                    proto.typedLocals   = resultTypedLocals
-                end
-                proto.sizeInstructions = reader:nextVarInt()
-                for j = 1, proto.sizeInstructions do
-                    proto.instructions[j] = reader:nextUInt32()
-                end
-                proto.sizeConstants = reader:nextVarInt()
-                for j = 1, proto.sizeConstants do
-                    local constType  = reader:nextByte()
-                    local constValue
-                    local BT = LuauBytecodeTag
-                    if constType == BT.LBC_CONSTANT_BOOLEAN then
-                        constValue = toBoolean(reader:nextByte())
-                    elseif constType == BT.LBC_CONSTANT_NUMBER then
-                        constValue = reader:nextDouble()
-                    elseif constType == BT.LBC_CONSTANT_STRING then
-                        constValue = stringTable[reader:nextVarInt()]
-                    elseif constType == BT.LBC_CONSTANT_IMPORT then
-                        local id = reader:nextUInt32()
-                        local idxCount = bit32.rshift(id, 30)
-                        local ci1 = bit32.band(bit32.rshift(id,20), 0x3FF)
-                        local ci2 = bit32.band(bit32.rshift(id,10), 0x3FF)
-                        local ci3 = bit32.band(id, 0x3FF)
-                        local tag = ""
-                        local function kv(idx) return proto.constants[idx+1] end
-                        if     idxCount == 1 then tag = tostring(kv(ci1) and kv(ci1).value or "")
-                        elseif idxCount == 2 then tag = tostring(kv(ci1) and kv(ci1).value or "")
-                            .."."..tostring(kv(ci2) and kv(ci2).value or "")
-                        elseif idxCount == 3 then tag = tostring(kv(ci1) and kv(ci1).value or "")
-                            .."."..tostring(kv(ci2) and kv(ci2).value or "")
-                            .."."..tostring(kv(ci3) and kv(ci3).value or "")
-                        end
-                        constValue = tag
-                    elseif constType == BT.LBC_CONSTANT_TABLE then
-                        local sz = reader:nextVarInt()
-                        local keys = {}
-                        for k = 1, sz do keys[k] = reader:nextVarInt()+1 end
-                        constValue = {size=sz, keys=keys}
-                    elseif constType == BT.LBC_CONSTANT_CLOSURE then
-                        constValue = reader:nextVarInt() + 1
-                    elseif constType == BT.LBC_CONSTANT_VECTOR then
-                        local x,y,z,w = reader:nextFloat(),reader:nextFloat(),reader:nextFloat(),reader:nextFloat()
-                        constValue = w == 0 and ("Vector3.new("..x..","..y..","..z..")")
-                            or ("vector.create("..x..","..y..","..z..","..w..")")
-                    elseif constType == BT.LBC_CONSTANT_TABLE_WITH_CONSTANTS then
-                        local sz = reader:nextVarInt()
-                        local keys = {}
-                        for k = 1, sz do keys[k] = reader:nextVarInt()+1; reader:nextVarInt() end
-                        constValue = {size=sz, keys=keys}
-                    elseif constType == BT.LBC_CONSTANT_INTEGER then
-                        local lo = reader:nextUInt32()
-                        local hi = reader:nextUInt32()
-                        constValue = hi * 4294967296 + lo
-                    end
-                    proto.constants[j] = {type=constType, value=constValue}
-                end
-                proto.sizeInnerProtos = reader:nextVarInt()
-                for j = 1, proto.sizeInnerProtos do
-                    proto.innerProtos[j] = protoTable[reader:nextVarInt()]
-                end
-                proto.lineDefined = reader:nextVarInt()
-                local nameId = reader:nextVarInt()
-                proto.name = stringTable[nameId]
-                local hasLineInfo = toBoolean(reader:nextByte())
-                proto.hasLineInfo = hasLineInfo
-                if hasLineInfo then
-                    local lgap = reader:nextByte()
-                    -- FIX 1: guard against sizeInstructions == 0
-                    local sizeInsn = proto.sizeInstructions
-                    local baselineSize = sizeInsn > 0
-                        and (bit32.rshift(sizeInsn - 1, lgap) + 1)
-                        or 0
-                    local smallLineInfo, absLineInfo = {}, {}
-                    local lastOffset, lastLine = 0, 0
-                    for j = 1, sizeInsn do
-                        local b = reader:nextSignedByte()
-                        lastOffset += b
-                        smallLineInfo[j] = lastOffset
-                    end
-                    for j = 1, baselineSize do
-                        local lc = lastLine + reader:nextInt32()
-                        absLineInfo[j-1] = lc
-                        lastLine = lc
-                    end
-                    local resultLineInfo = {}
-                    for j, line in ipairs(smallLineInfo) do
-                        local absIdx = bit32.rshift(j-1, lgap)
-                        local absLine = absLineInfo[absIdx] or 0
-                        local rl = line + absLine
-                        -- FIX 2: guard absLineInfo[absIdx+1] exists before applying correction
-                        if lgap <= 1 and (-line == absLine) and absLineInfo[absIdx+1] ~= nil then
-                            rl += absLineInfo[absIdx+1]
-                        end
-                        -- FIX 3: clamp instead of wrap — negative rl means bad delta, just use 1
-                        if rl <= 0 then rl = 1 end
-                        resultLineInfo[j] = rl
-                    end
-                    proto.lineInfoSize = lgap
-                    proto.instructionLineInfo = resultLineInfo
-                end
-                local hasDebugInfo = toBoolean(reader:nextByte())
-                proto.hasDebugInfo = hasDebugInfo
-                if hasDebugInfo then
-                    local totalLocals = reader:nextVarInt()
-                    local debugLocals = {}
-                    for j = 1, totalLocals do
-                        debugLocals[j] = {
-                            name     = stringTable[reader:nextVarInt()],
-                            startPC  = reader:nextVarInt(),
-                            endPC    = reader:nextVarInt(),
-                            register = reader:nextByte(),
-                        }
-                    end
-                    proto.debugLocals = debugLocals
-                    local totalUpvals = reader:nextVarInt()
-                    local debugUpvalues = {}
-                    for j = 1, totalUpvals do
-                        debugUpvalues[j] = {name=stringTable[reader:nextVarInt()]}
-                    end
-                    proto.debugUpvalues = debugUpvalues
-                end
-            end
-        end
-        readStringTable()
-        if bytecodeVersion and bytecodeVersion > 5 then readUserdataTypes() end
-        readProtoTable()
-        local mainProtoId = reader:nextVarInt()
-        return mainProtoId, protoTable
-    end
+			local function Decompile(bytecode, options)
+				local bytecodeVersion, typeEncodingVersion
+				Reader:Set(options.ReaderFloatPrecision)
+				local reader = Reader.new(bytecode)
+				local function disassemble()
+					if bytecodeVersion >= 4 then
+						typeEncodingVersion = reader:nextByte()
+					end
+					local stringTable = {}
+					local function readStringTable()
+						local n = reader:nextVarInt()
+						for i = 1, n do stringTable[i] = reader:nextString() end
+					end
+					local userdataTypes = {}
+					local function readUserdataTypes()
+						if LuauCompileUserdataInfo then
+							while true do
+								local idx = reader:nextByte()
+								if idx == 0 then break end
+								userdataTypes[idx] = reader:nextVarInt()
+							end
+						end
+					end
+					local protoTable = {}
+					local function readProtoTable()
+						local n = reader:nextVarInt()
+						for i = 1, n do
+							local protoId = i - 1
+							local proto = {
+								id=protoId, instructions={}, constants={},
+								captures={}, innerProtos={}, instructionLineInfo={},
+							}
+							protoTable[protoId] = proto
+							proto.maxStackSize  = reader:nextByte()
+							proto.numParams     = reader:nextByte()
+							proto.numUpvalues   = reader:nextByte()
+							proto.isVarArg      = toBoolean(reader:nextByte())
+							if bytecodeVersion >= 4 then
+								proto.flags = reader:nextByte()
+								local resultTypedParams, resultTypedUpvalues, resultTypedLocals = {}, {}, {}
+								local allTypeInfoSize = reader:nextVarInt()
+								local hasTypeInfo = allTypeInfoSize > 0
+								proto.hasTypeInfo = hasTypeInfo
+								if hasTypeInfo then
+									if typeEncodingVersion and typeEncodingVersion > 1 then
+										-- typeEncodingVersion 2 and 3 changed the local-entry layout in ways
+										-- that are hard to parse forward-compatibly (v3 uses type packs).
+										-- Consume the entire blob as a flat byte sequence so we never
+										-- over-read, then leave the typed-param tables empty.
+										-- The disasm still works; only type annotations on params are lost.
+										for _ = 1, allTypeInfoSize do reader:nextByte() end
+									else
+										-- typeEncodingVersion == 1:
+										-- blob = [retType, envType, param0, param1, ...]  (allTypeInfoSize bytes total)
+										local blob = reader:nextBytes(allTypeInfoSize)
+										-- strip the 2-byte function header (return type + env/self type)
+										table.remove(blob, 1)
+										table.remove(blob, 1)
+										resultTypedParams = blob
+									end
+								end
+								proto.typedParams   = resultTypedParams
+								proto.typedUpvalues = resultTypedUpvalues
+								proto.typedLocals   = resultTypedLocals
+							end
+							proto.sizeInstructions = reader:nextVarInt()
+							for j = 1, proto.sizeInstructions do
+								proto.instructions[j] = reader:nextUInt32()
+							end
+							proto.sizeConstants = reader:nextVarInt()
+							for j = 1, proto.sizeConstants do
+								local constType  = reader:nextByte()
+								local constValue
+								local BT = LuauBytecodeTag
+								if constType == BT.LBC_CONSTANT_BOOLEAN then
+									constValue = toBoolean(reader:nextByte())
+								elseif constType == BT.LBC_CONSTANT_NUMBER then
+									constValue = reader:nextDouble()
+								elseif constType == BT.LBC_CONSTANT_STRING then
+									constValue = stringTable[reader:nextVarInt()]
+								elseif constType == BT.LBC_CONSTANT_IMPORT then
+									local id = reader:nextUInt32()
+									local idxCount = bit32.rshift(id, 30)
+									local ci1 = bit32.band(bit32.rshift(id,20), 0x3FF)
+									local ci2 = bit32.band(bit32.rshift(id,10), 0x3FF)
+									local ci3 = bit32.band(id, 0x3FF)
+									local tag = ""
+									local function kv(idx) return proto.constants[idx+1] end
+									if     idxCount == 1 then tag = tostring(kv(ci1) and kv(ci1).value or "")
+									elseif idxCount == 2 then tag = tostring(kv(ci1) and kv(ci1).value or "")
+										.."."..tostring(kv(ci2) and kv(ci2).value or "")
+									elseif idxCount == 3 then tag = tostring(kv(ci1) and kv(ci1).value or "")
+										.."."..tostring(kv(ci2) and kv(ci2).value or "")
+										.."."..tostring(kv(ci3) and kv(ci3).value or "")
+									end
+									constValue = tag
+								elseif constType == BT.LBC_CONSTANT_TABLE then
+									local sz = reader:nextVarInt()
+									local keys = {}
+									for k = 1, sz do keys[k] = reader:nextVarInt()+1 end
+									constValue = {size=sz, keys=keys}
+								elseif constType == BT.LBC_CONSTANT_CLOSURE then
+									constValue = reader:nextVarInt() + 1
+								elseif constType == BT.LBC_CONSTANT_VECTOR then
+									local x,y,z,w = reader:nextFloat(),reader:nextFloat(),reader:nextFloat(),reader:nextFloat()
+									constValue = w == 0 and ("Vector3.new("..x..","..y..","..z..")")
+										or ("vector.create("..x..","..y..","..z..","..w..")")
+								elseif constType == BT.LBC_CONSTANT_TABLE_WITH_CONSTANTS then
+									-- v7: DUPTABLE with pre-filled constant values; layout: nkeys varint, then key+value varint pairs
+									local sz = reader:nextVarInt()
+									local keys = {}
+									for k = 1, sz do keys[k] = reader:nextVarInt()+1; reader:nextVarInt() end -- key idx + value idx
+									constValue = {size=sz, keys=keys}
+								elseif constType == BT.LBC_CONSTANT_INTEGER then
+									-- v8: 64-bit integer constant stored as two u32 (lo, hi)
+									local lo = reader:nextUInt32()
+									local hi = reader:nextUInt32()
+									constValue = hi * 4294967296 + lo
+								end
+								proto.constants[j] = {type=constType, value=constValue}
+							end
+							proto.sizeInnerProtos = reader:nextVarInt()
+							for j = 1, proto.sizeInnerProtos do
+								proto.innerProtos[j] = protoTable[reader:nextVarInt()]
+							end
+							proto.lineDefined = reader:nextVarInt()
+							local nameId = reader:nextVarInt()
+							proto.name = stringTable[nameId]
+							local hasLineInfo = toBoolean(reader:nextByte())
+							proto.hasLineInfo = hasLineInfo
+							if hasLineInfo then
+								local lgap = reader:nextByte()
+								local baselineSize = bit32.rshift(proto.sizeInstructions-1, lgap)+1
+								local smallLineInfo, absLineInfo = {}, {}
+								local lastOffset, lastLine = 0, 0
+								for j = 1, proto.sizeInstructions do
+									local b = reader:nextSignedByte()
+									lastOffset += b
+									smallLineInfo[j] = lastOffset
+								end
+								for j = 1, baselineSize do
+									local lc = lastLine + reader:nextInt32()
+									absLineInfo[j-1] = lc
+									lastLine = lc
+								end
+								local resultLineInfo = {}
+								for j, line in ipairs(smallLineInfo) do
+									local absIdx = bit32.rshift(j-1, lgap)
+									local absLine = absLineInfo[absIdx]
+									local rl = line + absLine
+									if lgap <= 1 and (-line == absLine) then
+										rl += absLineInfo[absIdx+1] or 0
+									end
+									if rl <= 0 then rl += 0x100 end
+									resultLineInfo[j] = rl
+								end
+								proto.lineInfoSize = lgap
+								proto.instructionLineInfo = resultLineInfo
+							end
+							local hasDebugInfo = toBoolean(reader:nextByte())
+							proto.hasDebugInfo = hasDebugInfo
+							if hasDebugInfo then
+								local totalLocals = reader:nextVarInt()
+								local debugLocals = {}
+								for j = 1, totalLocals do
+									debugLocals[j] = {
+										name     = stringTable[reader:nextVarInt()],
+										startPC  = reader:nextVarInt(),
+										endPC    = reader:nextVarInt(),
+										register = reader:nextByte(),
+									}
+								end
+								proto.debugLocals = debugLocals
+								local totalUpvals = reader:nextVarInt()
+								local debugUpvalues = {}
+								for j = 1, totalUpvals do
+									debugUpvalues[j] = {name=stringTable[reader:nextVarInt()]}
+								end
+								proto.debugUpvalues = debugUpvalues
+							end
+						end
+					end
+					readStringTable()
+					if bytecodeVersion and bytecodeVersion > 5 then readUserdataTypes() end
+					readProtoTable()
+					local mainProtoId = reader:nextVarInt()
+					return mainProtoId, protoTable
+				end
 				local function organize()
 					local mainProtoId, protoTable = disassemble()
 					local mainProto = protoTable[mainProtoId]
