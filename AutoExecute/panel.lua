@@ -24169,6 +24169,9 @@ Modules.PlayerLookup = {
 	},
 	Services = {},
 }
+
+local HttpService = game:GetService("HttpService")
+
 local function make(class, props, parent)
 	local obj = Instance.new(class)
 	for k, v in pairs(props) do
@@ -24181,16 +24184,14 @@ local function make(class, props, parent)
 	end
 	return obj
 end
-local function corner(r, p)
-	local c = Instance.new("UICorner", p)
-	c.CornerRadius = UDim.new(0, r)
-end
+
 local function stroke(t, col, p)
 	local s = Instance.new("UIStroke", p)
 	s.Thickness = t
 	s.Color = col
 	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 end
+
 local function tw(obj, props, t, style)
 	pcall(function()
 		TweenService
@@ -24198,6 +24199,7 @@ local function tw(obj, props, t, style)
 			:Play()
 	end)
 end
+
 local function copyToClipboard(text)
 	if setclipboard then
 		pcall(setclipboard, text)
@@ -24207,6 +24209,7 @@ local function copyToClipboard(text)
 		pcall(Clipboard.set, text)
 	end
 end
+
 local function accountAge(days)
 	days = days or 0
 	local y = math.floor(days / 365)
@@ -24224,6 +24227,7 @@ local function accountAge(days)
 	end
 	return table.concat(parts, " ")
 end
+
 local function withTimeout(seconds, fn, ...)
 	local args = { ... }
 	local done = false
@@ -24245,6 +24249,36 @@ local function withTimeout(seconds, fn, ...)
 	local ok = table.remove(results, 1)
 	return ok, table.unpack(results, 1, results.n - 1)
 end
+
+-- Replaces GetPlayerInfoAsync using the Roblox Users API via HttpGet
+local function fetchUserInfo(userId)
+	local ok, raw = pcall(function()
+		return game:HttpGet("https://users.roblox.com/v1/users/" .. tostring(userId))
+	end)
+	if not ok or not raw then
+		return nil
+	end
+	local decodeOk, data = pcall(HttpService.JSONDecode, HttpService, raw)
+	if not decodeOk or not data then
+		return nil
+	end
+	-- Normalize to match old info table shape used in the rest of the code
+	local joinDate = nil
+	if data.created then
+		-- Parse ISO 8601: "2015-03-20T00:00:00.000Z"
+		local year, month, day = data.created:match("^(%d+)-(%d+)-(%d+)")
+		if year then
+			local ts = DateTime.fromUniversalTime(tonumber(year), tonumber(month), tonumber(day), 0, 0, 0)
+			joinDate = { UnixTimestamp = ts.UnixTimestamp }
+		end
+	end
+	return {
+		Username = data.name,
+		DisplayName = data.displayName,
+		JoinDate = joinDate,
+	}
+end
+
 function Modules.PlayerLookup:_createUI()
 	local oldUI = CoreGui:FindFirstChild("PLookup_Zuka")
 	if oldUI then
@@ -24265,7 +24299,6 @@ function Modules.PlayerLookup:_createUI()
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 	}, ScreenGui)
-	corner(12, Main)
 	stroke(1, C.BORDER, Main)
 	local TopLine = make("Frame", {
 		Size = UDim2.new(1, 0, 0, 2),
@@ -24300,13 +24333,12 @@ function Modules.PlayerLookup:_createUI()
 		Position = UDim2.new(1, -34, 0.5, -13),
 		BackgroundColor3 = C.RAISED,
 		BorderSizePixel = 0,
-		Text = "",
+		Text = "X",
 		TextColor3 = C.MUTED,
 		TextSize = 12,
 		Font = Enum.Font.GothamBold,
 		AutoButtonColor = false,
 	}, TitleBar)
-	corner(6, CloseBtn)
 	CloseBtn.MouseButton1Click:Connect(function()
 		self:Close()
 	end)
@@ -24345,20 +24377,19 @@ function Modules.PlayerLookup:_createUI()
 		BackgroundColor3 = C.RAISED,
 		BorderSizePixel = 0,
 	}, Main)
-	corner(8, SearchWrap)
 	stroke(1, C.BORDER, SearchWrap)
 	make("TextLabel", {
-		Size = UDim2.fromOffset(20, 36),
-		Position = UDim2.fromOffset(8, 0),
+		Size = UDim2.fromOffset(26, 36),
+		Position = UDim2.fromOffset(6, 0),
 		BackgroundTransparency = 1,
-		Text = "⌕",
+		Text = ">>",
 		TextColor3 = C.MUTED,
-		TextSize = 15,
-		Font = Enum.Font.Gotham,
+		TextSize = 11,
+		Font = Enum.Font.GothamBold,
 	}, SearchWrap)
 	local SearchInput = make("TextBox", {
 		Size = UDim2.new(1, -72, 1, 0),
-		Position = UDim2.fromOffset(28, 0),
+		Position = UDim2.fromOffset(30, 0),
 		BackgroundTransparency = 1,
 		PlaceholderText = "username or user id...",
 		PlaceholderColor3 = C.MUTED,
@@ -24380,7 +24411,6 @@ function Modules.PlayerLookup:_createUI()
 		Font = Enum.Font.GothamBold,
 		AutoButtonColor = false,
 	}, SearchWrap)
-	corner(6, GoBtn)
 	GoBtn.MouseEnter:Connect(function()
 		tw(GoBtn, { BackgroundColor3 = Color3.fromRGB(109, 40, 217) }, 0.1)
 	end)
@@ -24408,7 +24438,6 @@ function Modules.PlayerLookup:_createUI()
 		ClipsDescendants = true,
 		ScrollingDirection = Enum.ScrollingDirection.X,
 	}, Main)
-	corner(8, ListFrame)
 	stroke(1, C.BORDER, ListFrame)
 	make("UIListLayout", {
 		FillDirection = Enum.FillDirection.Horizontal,
@@ -24434,7 +24463,6 @@ function Modules.PlayerLookup:_createUI()
 		BorderSizePixel = 0,
 		Visible = false,
 	}, Main)
-	corner(10, Card)
 	stroke(1, C.BORDER, Card)
 	local AvatarFrame = make("Frame", {
 		Size = UDim2.fromOffset(70, 70),
@@ -24442,7 +24470,6 @@ function Modules.PlayerLookup:_createUI()
 		BackgroundColor3 = C.RAISED,
 		BorderSizePixel = 0,
 	}, Card)
-	corner(10, AvatarFrame)
 	stroke(1, C.BORDER, AvatarFrame)
 	local AvatarImg = make("ImageLabel", {
 		Size = UDim2.new(1, 0, 1, 0),
@@ -24450,7 +24477,6 @@ function Modules.PlayerLookup:_createUI()
 		Image = "",
 		ScaleType = Enum.ScaleType.Fit,
 	}, AvatarFrame)
-	corner(10, AvatarImg)
 	local AvatarLoading = make("TextLabel", {
 		Size = UDim2.new(1, 0, 1, 0),
 		BackgroundTransparency = 1,
@@ -24512,6 +24538,7 @@ function Modules.PlayerLookup:_createUI()
 	task.wait(0.35)
 	self:_lookupPlayer(LocalPlayer)
 end
+
 function Modules.PlayerLookup:_createInfoRows()
 	local C = self.Config.Colors
 	local Card = self.State.UI.Card
@@ -24522,15 +24549,14 @@ function Modules.PlayerLookup:_createInfoRows()
 			BackgroundColor3 = C.RAISED,
 			BorderSizePixel = 0,
 		}, Card)
-		corner(6, row)
 		make("TextLabel", {
 			Size = UDim2.fromOffset(22, 28),
 			Position = UDim2.fromOffset(6, 0),
 			BackgroundTransparency = 1,
 			Text = icon,
 			TextColor3 = C.ACCENT,
-			TextSize = 12,
-			Font = Enum.Font.Gotham,
+			TextSize = 10,
+			Font = Enum.Font.GothamBold,
 		}, row)
 		make("TextLabel", {
 			Size = UDim2.fromOffset(76, 28),
@@ -24546,7 +24572,7 @@ function Modules.PlayerLookup:_createInfoRows()
 			Size = UDim2.new(1, copyable and -136 or -110, 1, 0),
 			Position = UDim2.fromOffset(104, 0),
 			BackgroundTransparency = 1,
-			Text = "—",
+			Text = "--",
 			TextColor3 = C.TEXT,
 			TextSize = 11,
 			Font = Enum.Font.Gotham,
@@ -24565,7 +24591,6 @@ function Modules.PlayerLookup:_createInfoRows()
 				Font = Enum.Font.GothamBold,
 				AutoButtonColor = false,
 			}, row)
-			corner(0, cp)
 			cp.MouseButton1Click:Connect(function()
 				copyToClipboard(val.Text)
 				tw(cp, { BackgroundColor3 = C.GREEN, TextColor3 = Color3.new(0, 0, 0) }, 0.1)
@@ -24577,12 +24602,13 @@ function Modules.PlayerLookup:_createInfoRows()
 	end
 	self.State.UI.InfoRows = {
 		id = makeRow("#", "USER ID", 84, true),
-		url = makeRow("⎘", "PROFILE URL", 118, true),
-		age = makeRow("⏱", "ACCT AGE", 152, false),
-		joined = makeRow("", "JOINED", 186, false),
-		inSrv = makeRow("", "IN SERVER", 220, false),
+		url = makeRow("@", "PROFILE URL", 118, true),
+		age = makeRow("AGE", "ACCT AGE", 152, false),
+		joined = makeRow("DOT", "JOINED", 186, false),
+		inSrv = makeRow("SRV", "IN SERVER", 220, false),
 	}
 end
+
 function Modules.PlayerLookup:_setupEventHandlers()
 	local GoBtn = self.State.UI.GoBtn
 	local SearchInput = self.State.UI.SearchInput
@@ -24603,6 +24629,7 @@ function Modules.PlayerLookup:_setupEventHandlers()
 		self:_buildPlayerList()
 	end)
 end
+
 function Modules.PlayerLookup:_clearBadges()
 	for _, b in ipairs(self.State.CurrentBadges) do
 		pcall(function()
@@ -24611,6 +24638,7 @@ function Modules.PlayerLookup:_clearBadges()
 	end
 	self.State.CurrentBadges = {}
 end
+
 function Modules.PlayerLookup:_addBadge(text, color)
 	local b = make("Frame", {
 		Size = UDim2.fromOffset(0, 16),
@@ -24618,7 +24646,6 @@ function Modules.PlayerLookup:_addBadge(text, color)
 		BorderSizePixel = 0,
 		AutomaticSize = Enum.AutomaticSize.X,
 	}, self.State.UI.BadgeRow)
-	corner(3, b)
 	make("TextLabel", {
 		Size = UDim2.new(1, 0, 1, 0),
 		BackgroundTransparency = 1,
@@ -24634,6 +24661,7 @@ function Modules.PlayerLookup:_addBadge(text, color)
 	}, b)
 	table.insert(self.State.CurrentBadges, b)
 end
+
 function Modules.PlayerLookup:_buildPlayerList()
 	if not self.State.UI then
 		return
@@ -24654,7 +24682,6 @@ function Modules.PlayerLookup:_buildPlayerList()
 			Text = "",
 			AutoButtonColor = false,
 		}, ListFrame)
-		corner(8, card)
 		stroke(1, plr == LocalPlayer and C.ACCENT or C.BORDER, card)
 		local img = make("ImageLabel", {
 			Size = UDim2.fromOffset(38, 38),
@@ -24664,7 +24691,6 @@ function Modules.PlayerLookup:_buildPlayerList()
 			Image = "",
 			ScaleType = Enum.ScaleType.Fit,
 		}, card)
-		corner(6, img)
 		make("TextLabel", {
 			Size = UDim2.new(1, -4, 0, 13),
 			Position = UDim2.fromOffset(2, 43),
@@ -24700,6 +24726,7 @@ function Modules.PlayerLookup:_buildPlayerList()
 	end
 	ListFrame.CanvasSize = UDim2.fromOffset(#plrs * 64 + 6, 0)
 end
+
 function Modules.PlayerLookup:_lookupPlayer(plr)
 	if not plr or not self.State.UI then
 		return
@@ -24741,11 +24768,12 @@ function Modules.PlayerLookup:_lookupPlayer(plr)
 		R.age.Text = accountAge(plr.AccountAge) .. " (" .. plr.AccountAge .. "d)"
 		R.inSrv.Text = "yes"
 		R.inSrv.TextColor3 = C.GREEN
-		local iOk, info = withTimeout(8, Players.GetPlayerInfoAsync, Players, plr.UserId)
+		-- Use fetchUserInfo instead of GetPlayerInfoAsync
+		local info = fetchUserInfo(plr.UserId)
 		if self.State.SearchToken ~= myToken then
 			return
 		end
-		if iOk and info and info.JoinDate then
+		if info and info.JoinDate then
 			local dOk, dt = pcall(DateTime.fromUnixTimestamp, info.JoinDate.UnixTimestamp)
 			if dOk then
 				local t = dt:ToLocalTime()
@@ -24762,6 +24790,7 @@ function Modules.PlayerLookup:_lookupPlayer(plr)
 		tw(UI.Card, { BackgroundTransparency = 0 }, 0.2)
 	end)
 end
+
 function Modules.PlayerLookup:_doSearch(raw)
 	if not self.State.UI then
 		return
@@ -24801,11 +24830,11 @@ function Modules.PlayerLookup:_doSearch(raw)
 			end
 			userId = res
 		end
-		local infoResult, thumbResult = nil, nil
+		local info = nil
+		local thumbResult = nil
 		local infoDone, thumbDone = false, false
 		task.spawn(function()
-			local ok, res = withTimeout(8, Players.GetPlayerInfoAsync, Players, userId)
-			infoResult = { ok = ok, data = res }
+			info = fetchUserInfo(userId)
 			infoDone = true
 		end)
 		task.spawn(function()
@@ -24829,7 +24858,6 @@ function Modules.PlayerLookup:_doSearch(raw)
 			self.State.SearchDebounce = false
 			return
 		end
-		local info = infoResult and infoResult.ok and infoResult.data
 		local thumb = thumbResult and thumbResult.ok and thumbResult.data
 		local UI = self.State.UI
 		local R = UI.InfoRows
@@ -24862,6 +24890,7 @@ function Modules.PlayerLookup:_doSearch(raw)
 		self.State.SearchDebounce = false
 	end)
 end
+
 function Modules.PlayerLookup:Open()
 	if self.State.IsOpen then
 		return
@@ -24870,6 +24899,7 @@ function Modules.PlayerLookup:Open()
 	self:_createUI()
 	DoNotif("Player Lookup opened", 2)
 end
+
 function Modules.PlayerLookup:Close()
 	if not self.State.IsOpen or not self.State.UI then
 		return
@@ -24884,6 +24914,7 @@ function Modules.PlayerLookup:Close()
 	self.State.UI = nil
 	DoNotif("Player Lookup closed", 2)
 end
+
 function Modules.PlayerLookup:Toggle()
 	if self.State.IsOpen then
 		self:Close()
@@ -24891,6 +24922,7 @@ function Modules.PlayerLookup:Toggle()
 		self:Open()
 	end
 end
+
 function Modules.PlayerLookup:LookupUsername(username)
 	if not self.State.IsOpen then
 		self:Open()
@@ -24901,6 +24933,7 @@ function Modules.PlayerLookup:LookupUsername(username)
 		self:_doSearch(username)
 	end
 end
+
 function Modules.PlayerLookup:LookupUserId(userId)
 	if not self.State.IsOpen then
 		self:Open()
@@ -24911,6 +24944,7 @@ function Modules.PlayerLookup:LookupUserId(userId)
 		self:_doSearch(tostring(userId))
 	end
 end
+
 function Modules.PlayerLookup:Initialize()
 	local module = self
 	RegisterCommand({
