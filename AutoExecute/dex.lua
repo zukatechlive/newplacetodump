@@ -2529,10 +2529,10 @@ local EmbeddedModules = {
 				context:AddRegistered("INSERT_OBJECT")
 				context:AddRegistered("SAVE_INST")
 
-				context:AddRegistered("EDIT_PROPERTIES")
-				context:AddRegistered("LOCK_PROPERTIES")
+				--context:AddRegistered("EDIT_PROPERTIES")
+				--context:AddRegistered("LOCK_PROPERTIES")
 
-				context:AddRegistered("COPY_API_PAGE")
+				--context:AddRegistered("COPY_API_PAGE")
 
 				context:QueueDivider()
 
@@ -2541,9 +2541,9 @@ local EmbeddedModules = {
 					context:AddRegistered("BRING_TO_PLAYER")
 					context:AddRegistered("VIEW_OBJECT")
 					context:AddRegistered("3DVIEW_MODEL")
-					context:AddRegistered("ADD_DMGPOINT")
-					context:AddRegistered("SWORDIFY")
-					context:AddRegistered("FORCE_HUMANOID_IGNORE")
+					--context:AddRegistered("ADD_DMGPOINT")
+					--context:AddRegistered("SWORDIFY")
+					--context:AddRegistered("FORCE_HUMANOID_IGNORE")
 					context:AddRegistered("ANCHOR")
 					context:AddRegistered("UNANCHOR")
 				end
@@ -2557,15 +2557,15 @@ local EmbeddedModules = {
 					context:AddRegistered("INSERT_ANIMATION")
 				end
 
-				if presentClasses["Tool"] then
-					context:AddRegistered("ADD_DMGPOINT")
-				end
+				--if presentClasses["Tool"] then
+				--	context:AddRegistered("ADD_DMGPOINT")
+				--end
 				if presentClasses["Tool"] then
 					context:AddRegistered("EQUIP_TOOL")
 				end
-				if presentClasses["Tool"] then
-					context:AddRegistered("SWORDIFY")
-				end
+				--if presentClasses["Tool"] then
+				--	context:AddRegistered("SWORDIFY")
+				--end
 				if presentClasses["Tool"] then
 					context:AddRegistered("INSERT_ANIMATION")
 				end
@@ -2680,7 +2680,7 @@ local EmbeddedModules = {
 				if presentClasses["ModuleScript"] then
 					context:AddRegistered("GENERATE_POISON_PATCH")
 					context:AddRegistered("GENERATE_POISON_PATCH2")
-					context:AddRegistered("GENERATE_UNIVERSAL_POISON")
+				--	context:AddRegistered("GENERATE_UNIVERSAL_POISON")
 					context:AddRegistered("DUMP_FUNCTIONS")
 					context:AddRegistered("AUTO_DECOMPILE_MODULE")
 					context:AddRegistered("TABLE_INSPECTOR")
