@@ -2648,11 +2648,6 @@ local EmbeddedModules = {
 						-- AntiAim
 						context:QueueDivider()
 						context:AddRegistered("ANTIAIM_TOGGLE")
-						context:AddRegistered("ANTIAIM_CYCLE_PATTERN")
-						context:AddRegistered("ANTIAIM_TOGGLE_JITTER")
-						context:AddRegistered("ANTIAIM_TOGGLE_VARIATION")
-						context:AddRegistered("ANTIAIM_TOGGLE_SNAPBACK")
-						context:AddRegistered("ANTIAIM_TOGGLE_VISUALS")
 						context:AddRegistered("ANTIAIM_RESTORE_VELOCITY")
 					end
 				end
@@ -9146,79 +9141,75 @@ local function parseRemoteArgs(input)
 					IconMap = Explorer.MiscIcons,
 					Icon = "Play",
 					OnClick = function()
-						_G._aaEnabled = not _G._aaEnabled
 						local char = plr.Character
 						local hrp = char and char:FindFirstChild("HumanoidRootPart")
-						if not _G._aaEnabled and hrp then
+						if not hrp then return end
+
+						if _G._aaConn then
+							-- stop
+							pcall(function() _G._aaConn:Disconnect() end)
+							_G._aaConn = nil
+							pcall(function() _G._aaRSConn:Disconnect() end)
+							_G._aaRSConn = nil
 							pcall(function()
 								hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
 								hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
 							end)
-						end
-						if getgenv().DoNotif then
-							getgenv().DoNotif("AntiAim: " .. (_G._aaEnabled and "ON" or "OFF"), 2)
-						end
-					end,
-				})
+							if getgenv().DoNotif then getgenv().DoNotif("AntiAim: OFF", 2) end
+						else
+							-- start
+							local patternStart = tick()
+							local currentPattern = nil
+							local strength = 80
 
-				context:Register("ANTIAIM_CYCLE_PATTERN", {
-					Name = "AntiAim: New Pattern",
-					IconMap = Explorer.MiscIcons,
-					Icon = "Rotate",
-					OnClick = function()
-						_G._aaPattern = nil
-						_G._aaPatternStart = tick()
-						if getgenv().DoNotif then getgenv().DoNotif("AntiAim: pattern cycled", 2) end
-					end,
-				})
+							local patterns = {
+								function(t)
+									return Vector3.new(math.cos(t*10)*strength, math.sin(t*5)*strength, math.sin(t*10)*strength)
+								end,
+								function(t)
+									return Vector3.new(math.sin(t*8)*strength, math.cos(t*4)*strength*0.5, math.sin(t*4)*math.cos(t*4)*strength)
+								end,
+								function(t)
+									local noise = math.noise(t*20, t*15, t*10) or 0.5
+									return Vector3.new(math.random(-100,100)*noise, math.random(-100,100)*noise, math.random(-100,100)*noise).Unit * strength
+								end,
+								function(t)
+									local dirs = {Vector3.new(1,0,0),Vector3.new(-1,0,0),Vector3.new(0,1,0),Vector3.new(0,-1,0),Vector3.new(0,0,1),Vector3.new(0,0,-1)}
+									return dirs[math.floor(t*30)%6+1] * strength
+								end,
+								function(t)
+									local a = t*15
+									return Vector3.new(math.cos(a)*strength, math.random(-1,1)*strength*0.3, math.sin(a)*strength)
+								end,
+							}
 
-				context:Register("ANTIAIM_TOGGLE_JITTER", {
-					Name = "AntiAim: Toggle Jitter",
-					IconMap = Explorer.MiscIcons,
-					Icon = "SelectChildren",
-					OnClick = function()
-						_G._aaJitter = not _G._aaJitter
-						if getgenv().DoNotif then
-							getgenv().DoNotif("AntiAim jitter: " .. (_G._aaJitter and "ON" or "OFF"), 2)
-						end
-					end,
-				})
+							local oldCFrame, oldVelocity
+							_G._aaConn = game:GetService("RunService").Heartbeat:Connect(function()
+								local root = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+								if not root then return end
+								oldCFrame = root.CFrame
+								oldVelocity = root.AssemblyLinearVelocity
+								if not currentPattern or math.random() < 0.15 then
+									currentPattern = patterns[math.random(1, #patterns)]
+									patternStart = tick()
+								end
+								local vec = currentPattern(tick() - patternStart)
+								pcall(function()
+									root.CFrame = root.CFrame + vec
+									root.AssemblyLinearVelocity = vec
+								end)
+							end)
 
-				context:Register("ANTIAIM_TOGGLE_VARIATION", {
-					Name = "AntiAim: Toggle Strength Variation",
-					IconMap = Explorer.MiscIcons,
-					Icon = "SelectChildren",
-					OnClick = function()
-						_G._aaVariation = not _G._aaVariation
-						if getgenv().DoNotif then
-							getgenv().DoNotif("AntiAim variation: " .. (_G._aaVariation and "ON" or "OFF"), 2)
-						end
-					end,
-				})
+							_G._aaRSConn = game:GetService("RunService").RenderStepped:Connect(function()
+								local root = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+								if not root or not oldCFrame then return end
+								pcall(function()
+									root.CFrame = oldCFrame
+									root.AssemblyLinearVelocity = oldVelocity
+								end)
+							end)
 
-				context:Register("ANTIAIM_TOGGLE_SNAPBACK", {
-					Name = "AntiAim: Toggle SnapBack",
-					IconMap = Explorer.MiscIcons,
-					Icon = "TeleportTo",
-					OnClick = function()
-						_G._aaSnapBack = not _G._aaSnapBack
-						if getgenv().DoNotif then
-							getgenv().DoNotif("AntiAim snapback: " .. (_G._aaSnapBack and "ON" or "OFF"), 2)
-						end
-					end,
-				})
-
-				context:Register("ANTIAIM_TOGGLE_VISUALS", {
-					Name = "AntiAim: Toggle Visuals",
-					IconMap = Explorer.MiscIcons,
-					Icon = "ViewObject",
-					OnClick = function()
-						_G._aaVisuals = not _G._aaVisuals
-						if not _G._aaVisuals and _G._aaVisualizer then
-							pcall(function() _G._aaVisualizer.CFrame = CFrame.new(0, -9999, 0) end)
-						end
-						if getgenv().DoNotif then
-							getgenv().DoNotif("AntiAim visuals: " .. (_G._aaVisuals and "ON" or "OFF"), 2)
+							if getgenv().DoNotif then getgenv().DoNotif("AntiAim: ON", 2) end
 						end
 					end,
 				})
@@ -9230,14 +9221,22 @@ local function parseRemoteArgs(input)
 					OnClick = function()
 						local char = plr.Character
 						local hrp = char and char:FindFirstChild("HumanoidRootPart")
+						if _G._aaConn then
+							pcall(function() _G._aaConn:Disconnect() end)
+							_G._aaConn = nil
+						end
+						if _G._aaRSConn then
+							pcall(function() _G._aaRSConn:Disconnect() end)
+							_G._aaRSConn = nil
+						end
 						if hrp then
 							pcall(function()
 								hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
 								hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+								hrp.CFrame = hrp.CFrame
 							end)
 						end
-						_G._aaEnabled = false
-						if getgenv().DoNotif then getgenv().DoNotif("AntiAim: killed & disabled", 2) end
+						if getgenv().DoNotif then getgenv().DoNotif("AntiAim: killed", 2) end
 					end,
 				})
 
