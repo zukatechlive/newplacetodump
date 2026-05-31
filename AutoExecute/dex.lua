@@ -2527,6 +2527,8 @@ local EmbeddedModules = {
 					context:AddRegistered("SELECT_CHARACTER")
 					context:AddRegistered("VIEW_PLAYER")
 					context:AddRegistered("LOCK_PROPERTIES")
+					context:AddRegistered("HUMAN_SHIELD_BRING")
+					context:AddRegistered("HUMAN_SHIELD_RELEASE")
 				end
 				if presentClasses["Players"] then
 					context:AddRegistered("SELECT_LOCAL_PLAYER")
@@ -8856,6 +8858,103 @@ local function parseRemoteArgs(input)
 								getgenv().DoNotif("Attach Behind: already off", 2)
 							end
 						end
+					end,
+				})
+
+				-- ══════════════════════════════════════════════════════════════════
+				-- HUMAN SHIELD
+				-- ══════════════════════════════════════════════════════════════════
+				context:Register("HUMAN_SHIELD_BRING", {
+					Name = "Shield: Bring",
+					IconMap = Explorer.MiscIcons,
+					Icon = "SelectChildren",
+					OnClick = function()
+						local node = selection.List[1]
+						if not node then return end
+						local obj = node.Obj
+						if not obj:IsA("Player") or obj == plr then
+							if getgenv().DoNotif then getgenv().DoNotif("Select another player", 2) end
+							return
+						end
+
+						local myChar = plr.Character
+						local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+						if not myRoot then
+							if getgenv().DoNotif then getgenv().DoNotif("Your character not found", 2) end
+							return
+						end
+
+						local DISTANCE      = 4.5
+						local VERT_OFFSET   = 0
+						local LERP_SPEED    = 0.2
+
+						-- Stop any previous bring for this player
+						local connId = "_shieldConn_" .. obj.UserId
+						if _G[connId] then
+							pcall(function() _G[connId]:Disconnect() end)
+							_G[connId] = nil
+						end
+
+						local function setupBring(character)
+							local tRoot = character and character:FindFirstChild("HumanoidRootPart")
+							if not tRoot then return end
+
+							if _G[connId] then
+								pcall(function() _G[connId]:Disconnect() end)
+							end
+
+							_G[connId] = game:GetService("RunService").Heartbeat:Connect(function(dt)
+								local myC  = plr.Character
+								local myR  = myC and myC:FindFirstChild("HumanoidRootPart")
+								if not (myR and tRoot and tRoot.Parent) then return end
+								pcall(function()
+									local target = myR.CFrame * CFrame.new(0, VERT_OFFSET, -DISTANCE)
+									local alpha  = 1 - (1 - LERP_SPEED) ^ (dt * 60)
+									tRoot.CFrame = tRoot.CFrame:Lerp(target, alpha)
+									tRoot.AssemblyLinearVelocity  = Vector3.zero
+									tRoot.AssemblyAngularVelocity = Vector3.zero
+								end)
+							end)
+						end
+
+						setupBring(obj.Character)
+
+						-- Persist through respawns
+						local respawnId = "_shieldRespawn_" .. obj.UserId
+						if _G[respawnId] then
+							pcall(function() _G[respawnId]:Disconnect() end)
+						end
+						_G[respawnId] = obj.CharacterAdded:Connect(function(char)
+							task.wait(0.1)
+							setupBring(char)
+							if getgenv().DoNotif then getgenv().DoNotif(obj.Name .. " respawned - re-bringing", 1.5) end
+						end)
+
+						if getgenv().DoNotif then getgenv().DoNotif("Shield: bringing " .. obj.Name, 2) end
+					end,
+				})
+
+				context:Register("HUMAN_SHIELD_RELEASE", {
+					Name = "Shield: Release",
+					IconMap = Explorer.MiscIcons,
+					Icon = "Delete",
+					OnClick = function()
+						local node = selection.List[1]
+						if not node then return end
+						local obj = node.Obj
+						if not obj:IsA("Player") then return end
+
+						local connId    = "_shieldConn_"    .. obj.UserId
+						local respawnId = "_shieldRespawn_" .. obj.UserId
+						if _G[connId] then
+							pcall(function() _G[connId]:Disconnect() end)
+							_G[connId] = nil
+						end
+						if _G[respawnId] then
+							pcall(function() _G[respawnId]:Disconnect() end)
+							_G[respawnId] = nil
+						end
+						if getgenv().DoNotif then getgenv().DoNotif("Shield: released " .. obj.Name, 2) end
 					end,
 				})
 
@@ -16541,7 +16640,7 @@ return search]==]
 						elems.List.CanvasSize = UDim2.new(0, 0, 0, toSize - 6)
 						toSize = self.MaxHeight
 					else
-						elems.List.CanvasSize = UDim2.new(0, 0, 0, 0)
+						elems.List.CanvasSize = UDim2.new(0, 0, 0, toSize - 6)
 					end
 					if y + toSize > maxY then
 						reverseY = true
