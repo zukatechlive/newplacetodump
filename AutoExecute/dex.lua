@@ -9140,40 +9140,35 @@ local function parseRemoteArgs(input)
 
 				-- ══════════════════════════════════════════════════════════════════
 				-- ANTIAIM
-				-- Integrates with an external AntiAim module stored in _G.
-				-- Expects _G.AntiAim to be the module object.
 				-- ══════════════════════════════════════════════════════════════════
 				context:Register("ANTIAIM_TOGGLE", {
-					Name = "Toggle AntiAim",
+					Name = "AntiAim: Toggle",
 					IconMap = Explorer.MiscIcons,
 					Icon = "Play",
 					OnClick = function()
-						local aa = _G.AntiAim
-						if not aa then
-							if getgenv().DoNotif then getgenv().DoNotif("AntiAim not loaded", 2) end
-							return
+						_G._aaEnabled = not _G._aaEnabled
+						local char = plr.Character
+						local hrp = char and char:FindFirstChild("HumanoidRootPart")
+						if not _G._aaEnabled and hrp then
+							pcall(function()
+								hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+								hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+							end)
 						end
-						aa.State.IsEnabled = not aa.State.IsEnabled
 						if getgenv().DoNotif then
-							getgenv().DoNotif("AntiAim: " .. (aa.State.IsEnabled and "ON" or "OFF"), 2)
+							getgenv().DoNotif("AntiAim: " .. (_G._aaEnabled and "ON" or "OFF"), 2)
 						end
 					end,
 				})
 
 				context:Register("ANTIAIM_CYCLE_PATTERN", {
-					Name = "AntiAim: Force New Pattern",
+					Name = "AntiAim: New Pattern",
 					IconMap = Explorer.MiscIcons,
 					Icon = "Rotate",
 					OnClick = function()
-						local aa = _G.AntiAim
-						if not aa then
-							if getgenv().DoNotif then getgenv().DoNotif("AntiAim not loaded", 2) end
-							return
-						end
-						-- Nil out CurrentPattern so _generateDesyncVector picks a new one next tick
-						aa.State.CurrentPattern = nil
-						aa.State.PatternStartTime = tick()
-						if getgenv().DoNotif then getgenv().DoNotif("AntiAim: pattern randomised", 2) end
+						_G._aaPattern = nil
+						_G._aaPatternStart = tick()
+						if getgenv().DoNotif then getgenv().DoNotif("AntiAim: pattern cycled", 2) end
 					end,
 				})
 
@@ -9182,14 +9177,9 @@ local function parseRemoteArgs(input)
 					IconMap = Explorer.MiscIcons,
 					Icon = "SelectChildren",
 					OnClick = function()
-						local aa = _G.AntiAim
-						if not aa then
-							if getgenv().DoNotif then getgenv().DoNotif("AntiAim not loaded", 2) end
-							return
-						end
-						aa.Config.JitterEnabled = not aa.Config.JitterEnabled
+						_G._aaJitter = not _G._aaJitter
 						if getgenv().DoNotif then
-							getgenv().DoNotif("Jitter: " .. (aa.Config.JitterEnabled and "ON" or "OFF"), 2)
+							getgenv().DoNotif("AntiAim jitter: " .. (_G._aaJitter and "ON" or "OFF"), 2)
 						end
 					end,
 				})
@@ -9199,17 +9189,9 @@ local function parseRemoteArgs(input)
 					IconMap = Explorer.MiscIcons,
 					Icon = "SelectChildren",
 					OnClick = function()
-						local aa = _G.AntiAim
-						if not aa then
-							if getgenv().DoNotif then getgenv().DoNotif("AntiAim not loaded", 2) end
-							return
-						end
-						aa.Config.StrengthVariation = not aa.Config.StrengthVariation
+						_G._aaVariation = not _G._aaVariation
 						if getgenv().DoNotif then
-							getgenv().DoNotif(
-								"Strength variation: " .. (aa.Config.StrengthVariation and "ON (rand)" or "OFF (fixed)"),
-								2
-							)
+							getgenv().DoNotif("AntiAim variation: " .. (_G._aaVariation and "ON" or "OFF"), 2)
 						end
 					end,
 				})
@@ -9219,62 +9201,43 @@ local function parseRemoteArgs(input)
 					IconMap = Explorer.MiscIcons,
 					Icon = "TeleportTo",
 					OnClick = function()
-						local aa = _G.AntiAim
-						if not aa then
-							if getgenv().DoNotif then getgenv().DoNotif("AntiAim not loaded", 2) end
-							return
-						end
-						aa.Config.SnapBack = not aa.Config.SnapBack
+						_G._aaSnapBack = not _G._aaSnapBack
 						if getgenv().DoNotif then
-							getgenv().DoNotif("SnapBack: " .. (aa.Config.SnapBack and "ON" or "OFF"), 2)
+							getgenv().DoNotif("AntiAim snapback: " .. (_G._aaSnapBack and "ON" or "OFF"), 2)
 						end
 					end,
 				})
 
 				context:Register("ANTIAIM_TOGGLE_VISUALS", {
-					Name = "AntiAim: Toggle Visualizer",
+					Name = "AntiAim: Toggle Visuals",
 					IconMap = Explorer.MiscIcons,
 					Icon = "ViewObject",
 					OnClick = function()
-						local aa = _G.AntiAim
-						if not aa then
-							if getgenv().DoNotif then getgenv().DoNotif("AntiAim not loaded", 2) end
-							return
-						end
-						aa.Config.Visuals = not aa.Config.Visuals
-						-- Hide the visualizer immediately if turned off
-						if not aa.Config.Visuals and aa.State.DesyncVisualizer then
-							pcall(function() aa.State.DesyncVisualizer.CFrame = CFrame.new(0, -9999, 0) end)
+						_G._aaVisuals = not _G._aaVisuals
+						if not _G._aaVisuals and _G._aaVisualizer then
+							pcall(function() _G._aaVisualizer.CFrame = CFrame.new(0, -9999, 0) end)
 						end
 						if getgenv().DoNotif then
-							getgenv().DoNotif("AA Visualizer: " .. (aa.Config.Visuals and "ON" or "OFF"), 2)
+							getgenv().DoNotif("AntiAim visuals: " .. (_G._aaVisuals and "ON" or "OFF"), 2)
 						end
 					end,
 				})
 
 				context:Register("ANTIAIM_RESTORE_VELOCITY", {
-					Name = "AntiAim: Restore Velocity",
+					Name = "AntiAim: Kill Velocity",
 					IconMap = Explorer.MiscIcons,
 					Icon = "Stop",
 					OnClick = function()
-						local aa = _G.AntiAim
-						if not aa then
-							if getgenv().DoNotif then getgenv().DoNotif("AntiAim not loaded", 2) end
-							return
-						end
-						-- Force the next RenderStepped instant-snap path to restore cleanly
-						-- by zeroing stored velocity so it doesn't re-apply a stale kick
 						local char = plr.Character
 						local hrp = char and char:FindFirstChild("HumanoidRootPart")
 						if hrp then
 							pcall(function()
 								hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+								hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
 							end)
 						end
-						if aa.State then
-							aa.State.IsEnabled = false
-						end
-						if getgenv().DoNotif then getgenv().DoNotif("AA velocity restored & disabled", 2) end
+						_G._aaEnabled = false
+						if getgenv().DoNotif then getgenv().DoNotif("AntiAim: killed & disabled", 2) end
 					end,
 				})
 
