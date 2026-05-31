@@ -35821,68 +35821,95 @@ RegisterCommand({
 	end
 end)
 RegisterCommand({
-	Name = "math",
-	Aliases = { "automath" },
-	Description = "gay",
+    Name        = "mathsolver",
+    Aliases     = {"math", "automath"},
+    Description = "for +1 sp a second",
 }, function(args)
-	local ReplicatedStorage = game:GetService("ReplicatedStorage")
-	local TextChatService = game:GetService("TextChatService")
-	local MathQuizQuestion = ReplicatedStorage:WaitForChild("MathQuizQuestion")
-	local MathQuizWinner = ReplicatedStorage:WaitForChild("MathQuizWinner")
-	local ANSWER_DELAY = 0.7
-	local quizActive = false
-	local function solveEquation(question)
-		local q = question
-		q = q:gsub("\195\151", "*")
-		q = q:gsub("\195\183", "/")
-		q = q:gsub("[xX]", "*")
-		local left, op, right = q:match("(%d+%.?%d*)%s*([%+%-%*/])%s*(%d+%.?%d*)")
-		if not (left and op and right) then
-			return nil
-		end
-		left = tonumber(left)
-		right = tonumber(right)
-		if not left or not right then
-			return nil
-		end
-		local result
-		if op == "+" then
-			result = left + right
-		elseif op == "-" then
-			result = left - right
-		elseif op == "*" then
-			result = left * right
-		elseif op == "/" then
-			if right == 0 then
-				return nil
-			end
-			result = left / right
-		end
-		if not result then
-			return nil
-		end
-		local rounded = math.round(result)
-		return (math.abs(result - rounded) < 0.0001) and rounded or result
-	end
-	MathQuizQuestion.OnClientEvent:Connect(function(question, isInsane)
-		if not question or question == "" then
-			return
-		end
-		quizActive = true
-		local answer = solveEquation(question)
-		if not answer then
-			return
-		end
-		task.delay(ANSWER_DELAY, function()
-			if not quizActive then
-				return
-			end
-			TextChatService.TextChannels.RBXGeneral:SendAsync("" .. tostring(answer))
-		end)
-	end)
-	MathQuizWinner.OnClientEvent:Connect(function()
-		quizActive = false
-	end)
+
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local TextChatService = game:GetService("TextChatService")
+    local MathQuizQuestion = ReplicatedStorage:WaitForChild("MathQuizQuestion")
+    local MathQuizWinner = ReplicatedStorage:WaitForChild("MathQuizWinner")
+
+
+    local ANSWER_DELAY = 1.7
+    local quizActive = false
+
+
+    local function solveEquation(question)
+    	local q = question
+    	q = q:gsub("\195\151", "*")
+    	q = q:gsub("\195\183", "/")
+    	q = q:gsub("[xX]", "*")
+    	q = q:gsub("[%(%)%[%]]", "")
+    	q = q:gsub("%s+", " "):match("^%s*(.-)%s*$")
+    	local tokens = {}
+    	for tok in q:gmatch("[%+%-%*/]?%s*%-?%d+%.?%d*") do
+    		local op, num = tok:match("^([%+%-%*/])%s*(%-?%d+%.?%d*)$")
+    		if op and num then
+    			table.insert(tokens, op)
+    			table.insert(tokens, tonumber(num))
+    		else
+    			local n = tonumber(tok:match("%-?%d+%.?%d*"))
+    			if n then
+    				table.insert(tokens, n)
+    			end
+    		end
+    	end
+    	if #tokens == 0 then return nil end
+    	if type(tokens[1]) ~= "number" then return nil end
+    	local i = 2
+    	while i <= #tokens do
+    		local op = tokens[i]
+    		if op == "*" or op == "/" then
+    			local lhs = tokens[i - 1]
+    			local rhs = tokens[i + 1]
+    			if type(lhs) ~= "number" or type(rhs) ~= "number" then break end
+    			if op == "/" and rhs == 0 then return nil end
+    			local val = op == "*" and lhs * rhs or lhs / rhs
+    			table.remove(tokens, i + 1)
+    			table.remove(tokens, i)
+    			tokens[i - 1] = val
+    		else
+    			i = i + 2
+    		end
+    	end
+    	local result = tokens[1]
+    	i = 2
+    	while i <= #tokens do
+    		local op = tokens[i]
+    		local rhs = tokens[i + 1]
+    		if type(op) ~= "string" or type(rhs) ~= "number" then break end
+    		if op == "+" then
+    			result = result + rhs
+    		elseif op == "-" then
+    			result = result - rhs
+    		end
+    		i = i + 2
+    	end
+    	local rounded = math.round(result)
+    	return (math.abs(result - rounded) < 0.0001) and rounded or result
+    end
+    MathQuizQuestion.OnClientEvent:Connect(function(question, isInsane)
+    	if not question or question == "" then
+    		return
+    	end
+    	quizActive = true
+    	local answer = solveEquation(question)
+    	if not answer then
+    		return
+    	end
+    	task.delay(ANSWER_DELAY, function()
+    		if not quizActive then
+    			return
+    		end
+    		TextChatService.TextChannels.RBXGeneral:SendAsync(tostring(answer))
+    	end)
+    end)
+    MathQuizWinner.OnClientEvent:Connect(function()
+    	quizActive = false
+    end)
+    print(" made by zuka math is hard on god ")
 end)
 RegisterCommand({
 	Name = "antiadonis",
@@ -36691,52 +36718,34 @@ RegisterCommand({
 					setreadonly(module, false)
 				end
 				module.LaserTrailConstantDamage = 999999
-				module.Debuff = true
-				module.DebuffName = "IgniteScript"
-				module.DebuffChance = 100
+			--	module.Debuff = true
+			--	module.DebuffName = "IgniteScript"
+			--	module.DebuffChance = 100
 				module.IgnoreBlacklistedParts = true
 				module.PenetrationIgnoreDelay = 0
 				module.AngleX_Min = 0
 				module.Spread = 0
-				module.BaseDamage = 999999
-				module.LaserTrailDamageRate = 999999
 				module.Auto = true
 				module.ChargingTime = 0
 				module.EquipTime = 0
 				module.BurstRate = 0
 				module.Recoil = 0
-				module.LaserTrailDamage = 999999
 				module.ShotgunEnabled = true
-				module.Knockback = 9999999
 				module.AmmoPerMag = 999999
 				module.FireRate = 0.085
-				module.ZeroDamageDistance = 999999
-				module.HeadshotHitmarker = 100
 				module.TacticalReloadTime = 0
-				module.ReduceSelfDamageOnAirOnly = 999999
-				module.LaserTrailCriticalDamageMultiplier = 999999
 				module.DelayAfterFiring = 0
 				module.DelayBeforeFiring = 0
-				module.DamageDropOffEnabled = 999999
-				module.LaserTrailCriticalDamageEnabled = 999999
 				module.Range = 90000
 				module.BulletSpeed = 90000
-				module.DamageableLaserTrail = 999999
-				module.SelfDamage = 0
 				module.ReloadTime = 0
-				module.DamageBasedOnDistance = 999999
 				module.SwitchTime = 0
-				module.FriendlyFire = false
+				module.FriendlyFire = true
 				module.BulletPerShot = 100
 				module.FullDamageDistance = 999999
-				module.SilenceEffect = false
 				module.HeadshotDamageMultiplier = 999999
 				module.Accuracy = 0
-				module.ExplosiveEnabled = false
-				module.ShotgunPattern = false
-				module.LightRange = 20
-				module.LightColor = 255, 255, 255
-				module.SelfDamageRedution = 999999
+				module.ExplosiveEnabled = true
 				if setreadonly then
 					setreadonly(module, true)
 				end
@@ -39120,4 +39129,3 @@ return {
 
 
 --loadstring(game:HttpGet(" "))()
-
