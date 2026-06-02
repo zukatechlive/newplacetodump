@@ -1,4 +1,3 @@
-
 --[[
 
 
@@ -15,8 +14,6 @@ o888bood8P'      `Y8bod8P'       o88'   888o
 -- improved by zuka
 	
 ]]
-
-
 
 local CLASS_ICONS = {}
 local function buildIconTable()
@@ -4076,11 +4073,10 @@ local EmbeddedModules = {
 									return { ["[value]"] = result, ["[type]"] = type(result) }, "require(wrapped)"
 								end
 							end
-							local getgcf = env and env.getgc or (
-									pcall(function()
-										return getgc
-									end) and getgc
-								)
+							local getgcf = env and env.getgc
+								or (pcall(function()
+									return getgc
+								end) and getgc)
 							if getgcf then
 								local gcok, gc = pcall(getgcf)
 								if gcok and gc then
@@ -6088,9 +6084,10 @@ local EmbeddedModules = {
 										opts
 									)
 									if okD and result then
-										local pp = getgenv()._ZUK_POSTPROCESS or function(s)
-											return s
-										end
+										local pp = getgenv()._ZUK_POSTPROCESS
+											or function(s)
+												return s
+											end
 										source = pp(cleanOutput(prettyPrint(result)))
 									end
 								end
@@ -6148,9 +6145,10 @@ local EmbeddedModules = {
 										opts
 									)
 									if okD and result then
-										local pp = getgenv()._ZUK_POSTPROCESS or function(s)
-											return s
-										end
+										local pp = getgenv()._ZUK_POSTPROCESS
+											or function(s)
+												return s
+											end
 										source = pp(cleanOutput(prettyPrint(result)))
 									end
 								end
@@ -7233,11 +7231,9 @@ local EmbeddedModules = {
 
 						local output = ""
 						output = output .. "--[[\n"
-						output = output
-							.. "    \n"
+						output = output .. "    \n"
 						output = output .. "          POISON++ ADVANCED MODULE PATCH                   \n"
-						output = output
-							.. "    \n"
+						output = output .. "    \n"
 						output = output .. "    \n"
 						output = output .. "    Target:        " .. module.Name .. "\n"
 						output = output .. "    Path:          " .. path .. "\n"
@@ -7293,10 +7289,7 @@ local EmbeddedModules = {
 
 						ScriptViewer.ViewRaw(output)
 						if getgenv().DoNotif then
-							getgenv().DoNotif(
-								" Poison++ patch opened in notepad! (" .. patchedCount .. " patches)",
-								3
-							)
+							getgenv().DoNotif(" Poison++ patch opened in notepad! (" .. patchedCount .. " patches)", 3)
 						end
 					end,
 				})
@@ -7651,11 +7644,9 @@ local EmbeddedModules = {
 
 						local output = ""
 						output = output .. "--[[\n"
-						output = output
-							.. "    \n"
+						output = output .. "    \n"
 						output = output .. "          UNIVERSAL MODULE POISON                          \n"
-						output = output
-							.. "    \n"
+						output = output .. "    \n"
 						output = output .. "    \n"
 						output = output .. "    Target:        " .. module.Name .. "\n"
 						output = output .. "    Path:          " .. path .. "\n"
@@ -7925,9 +7916,7 @@ local EmbeddedModules = {
 						if not ok or type(mod) ~= "table" then
 							if getgenv().DoNotif then
 								getgenv().DoNotif(
-									" "
-										.. obj.Name
-										.. " did not return a table – window opened, use GC scan instead",
+									" " .. obj.Name .. " did not return a table – window opened, use GC scan instead",
 									3
 								)
 							end
@@ -7974,7 +7963,7 @@ local EmbeddedModules = {
 				})
 
 				context:Register("SCREENGUI_TO_SCRIPT", {
-					Name = "Convert to Script (Deep)",
+					Name = "Convert to Script",
 					IconMap = Explorer.MiscIcons,
 					Icon = "Save",
 					OnClick = function()
@@ -7988,7 +7977,7 @@ local EmbeddedModules = {
 							if n == math.floor(n) then
 								return tostring(math.floor(n))
 							end
-							local s = string.format("%.6g", n)
+							local s = string.format("%.10g", n)
 							return s
 						end
 
@@ -8048,10 +8037,24 @@ local EmbeddedModules = {
 									fmtNum(v.Max.Y)
 								)
 							elseif t == "FontFace" then
+								local family = v.Family or ""
+								local weightName = v.Weight and v.Weight.Name or "Regular"
+								local styleName = v.Style and v.Style.Name or "Normal"
+								if family:sub(1, 13) == "rbxasset://fo" then
+									local enumName = family:match("/([%w_]+)%.json$")
+									if enumName then
+										local ok, enumItem = pcall(function()
+											return Enum.Font[enumName]
+										end)
+										if ok and enumItem then
+											return ("Font.fromEnum(Enum.Font.%s)"):format(enumName)
+										end
+									end
+								end
 								return ("Font.new(%q, Enum.FontWeight.%s, Enum.FontStyle.%s)"):format(
-									v.Family,
-									v.Weight.Name,
-									v.Style.Name
+									family,
+									weightName,
+									styleName
 								)
 							elseif t == "NumberRange" then
 								return ("NumberRange.new(%s, %s)"):format(fmtNum(v.Min), fmtNum(v.Max))
@@ -8173,8 +8176,6 @@ local EmbeddedModules = {
 								"AutoButtonColor",
 								"Modal",
 								"Style",
-								"ContentImageLeft",
-								"ContentImageRight",
 							})),
 							TextBox = dedup(merge(COMMON, TEXT_COMMON, {
 								"PlaceholderText",
@@ -8246,13 +8247,12 @@ local EmbeddedModules = {
 								"PixelsPerStud",
 								"SizingMode",
 								"ZIndexBehavior",
-								"ClipsDescendants",
 								"ToolPunchThroughDistance",
 								"ZOffset",
 							},
 							UICorner = { "CornerRadius" },
 							UIStroke = {
-								"Color",
+								"Color3",
 								"Thickness",
 								"Transparency",
 								"LineJoinMode",
@@ -8312,14 +8312,6 @@ local EmbeddedModules = {
 								"HorizontalAlignment",
 								"VerticalAlignment",
 							},
-							SelectionBox = {
-								"Color3",
-								"LineThickness",
-								"SurfaceColor3",
-								"SurfaceTransparency",
-								"Visible",
-							},
-							SpecialMesh = { "MeshId", "TextureId", "MeshType", "Scale", "Offset", "VertexColor" },
 						}
 						local function getProps(obj)
 							return propertyMap[obj.ClassName] or merge(COMMON, {})
@@ -8327,6 +8319,7 @@ local EmbeddedModules = {
 
 						local extractedScripts = {}
 						local instanceToVar = {}
+						local varToRealName = {}
 
 						local function extractScript(scriptObj, parentVar)
 							local source = ""
@@ -8355,7 +8348,7 @@ local EmbeddedModules = {
 									local okD, result = pcall(zuk, bytecode, opts)
 									if okD and result and result ~= "" then
 										local pp = getgenv()._ZUK_PRETTYPRINT
-										source = (pp and co) and co(pp(result)) or (pp and pp(result) or result)
+										source = (pp and pp(result)) or result
 										method = "zukv2"
 									end
 								end
@@ -8437,7 +8430,6 @@ local EmbeddedModules = {
 						end
 
 						local SKIP_DEFAULTS = {
-							Visible = true,
 							BackgroundTransparency = 0,
 							TextTransparency = 0,
 							ImageTransparency = 0,
@@ -8501,7 +8493,15 @@ local EmbeddedModules = {
 						end
 
 						local SCRIPT_CLASSES = { LocalScript = true, Script = true, ModuleScript = true }
+
+						local visitedObjects = {}
+
 						local function generateGuiCode(obj, parentVar)
+							if visitedObjects[obj] then
+								return
+							end
+							visitedObjects[obj] = true
+
 							local cls = obj.ClassName
 							if SCRIPT_CLASSES[cls] then
 								extractScript(obj, parentVar)
@@ -8509,6 +8509,7 @@ local EmbeddedModules = {
 							end
 							local varName = newVar(obj.Name)
 							instanceToVar[obj] = varName
+							varToRealName[varName] = obj.Name
 
 							emit(("local %s = Instance.new(%q)"):format(varName, cls))
 							emit(("%s.Parent = %s"):format(varName, parentVar))
@@ -8553,14 +8554,14 @@ local EmbeddedModules = {
 						emitRaw(("local _existing = playerGui:FindFirstChild(%q)"):format(gui.Name))
 						emitRaw("if _existing then _existing:Destroy() end")
 						emitBlank()
-						emitRaw(
-							"--  GUI Structure "
-						)
+						emitRaw("--  GUI Structure ")
 						emitRaw("local function createGui()")
 						indentLevel = 1
 
 						local sgVar = newVar(gui.Name)
 						instanceToVar[gui] = sgVar
+						varToRealName[sgVar] = gui.Name
+
 						emit(('local %s = Instance.new("ScreenGui")'):format(sgVar))
 
 						local sgProps = getProps(gui)
@@ -8597,11 +8598,7 @@ local EmbeddedModules = {
 						emitBlank()
 
 						if #extractedScripts > 0 then
-							emitRaw(
-								("--  Extracted Scripts (%d found) "):format(
-									#extractedScripts
-								)
-							)
+							emitRaw(("--  Extracted Scripts (%d found) "):format(#extractedScripts))
 							for i, sd in ipairs(extractedScripts) do
 								emitRaw(
 									("-- [%d] %s  (%s)  method: %s  enabled: %s"):format(
@@ -8613,14 +8610,15 @@ local EmbeddedModules = {
 									)
 								)
 								emitRaw(("local function runScript_%d(script_obj)"):format(i))
-								emitRaw("\t-- 'script' aliased to the container object for compatibility")
+								emitRaw("\t-- 'script' and 'script.Parent' aliased for compatibility")
 								emitRaw("\tlocal script = script_obj")
+								emitRaw("\tlocal scriptParent = script_obj.Parent")
 								if not sd.enabled then
-									emitRaw("\t DISABLED SCRIPT — uncomment body to enable]")
-									emitRaw("\t--[[")
+									emitRaw("\t--[[ DISABLED SCRIPT — uncomment body to enable")
 								end
 								for line in (sd.source .. "\n"):gmatch("[^\n]*\n") do
-									emitRaw("\t" .. line:gsub("\n$", ""))
+									local stripped = line:gsub("^[\t ]*", ""):gsub("\n$", "")
+									emitRaw("\t" .. stripped)
 								end
 								if not sd.enabled then
 									emitRaw("\t--]]")
@@ -8630,9 +8628,7 @@ local EmbeddedModules = {
 							end
 						end
 
-						emitRaw(
-							"--  Init "
-						)
+						emitRaw("--  Init ")
 						emitRaw("local gui = createGui()")
 						emitBlank()
 
@@ -8642,7 +8638,7 @@ local EmbeddedModules = {
 								if sd.parent == sgVar then
 									parentRef = "gui"
 								else
-									local realName = sd.parent:match("^(.+)_%d+$") or sd.parent
+									local realName = varToRealName[sd.parent] or sd.parent
 									parentRef = ("gui:FindFirstChild(%q, true)"):format(realName)
 								end
 								emitRaw(("-- Run: %s [%s]"):format(sd.name, sd.className))
@@ -8651,7 +8647,7 @@ local EmbeddedModules = {
 								emitRaw("\tif parent then")
 								emitRaw(("\t\trunScript_%d(parent)"):format(i))
 								emitRaw("\telse")
-								emitRaw(('\t\twarn("[DeepGUI] Parent not found for script: %s")'):format(sd.name))
+								emitRaw(('\t\twarn("[G2S] Parent not found for script: %s")'):format(sd.name))
 								emitRaw("\tend")
 								emitRaw("end)")
 								emitBlank()
@@ -8665,13 +8661,18 @@ local EmbeddedModules = {
 							end
 						end
 
+						local dateStr = "unknown"
+						pcall(function()
+							dateStr = os.date("%Y-%m-%d %H:%M:%S")
+						end)
+
 						local header = table.concat({
-							"--[[",
-							"   ",
-							"              DEEP GUI CONVERTER  v2  (zukv2)                 ",
-							"   ",
+							"--[[                                                          ",
+							"                                                              ",
+							"              GUI -> SCRIPT CONVERTER  v3  (zukv2)                 ",
+							"                                                              ",
 							"    ScreenGui : " .. gui.Name,
-							"    Extracted : " .. os.date("%Y-%m-%d %H:%M:%S"),
+							"    Extracted : " .. dateStr,
 							"    Elements  : " .. flatCounter.n,
 							"    Props     : " .. totalProps,
 							"    Scripts   : " .. #extractedScripts,
@@ -8695,7 +8696,7 @@ local EmbeddedModules = {
 
 						if getgenv().DoNotif then
 							getgenv().DoNotif(
-								(" Deep GUI — %d elem, %d prop, %d script"):format(
+								(" GUI -> SCRIPT — %d elem, %d prop, %d script"):format(
 									flatCounter.n,
 									totalProps,
 									#extractedScripts
@@ -10193,13 +10194,9 @@ local EmbeddedModules = {
 							table.insert(lines, s)
 						end
 
-						w(
-							"-- "
-						)
+						w("-- ")
 						w("--            CLOSURE INSPECTOR [RE]                ")
-						w(
-							"-- "
-						)
+						w("-- ")
 						w("-- Script: " .. Explorer.GetInstancePath(scr))
 						w("-- Generated: " .. os.date("%Y-%m-%d %H:%M:%S"))
 						w("")
@@ -10609,13 +10606,9 @@ local EmbeddedModules = {
 								local function w(s)
 									table.insert(lines, s)
 								end
-								w(
-									"-- "
-								)
+								w("-- ")
 								w("--           ARG CAPTURE REPORT [RE]                ")
-								w(
-									"-- "
-								)
+								w("-- ")
 								w("-- Remote : " .. obj:GetFullName())
 								w("-- Class  : " .. obj.ClassName)
 								w("-- Captured: " .. captureCount .. " calls")
@@ -14035,7 +14028,7 @@ return search]==]
 				end
 
 				funcs.DisplayExplorerIcons = function(self, Frame, index)
-										if CLASS_ICONS[index] then
+					if CLASS_ICONS[index] then
 						local iconMap = Frame:FindFirstChild("IconMap")
 						if not iconMap then
 							Frame.ClipsDescendants = false
@@ -28962,7 +28955,8 @@ local RETURN_ELAPSED_TIME = false
 										if prev and prev.opCode and prev.opCode.name == "NAMECALL" then
 											nmMethod = ":"
 												.. tostring(
-													consts[prev.extraData[2] + 1] and consts[prev.extraData[2] + 1].value
+													consts[prev.extraData[2] + 1]
+															and consts[prev.extraData[2] + 1].value
 														or ""
 												)
 											nArgs -= 1
@@ -29556,9 +29550,7 @@ local RETURN_ELAPSED_TIME = false
 					w("  Entry proto  : #" .. parsed.entryProto)
 					w("  Strings total: " .. #parsed.stringTable)
 					w("")
-					w(
-						" STRING TABLE "
-					)
+					w(" STRING TABLE ")
 					for i, s in ipairs(parsed.stringTable) do
 						w(string.format("  [%3d] %q", i, s))
 					end
@@ -29607,9 +29599,7 @@ local RETURN_ELAPSED_TIME = false
 							walkProto(inner, i2)
 						end
 					end
-					w(
-						" PROTO TREE "
-					)
+					w(" PROTO TREE ")
 					for i, proto in ipairs(parsed.protos) do
 						walkProto(proto, i)
 					end
@@ -31244,8 +31234,7 @@ local RETURN_ELAPSED_TIME = false
 				local existNI = mt and mt.__newindex
 				local newMt = mt or {}
 				newMt.__index = function(t, k)
-					local v = existIdx
-							and (type(existIdx) == "function" and existIdx(t, k) or existIdx[k])
+					local v = existIdx and (type(existIdx) == "function" and existIdx(t, k) or existIdx[k])
 						or rawget(t, k)
 					task.defer(function()
 						addEvent("__index", k, v, label)
