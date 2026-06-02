@@ -1,3 +1,4 @@
+
 --[[
 
 
@@ -14,6 +15,8 @@ o888bood8P'      `Y8bod8P'       o88'   888o
 -- improved by zuka
 	
 ]]
+
+
 
 local CLASS_ICONS = {}
 local function buildIconTable()
@@ -4073,10 +4076,11 @@ local EmbeddedModules = {
 									return { ["[value]"] = result, ["[type]"] = type(result) }, "require(wrapped)"
 								end
 							end
-							local getgcf = env and env.getgc
-								or (pcall(function()
-									return getgc
-								end) and getgc)
+							local getgcf = env and env.getgc or (
+									pcall(function()
+										return getgc
+									end) and getgc
+								)
 							if getgcf then
 								local gcok, gc = pcall(getgcf)
 								if gcok and gc then
@@ -6084,10 +6088,9 @@ local EmbeddedModules = {
 										opts
 									)
 									if okD and result then
-										local pp = getgenv()._ZUK_POSTPROCESS
-											or function(s)
-												return s
-											end
+										local pp = getgenv()._ZUK_POSTPROCESS or function(s)
+											return s
+										end
 										source = pp(cleanOutput(prettyPrint(result)))
 									end
 								end
@@ -6145,10 +6148,9 @@ local EmbeddedModules = {
 										opts
 									)
 									if okD and result then
-										local pp = getgenv()._ZUK_POSTPROCESS
-											or function(s)
-												return s
-											end
+										local pp = getgenv()._ZUK_POSTPROCESS or function(s)
+											return s
+										end
 										source = pp(cleanOutput(prettyPrint(result)))
 									end
 								end
@@ -7231,9 +7233,11 @@ local EmbeddedModules = {
 
 						local output = ""
 						output = output .. "--[[\n"
-						output = output .. "    \n"
+						output = output
+							.. "    \n"
 						output = output .. "          POISON++ ADVANCED MODULE PATCH                   \n"
-						output = output .. "    \n"
+						output = output
+							.. "    \n"
 						output = output .. "    \n"
 						output = output .. "    Target:        " .. module.Name .. "\n"
 						output = output .. "    Path:          " .. path .. "\n"
@@ -7289,7 +7293,10 @@ local EmbeddedModules = {
 
 						ScriptViewer.ViewRaw(output)
 						if getgenv().DoNotif then
-							getgenv().DoNotif(" Poison++ patch opened in notepad! (" .. patchedCount .. " patches)", 3)
+							getgenv().DoNotif(
+								" Poison++ patch opened in notepad! (" .. patchedCount .. " patches)",
+								3
+							)
 						end
 					end,
 				})
@@ -7644,9 +7651,11 @@ local EmbeddedModules = {
 
 						local output = ""
 						output = output .. "--[[\n"
-						output = output .. "    \n"
+						output = output
+							.. "    \n"
 						output = output .. "          UNIVERSAL MODULE POISON                          \n"
-						output = output .. "    \n"
+						output = output
+							.. "    \n"
 						output = output .. "    \n"
 						output = output .. "    Target:        " .. module.Name .. "\n"
 						output = output .. "    Path:          " .. path .. "\n"
@@ -7916,7 +7925,9 @@ local EmbeddedModules = {
 						if not ok or type(mod) ~= "table" then
 							if getgenv().DoNotif then
 								getgenv().DoNotif(
-									" " .. obj.Name .. " did not return a table – window opened, use GC scan instead",
+									" "
+										.. obj.Name
+										.. " did not return a table – window opened, use GC scan instead",
 									3
 								)
 							end
@@ -7962,750 +7973,1002 @@ local EmbeddedModules = {
 					end,
 				})
 
-				context:Register("SCREENGUI_TO_SCRIPT", {
-					Name = "Convert to Script",
-					IconMap = Explorer.MiscIcons,
-					Icon = "Save",
-					OnClick = function()
-						local node = selection.List[1]
-						if not node or not node.Obj:IsA("ScreenGui") then
-							return
-						end
-						local gui = node.Obj
+-- drop in for dex
 
-						local function fmtNum(n)
-							if n == math.floor(n) then
-								return tostring(math.floor(n))
-							end
-							local s = string.format("%.10g", n)
-							return s
-						end
+context:Register("SCREENGUI_TO_SCRIPT", {
+	Name = "Convert to Script",
+	IconMap = Explorer.MiscIcons,
+	Icon = "Save",
+	OnClick = function()
+		local node = selection.List[1]
+		if not node or not node.Obj:IsA("ScreenGui") then
+			return
+		end
+		local gui = node.Obj
 
-						local function serialize(v)
-							local t = typeof(v)
-							if t == "string" then
-								return string.format("%q", v)
-							elseif t == "number" then
-								return fmtNum(v)
-							elseif t == "boolean" then
-								return tostring(v)
-							elseif t == "nil" then
-								return "nil"
-							elseif t == "Vector3" then
-								return ("Vector3.new(%s, %s, %s)"):format(fmtNum(v.X), fmtNum(v.Y), fmtNum(v.Z))
-							elseif t == "Vector2" then
-								return ("Vector2.new(%s, %s)"):format(fmtNum(v.X), fmtNum(v.Y))
-							elseif t == "UDim2" then
-								local xs, xo, ys, yo = v.X.Scale, v.X.Offset, v.Y.Scale, v.Y.Offset
-								if xs == 0 and ys == 0 then
-									return ("UDim2.fromOffset(%s, %s)"):format(fmtNum(xo), fmtNum(yo))
-								elseif xo == 0 and yo == 0 then
-									return ("UDim2.fromScale(%s, %s)"):format(fmtNum(xs), fmtNum(ys))
-								end
-								return ("UDim2.new(%s, %s, %s, %s)"):format(
-									fmtNum(xs),
-									fmtNum(xo),
-									fmtNum(ys),
-									fmtNum(yo)
-								)
-							elseif t == "UDim" then
-								return ("UDim.new(%s, %s)"):format(fmtNum(v.Scale), fmtNum(v.Offset))
-							elseif t == "CFrame" then
-								if v == CFrame.identity then
-									return "CFrame.identity"
-								end
-								local c = { v:GetComponents() }
-								local strs = {}
-								for _, n in ipairs(c) do
-									strs[#strs + 1] = fmtNum(n)
-								end
-								return "CFrame.new(" .. table.concat(strs, ", ") .. ")"
-							elseif t == "Color3" then
-								local r = math.floor(v.R * 255 + 0.5)
-								local g = math.floor(v.G * 255 + 0.5)
-								local b = math.floor(v.B * 255 + 0.5)
-								return ("Color3.fromRGB(%d, %d, %d)"):format(r, g, b)
-							elseif t == "BrickColor" then
-								return ("BrickColor.new(%q)"):format(v.Name)
-							elseif t == "EnumItem" then
-								return tostring(v)
-							elseif t == "Rect" then
-								return ("Rect.new(%s, %s, %s, %s)"):format(
-									fmtNum(v.Min.X),
-									fmtNum(v.Min.Y),
-									fmtNum(v.Max.X),
-									fmtNum(v.Max.Y)
-								)
-							elseif t == "FontFace" then
-								local family = v.Family or ""
-								local weightName = v.Weight and v.Weight.Name or "Regular"
-								local styleName = v.Style and v.Style.Name or "Normal"
-								if family:sub(1, 13) == "rbxasset://fo" then
-									local enumName = family:match("/([%w_]+)%.json$")
-									if enumName then
-										local ok, enumItem = pcall(function()
-											return Enum.Font[enumName]
-										end)
-										if ok and enumItem then
-											return ("Font.fromEnum(Enum.Font.%s)"):format(enumName)
-										end
-									end
-								end
-								return ("Font.new(%q, Enum.FontWeight.%s, Enum.FontStyle.%s)"):format(
-									family,
-									weightName,
-									styleName
-								)
-							elseif t == "NumberRange" then
-								return ("NumberRange.new(%s, %s)"):format(fmtNum(v.Min), fmtNum(v.Max))
-							elseif t == "NumberSequence" then
-								local kps = {}
-								for _, kp in ipairs(v.Keypoints) do
-									kps[#kps + 1] = ("NumberSequenceKeypoint.new(%s, %s, %s)"):format(
-										fmtNum(kp.Time),
-										fmtNum(kp.Value),
-										fmtNum(kp.Envelope)
-									)
-								end
-								return "NumberSequence.new({" .. table.concat(kps, ", ") .. "})"
-							elseif t == "ColorSequence" then
-								local kps = {}
-								for _, kp in ipairs(v.Keypoints) do
-									local r = math.floor(kp.Value.R * 255 + 0.5)
-									local g = math.floor(kp.Value.G * 255 + 0.5)
-									local b = math.floor(kp.Value.B * 255 + 0.5)
-									kps[#kps + 1] = ("ColorSequenceKeypoint.new(%s, Color3.fromRGB(%d, %d, %d))"):format(
-										fmtNum(kp.Time),
-										r,
-										g,
-										b
-									)
-								end
-								return "ColorSequence.new({" .. table.concat(kps, ", ") .. "})"
-							elseif t == "Vector3int16" then
-								return ("Vector3int16.new(%d, %d, %d)"):format(v.X, v.Y, v.Z)
-							elseif t == "Vector2int16" then
-								return ("Vector2int16.new(%d, %d)"):format(v.X, v.Y)
-							end
-							return "nil"
-						end
+		-- FIX #7: increased float precision from %.6g to %.10g to avoid lossy decimals
+		local function fmtNum(n)
+			if n == math.floor(n) then
+				return tostring(math.floor(n))
+			end
+			local s = string.format("%.10g", n)
+			return s
+		end
 
-						local COMMON = {
-							"Name",
-							"Size",
-							"Position",
-							"AnchorPoint",
-							"Visible",
-							"ZIndex",
-							"LayoutOrder",
-							"BackgroundColor3",
-							"BackgroundTransparency",
-							"BorderColor3",
-							"BorderSizePixel",
-							"ClipsDescendants",
-							"Active",
-							"Selectable",
-							"Rotation",
-							"AutomaticSize",
-						}
-						local TEXT_COMMON = {
-							"Text",
-							"RichText",
-							"TextSize",
-							"Font",
-							"FontFace",
-							"TextColor3",
-							"TextTransparency",
-							"TextWrapped",
-							"TextScaled",
-							"TextXAlignment",
-							"TextYAlignment",
-							"TextTruncate",
-							"TextStrokeColor3",
-							"TextStrokeTransparency",
-							"LineHeight",
-						}
-						local IMAGE_COMMON = {
-							"Image",
-							"ImageColor3",
-							"ImageTransparency",
-							"ImageRectOffset",
-							"ImageRectSize",
-							"ResampleMode",
-							"ScaleType",
-							"SliceCenter",
-							"SliceScale",
-							"TileSize",
-						}
-						local function merge(...)
-							local r = {}
-							for _, t in ipairs({ ... }) do
-								for _, v in ipairs(t) do
-									r[#r + 1] = v
-								end
-							end
-							return r
-						end
-						local function dedup(t)
-							local seen, r = {}, {}
-							for _, v in ipairs(t) do
-								if not seen[v] then
-									seen[v] = true
-									r[#r + 1] = v
-								end
-							end
-							return r
-						end
-						local propertyMap = {
-							ScreenGui = {
-								"Name",
-								"Enabled",
-								"ResetOnSpawn",
-								"DisplayOrder",
-								"IgnoreGuiInset",
-								"ZIndexBehavior",
-								"ScreenInsets",
-								"SafeAreaCompatibility",
-							},
-							TextLabel = dedup(merge(COMMON, TEXT_COMMON, {
-								"MaxVisibleGraphemes",
-								"AutoLocalize",
-								"LocalizationTable",
-							})),
-							TextButton = dedup(merge(COMMON, TEXT_COMMON, {
-								"AutoButtonColor",
-								"Modal",
-								"Style",
-							})),
-							TextBox = dedup(merge(COMMON, TEXT_COMMON, {
-								"PlaceholderText",
-								"PlaceholderColor3",
-								"ClearTextOnFocus",
-								"MultiLine",
-								"TextEditable",
-								"ShowNativeInput",
-							})),
-							Frame = merge(COMMON, { "Style" }),
-							ScrollingFrame = merge(COMMON, {
-								"CanvasSize",
-								"CanvasPosition",
-								"ScrollBarThickness",
-								"ScrollBarImageColor3",
-								"ScrollBarImageTransparency",
-								"ScrollingDirection",
-								"ScrollingEnabled",
-								"ElasticBehavior",
-								"VerticalScrollBarInset",
-								"HorizontalScrollBarInset",
-								"VerticalScrollBarPosition",
-								"BottomImage",
-								"MidImage",
-								"TopImage",
-								"AutomaticCanvasSize",
-							}),
-							ImageLabel = merge(COMMON, IMAGE_COMMON),
-							ImageButton = merge(COMMON, IMAGE_COMMON, {
-								"HoverImage",
-								"PressedImage",
-								"Style",
-								"AutoButtonColor",
-								"Modal",
-							}),
-							VideoFrame = merge(COMMON, { "Video", "Looped", "Playing", "TimePosition", "Volume" }),
-							ViewportFrame = merge(COMMON, {
-								"Ambient",
-								"LightColor",
-								"LightDirection",
-								"ImageColor3",
-								"ImageTransparency",
-								"CurrentCamera",
-							}),
-							BillboardGui = {
-								"Name",
-								"Active",
-								"AlwaysOnTop",
-								"Brightness",
-								"ClipsDescendants",
-								"Enabled",
-								"LightInfluence",
-								"MaxDistance",
-								"Size",
-								"SizeOffset",
-								"StudsOffset",
-								"StudsOffsetWorldSpace",
-								"ZIndexBehavior",
-								"ExtentsOffset",
-							},
-							SurfaceGui = {
-								"Name",
-								"Active",
-								"AlwaysOnTop",
-								"Brightness",
-								"ClipsDescendants",
-								"Enabled",
-								"LightInfluence",
-								"PixelsPerStud",
-								"SizingMode",
-								"ZIndexBehavior",
-								"ToolPunchThroughDistance",
-								"ZOffset",
-							},
-							UICorner = { "CornerRadius" },
-							UIStroke = {
-								"Color3",
-								"Thickness",
-								"Transparency",
-								"LineJoinMode",
-								"ApplyStrokeMode",
-								"Enabled",
-							},
-							UIGradient = { "Color", "Offset", "Rotation", "Transparency", "Enabled" },
-							UIPadding = { "PaddingLeft", "PaddingRight", "PaddingTop", "PaddingBottom" },
-							UIListLayout = {
-								"Padding",
-								"FillDirection",
-								"HorizontalAlignment",
-								"VerticalAlignment",
-								"SortOrder",
-								"HorizontalFlex",
-								"VerticalFlex",
-								"ItemLineAlignment",
-								"Wraps",
-							},
-							UIGridLayout = {
-								"CellPadding",
-								"CellSize",
-								"FillDirectionMaxCells",
-								"FillDirection",
-								"HorizontalAlignment",
-								"VerticalAlignment",
-								"SortOrder",
-								"StartCorner",
-							},
-							UITableLayout = {
-								"FillEmptySpaceColumns",
-								"FillEmptySpaceRows",
-								"FillDirection",
-								"HorizontalAlignment",
-								"VerticalAlignment",
-								"MajorAxis",
-								"Padding",
-								"SortOrder",
-							},
-							UIAspectRatioConstraint = { "AspectRatio", "AspectType", "DominantAxis" },
-							UISizeConstraint = { "MinSize", "MaxSize" },
-							UITextSizeConstraint = { "MinTextSize", "MaxTextSize" },
-							UIScale = { "Scale" },
-							UIFlexItem = { "FlexMode", "GrowRatio", "ShrinkRatio" },
-							UIPageLayout = {
-								"Animated",
-								"CircularEnabled",
-								"EasingDirection",
-								"EasingStyle",
-								"GamepadInputEnabled",
-								"Padding",
-								"ScrollWheelInputEnabled",
-								"SortOrder",
-								"TouchInputEnabled",
-								"TweenTime",
-								"FillDirection",
-								"HorizontalAlignment",
-								"VerticalAlignment",
-							},
-						}
-						local function getProps(obj)
-							return propertyMap[obj.ClassName] or merge(COMMON, {})
-						end
-
-						local extractedScripts = {}
-						local instanceToVar = {}
-						local varToRealName = {}
-
-						local function extractScript(scriptObj, parentVar)
-							local source = ""
-							local method = "unknown"
-
-							local zuk = env.ZukDecompile or getgenv()._ZUK_DECOMPILE
-							if zuk and env.getscriptbytecode then
-								local okBC, bytecode = pcall(env.getscriptbytecode, scriptObj)
-								if okBC and bytecode and bytecode ~= "" then
-									local opts = {
-										DecompilerMode = "disasm",
-										DecompilerTimeout = 20,
-										CleanMode = true,
-										ReaderFloatPrecision = 10,
-										ShowDebugInformation = false,
-										ShowTrivialOperations = false,
-										ShowInstructionLines = true,
-										ShowOperationIndex = false,
-										ShowOperationNames = true,
-										ListUsedGlobals = true,
-										UseTypeInfo = true,
-										EnabledRemarks = { ColdRemark = false, InlineRemark = false },
-										ReturnElapsedTime = false,
-										prettyPrint = true,
-									}
-									local okD, result = pcall(zuk, bytecode, opts)
-									if okD and result and result ~= "" then
-										local pp = getgenv()._ZUK_PRETTYPRINT
-										source = (pp and pp(result)) or result
-										method = "zukv2"
-									end
-								end
-							end
-
-							if source == "" then
-								local ok2, src = pcall(function()
-									return scriptObj.Source
-								end)
-								if ok2 and src and src ~= "" then
-									source = src
-									method = "Source"
-								end
-							end
-
-							if source == "" and env.decompile then
-								local ok3, res = pcall(env.decompile, scriptObj)
-								if ok3 and res and res ~= "" then
-									source = res
-									method = "decompile"
-								end
-							end
-
-							if source == "" and env.getscriptclosure then
-								local ok4, fn = pcall(env.getscriptclosure, scriptObj)
-								if ok4 and fn then
-									local ok5, bc = pcall(string.dump, fn)
-									if ok5 and bc then
-										source = "-- [BYTECODE ONLY — paste into a decompiler]\n"
-											.. "-- string.dump length: "
-											.. #bc
-											.. " bytes\n"
-										method = "dump"
-									end
-								end
-							end
-
-							if source == "" then
-								source = "-- [PROTECTED] Could not extract source via any method\n"
-								method = "none"
-							end
-
-							local enabled = true
-							pcall(function()
-								enabled = not scriptObj.Disabled
-							end)
-
-							table.insert(extractedScripts, {
-								parent = parentVar,
-								className = scriptObj.ClassName,
-								name = scriptObj.Name,
-								source = source,
-								enabled = enabled,
-								method = method,
-							})
-						end
-
-						local flatCounter = { n = 0 }
-						local usedNames = {}
-						local function newVar(base)
-							flatCounter.n += 1
-							local safe = (base or "obj"):gsub("[^%w_]", "_"):gsub("^(%d)", "_%1")
-							local candidate = safe .. "_" .. flatCounter.n
-							usedNames[candidate] = true
-							return candidate
-						end
-
-						local codeLines = {}
-						local indentLevel = 0
-						local function emit(s)
-							local prefix = string.rep("\t", indentLevel)
-							codeLines[#codeLines + 1] = prefix .. s
-						end
-						local function emitRaw(s)
-							codeLines[#codeLines + 1] = s
-						end
-						local function emitBlank()
-							codeLines[#codeLines + 1] = ""
-						end
-
-						local SKIP_DEFAULTS = {
-							BackgroundTransparency = 0,
-							TextTransparency = 0,
-							ImageTransparency = 0,
-							TextStrokeTransparency = 1,
-							BorderSizePixel = 1,
-							ZIndex = 1,
-							LayoutOrder = 0,
-							Rotation = 0,
-							AutomaticSize = Enum.AutomaticSize.None,
-							AutomaticCanvasSize = Enum.AutomaticSize.None,
-							AnchorPoint = Vector2.new(0, 0),
-							ClipsDescendants = false,
-							Active = false,
-							Selectable = false,
-							RichText = false,
-							TextWrapped = false,
-							TextScaled = false,
-							TextXAlignment = Enum.TextXAlignment.Center,
-							TextYAlignment = Enum.TextYAlignment.Center,
-							AutoButtonColor = true,
-							Enabled = true,
-							ResetOnSpawn = true,
-							DisplayOrder = 0,
-							IgnoreGuiInset = false,
-							ScrollingEnabled = true,
-							Modal = false,
-							MultiLine = false,
-							TextEditable = true,
-							ClearTextOnFocus = true,
-							LineHeight = 1,
-							MaxVisibleGraphemes = -1,
-							ScrollBarThickness = 12,
-						}
-						local function shouldSkip(propName, val)
-							local def = SKIP_DEFAULTS[propName]
-							if def == nil then
-								return false
-							end
-							local tv, td = typeof(val), typeof(def)
-							if tv ~= td then
-								return false
-							end
-							if tv == "Vector2" then
-								return val.X == def.X and val.Y == def.Y
-							end
-							if tv == "UDim2" then
-								return val.X.Scale == def.X.Scale
-									and val.X.Offset == def.X.Offset
-									and val.Y.Scale == def.Y.Scale
-									and val.Y.Offset == def.Y.Offset
-							end
-							if tv == "UDim" then
-								return val.Scale == def.Scale and val.Offset == def.Offset
-							end
-							if tv == "Color3" then
-								return math.floor(val.R * 255 + 0.5) == math.floor(def.R * 255 + 0.5)
-									and math.floor(val.G * 255 + 0.5) == math.floor(def.G * 255 + 0.5)
-									and math.floor(val.B * 255 + 0.5) == math.floor(def.B * 255 + 0.5)
-							end
-							return val == def
-						end
-
-						local SCRIPT_CLASSES = { LocalScript = true, Script = true, ModuleScript = true }
-
-						local visitedObjects = {}
-
-						local function generateGuiCode(obj, parentVar)
-							if visitedObjects[obj] then
-								return
-							end
-							visitedObjects[obj] = true
-
-							local cls = obj.ClassName
-							if SCRIPT_CLASSES[cls] then
-								extractScript(obj, parentVar)
-								return
-							end
-							local varName = newVar(obj.Name)
-							instanceToVar[obj] = varName
-							varToRealName[varName] = obj.Name
-
-							emit(("local %s = Instance.new(%q)"):format(varName, cls))
-							emit(("%s.Parent = %s"):format(varName, parentVar))
-
-							if obj.Name ~= cls then
-								emit(("%s.Name = %q"):format(varName, obj.Name))
-							end
-
-							local props = getProps(obj)
-							for _, propName in ipairs(props) do
-								if propName == "Name" then
-									continue
-								end
-								local ok, val = pcall(function()
-									return obj[propName]
-								end)
-								if ok and val ~= nil then
-									if not shouldSkip(propName, val) then
-										local s = serialize(val)
-										if s ~= "nil" then
-											emit(("%s.%s = %s"):format(varName, propName, s))
-										end
-									end
-								end
-							end
-
-							local children = obj:GetChildren()
-							if #children > 0 then
-								emitBlank()
-								for _, child in ipairs(children) do
-									generateGuiCode(child, varName)
-								end
-							end
-						end
-
-						emitRaw('local Players = game:GetService("Players")')
-						emitRaw('local RunService = game:GetService("RunService")')
-						emitRaw("local player = Players.LocalPlayer")
-						emitRaw('local playerGui = player:WaitForChild("PlayerGui")')
-						emitBlank()
-						emitRaw("-- Remove existing copy to allow re-injection")
-						emitRaw(("local _existing = playerGui:FindFirstChild(%q)"):format(gui.Name))
-						emitRaw("if _existing then _existing:Destroy() end")
-						emitBlank()
-						emitRaw("--  GUI Structure ")
-						emitRaw("local function createGui()")
-						indentLevel = 1
-
-						local sgVar = newVar(gui.Name)
-						instanceToVar[gui] = sgVar
-						varToRealName[sgVar] = gui.Name
-
-						emit(('local %s = Instance.new("ScreenGui")'):format(sgVar))
-
-						local sgProps = getProps(gui)
-						for _, propName in ipairs(sgProps) do
-							if propName == "Name" then
-								continue
-							end
-							local ok, val = pcall(function()
-								return gui[propName]
-							end)
-							if ok and val ~= nil then
-								if not shouldSkip(propName, val) then
-									local s = serialize(val)
-									if s ~= "nil" then
-										emit(("%s.%s = %s"):format(sgVar, propName, s))
-									end
-								end
-							end
-						end
-						if gui.Name ~= "ScreenGui" then
-							emit(("%s.Name = %q"):format(sgVar, gui.Name))
-						end
-						emitBlank()
-
-						for _, child in ipairs(gui:GetChildren()) do
-							generateGuiCode(child, sgVar)
-						end
-
-						emitBlank()
-						emit(("%s.Parent = playerGui"):format(sgVar))
-						emit(("return %s"):format(sgVar))
-						indentLevel = 0
-						emitRaw("end")
-						emitBlank()
-
-						if #extractedScripts > 0 then
-							emitRaw(("--  Extracted Scripts (%d found) "):format(#extractedScripts))
-							for i, sd in ipairs(extractedScripts) do
-								emitRaw(
-									("-- [%d] %s  (%s)  method: %s  enabled: %s"):format(
-										i,
-										sd.name,
-										sd.className,
-										sd.method,
-										tostring(sd.enabled)
-									)
-								)
-								emitRaw(("local function runScript_%d(script_obj)"):format(i))
-								emitRaw("\t-- 'script' and 'script.Parent' aliased for compatibility")
-								emitRaw("\tlocal script = script_obj")
-								emitRaw("\tlocal scriptParent = script_obj.Parent")
-								if not sd.enabled then
-									emitRaw("\t--[[ DISABLED SCRIPT — uncomment body to enable")
-								end
-								for line in (sd.source .. "\n"):gmatch("[^\n]*\n") do
-									local stripped = line:gsub("^[\t ]*", ""):gsub("\n$", "")
-									emitRaw("\t" .. stripped)
-								end
-								if not sd.enabled then
-									emitRaw("\t--]]")
-								end
-								emitRaw("end")
-								emitBlank()
-							end
-						end
-
-						emitRaw("--  Init ")
-						emitRaw("local gui = createGui()")
-						emitBlank()
-
-						if #extractedScripts > 0 then
-							for i, sd in ipairs(extractedScripts) do
-								local parentRef
-								if sd.parent == sgVar then
-									parentRef = "gui"
-								else
-									local realName = varToRealName[sd.parent] or sd.parent
-									parentRef = ("gui:FindFirstChild(%q, true)"):format(realName)
-								end
-								emitRaw(("-- Run: %s [%s]"):format(sd.name, sd.className))
-								emitRaw("task.spawn(function()")
-								emitRaw(("\tlocal parent = %s"):format(parentRef))
-								emitRaw("\tif parent then")
-								emitRaw(("\t\trunScript_%d(parent)"):format(i))
-								emitRaw("\telse")
-								emitRaw(('\t\twarn("[G2S] Parent not found for script: %s")'):format(sd.name))
-								emitRaw("\tend")
-								emitRaw("end)")
-								emitBlank()
-							end
-						end
-
-						local totalProps = 0
-						for _, l in ipairs(codeLines) do
-							if l:find("%.%a+ = ") then
-								totalProps += 1
-							end
-						end
-
-						local dateStr = "unknown"
-						pcall(function()
-							dateStr = os.date("%Y-%m-%d %H:%M:%S")
+		local function serialize(v)
+			local t = typeof(v)
+			if t == "string" then
+				return string.format("%q", v)
+			elseif t == "number" then
+				return fmtNum(v)
+			elseif t == "boolean" then
+				return tostring(v)
+			elseif t == "nil" then
+				return "nil"
+			elseif t == "Vector3" then
+				return ("Vector3.new(%s, %s, %s)"):format(fmtNum(v.X), fmtNum(v.Y), fmtNum(v.Z))
+			elseif t == "Vector2" then
+				return ("Vector2.new(%s, %s)"):format(fmtNum(v.X), fmtNum(v.Y))
+			elseif t == "UDim2" then
+				local xs, xo, ys, yo = v.X.Scale, v.X.Offset, v.Y.Scale, v.Y.Offset
+				if xs == 0 and ys == 0 then
+					return ("UDim2.fromOffset(%s, %s)"):format(fmtNum(xo), fmtNum(yo))
+				elseif xo == 0 and yo == 0 then
+					return ("UDim2.fromScale(%s, %s)"):format(fmtNum(xs), fmtNum(ys))
+				end
+				return ("UDim2.new(%s, %s, %s, %s)"):format(fmtNum(xs), fmtNum(xo), fmtNum(ys), fmtNum(yo))
+			elseif t == "UDim" then
+				return ("UDim.new(%s, %s)"):format(fmtNum(v.Scale), fmtNum(v.Offset))
+			elseif t == "CFrame" then
+				if v == CFrame.identity then
+					return "CFrame.identity"
+				end
+				local c = { v:GetComponents() }
+				local strs = {}
+				for _, n in ipairs(c) do
+					strs[#strs + 1] = fmtNum(n)
+				end
+				return "CFrame.new(" .. table.concat(strs, ", ") .. ")"
+			elseif t == "Color3" then
+				local r = math.floor(v.R * 255 + 0.5)
+				local g = math.floor(v.G * 255 + 0.5)
+				local b = math.floor(v.B * 255 + 0.5)
+				return ("Color3.fromRGB(%d, %d, %d)"):format(r, g, b)
+			elseif t == "BrickColor" then
+				return ("BrickColor.new(%q)"):format(v.Name)
+			elseif t == "EnumItem" then
+				return tostring(v)
+			elseif t == "Rect" then
+				return ("Rect.new(%s, %s, %s, %s)"):format(
+					fmtNum(v.Min.X),
+					fmtNum(v.Min.Y),
+					fmtNum(v.Max.X),
+					fmtNum(v.Max.Y)
+				)
+			-- FIX #8: FontFace serialized correctly — use Font.fromEnum for built-in faces,
+			-- Font.new only for asset-URI fonts, never the deprecated Font enum API
+			elseif t == "FontFace" then
+				local family = v.Family or ""
+				local weightName = v.Weight and v.Weight.Name or "Regular"
+				local styleName = v.Style and v.Style.Name or "Normal"
+				-- asset-URI fonts use Font.new; built-in rbxasset fonts use fromEnum where possible
+				if family:sub(1, 13) == "rbxasset://fo" then
+					-- attempt to map back to a clean Font.fromEnum call
+					local enumName = family:match("/([%w_]+)%.json$")
+					if enumName then
+						local ok, enumItem = pcall(function()
+							return Enum.Font[enumName]
 						end)
-
-						local header = table.concat({
-							"--[[                                                          ",
-							"                                                              ",
-							"              GUI -> SCRIPT CONVERTER  v3  (zukv2)                 ",
-							"                                                              ",
-							"    ScreenGui : " .. gui.Name,
-							"    Extracted : " .. dateStr,
-							"    Elements  : " .. flatCounter.n,
-							"    Props     : " .. totalProps,
-							"    Scripts   : " .. #extractedScripts,
-							"--]]",
-							"",
-						}, "\n")
-						local output = header .. table.concat(codeLines, "\n")
-
-						ScriptViewer.ViewRaw(output)
-
-						local copied = false
-						if env.setclipboard then
-							copied = pcall(env.setclipboard, output)
+						if ok and enumItem then
+							return ("Font.fromEnum(Enum.Font.%s)"):format(enumName)
 						end
-						if not copied and setclipboard then
-							pcall(setclipboard, output)
-						end
-						if not copied and toclipboard then
-							pcall(toclipboard, output)
-						end
+					end
+				end
+				return ("Font.new(%q, Enum.FontWeight.%s, Enum.FontStyle.%s)"):format(
+					family,
+					weightName,
+					styleName
+				)
+			elseif t == "NumberRange" then
+				return ("NumberRange.new(%s, %s)"):format(fmtNum(v.Min), fmtNum(v.Max))
+			elseif t == "NumberSequence" then
+				local kps = {}
+				for _, kp in ipairs(v.Keypoints) do
+					kps[#kps + 1] = ("NumberSequenceKeypoint.new(%s, %s, %s)"):format(
+						fmtNum(kp.Time),
+						fmtNum(kp.Value),
+						fmtNum(kp.Envelope)
+					)
+				end
+				return "NumberSequence.new({" .. table.concat(kps, ", ") .. "})"
+			elseif t == "ColorSequence" then
+				local kps = {}
+				for _, kp in ipairs(v.Keypoints) do
+					local r = math.floor(kp.Value.R * 255 + 0.5)
+					local g = math.floor(kp.Value.G * 255 + 0.5)
+					local b = math.floor(kp.Value.B * 255 + 0.5)
+					kps[#kps + 1] = ("ColorSequenceKeypoint.new(%s, Color3.fromRGB(%d, %d, %d))"):format(
+						fmtNum(kp.Time),
+						r,
+						g,
+						b
+					)
+				end
+				return "ColorSequence.new({" .. table.concat(kps, ", ") .. "})"
+			elseif t == "Vector3int16" then
+				return ("Vector3int16.new(%d, %d, %d)"):format(v.X, v.Y, v.Z)
+			elseif t == "Vector2int16" then
+				return ("Vector2int16.new(%d, %d)"):format(v.X, v.Y)
+			end
+			return "nil"
+		end
 
-						if getgenv().DoNotif then
-							getgenv().DoNotif(
-								(" GUI -> SCRIPT — %d elem, %d prop, %d script"):format(
-									flatCounter.n,
-									totalProps,
-									#extractedScripts
-								),
-								5
-							)
+		local COMMON = {
+			"Name",
+			"Size",
+			"Position",
+			"AnchorPoint",
+			"Visible",
+			"ZIndex",
+			"LayoutOrder",
+			"BackgroundColor3",
+			"BackgroundTransparency",
+			"BorderColor3",
+			"BorderSizePixel",
+			"ClipsDescendants",
+			"Active",
+			"Selectable",
+			"Rotation",
+			"AutomaticSize",
+		}
+		local TEXT_COMMON = {
+			"Text",
+			"RichText",
+			"TextSize",
+			"Font",
+			"FontFace",
+			"TextColor3",
+			"TextTransparency",
+			"TextWrapped",
+			"TextScaled",
+			"TextXAlignment",
+			"TextYAlignment",
+			"TextTruncate",
+			"TextStrokeColor3",
+			"TextStrokeTransparency",
+			"LineHeight",
+		}
+		local IMAGE_COMMON = {
+			"Image",
+			"ImageColor3",
+			"ImageTransparency",
+			"ImageRectOffset",
+			"ImageRectSize",
+			"ResampleMode",
+			"ScaleType",
+			"SliceCenter",
+			"SliceScale",
+			"TileSize",
+		}
+		local function merge(...)
+			local r = {}
+			for _, t in ipairs({ ... }) do
+				for _, v in ipairs(t) do
+					r[#r + 1] = v
+				end
+			end
+			return r
+		end
+		local function dedup(t)
+			local seen, r = {}, {}
+			for _, v in ipairs(t) do
+				if not seen[v] then
+					seen[v] = true
+					r[#r + 1] = v
+				end
+			end
+			return r
+		end
+		local propertyMap = {
+			ScreenGui = {
+				"Name",
+				"Enabled",
+				"ResetOnSpawn",
+				"DisplayOrder",
+				"IgnoreGuiInset",
+				"ZIndexBehavior",
+				"ScreenInsets",
+				"SafeAreaCompatibility",
+			},
+			TextLabel = dedup(merge(COMMON, TEXT_COMMON, {
+				"MaxVisibleGraphemes",
+				"AutoLocalize",
+				"LocalizationTable",
+			})),
+			TextButton = dedup(merge(COMMON, TEXT_COMMON, {
+				"AutoButtonColor",
+				"Modal",
+				"Style",
+				-- FIX #12: removed non-existent ContentImageLeft / ContentImageRight
+			})),
+			TextBox = dedup(merge(COMMON, TEXT_COMMON, {
+				"PlaceholderText",
+				"PlaceholderColor3",
+				"ClearTextOnFocus",
+				"MultiLine",
+				"TextEditable",
+				"ShowNativeInput",
+			})),
+			Frame = merge(COMMON, { "Style" }),
+			ScrollingFrame = merge(COMMON, {
+				"CanvasSize",
+				"CanvasPosition",
+				"ScrollBarThickness",
+				"ScrollBarImageColor3",
+				"ScrollBarImageTransparency",
+				"ScrollingDirection",
+				"ScrollingEnabled",
+				"ElasticBehavior",
+				"VerticalScrollBarInset",
+				"HorizontalScrollBarInset",
+				"VerticalScrollBarPosition",
+				"BottomImage",
+				"MidImage",
+				"TopImage",
+				"AutomaticCanvasSize",
+			}),
+			ImageLabel = merge(COMMON, IMAGE_COMMON),
+			ImageButton = merge(COMMON, IMAGE_COMMON, {
+				"HoverImage",
+				"PressedImage",
+				"Style",
+				"AutoButtonColor",
+				"Modal",
+			}),
+			VideoFrame = merge(COMMON, { "Video", "Looped", "Playing", "TimePosition", "Volume" }),
+			ViewportFrame = merge(COMMON, {
+				"Ambient",
+				"LightColor",
+				"LightDirection",
+				"ImageColor3",
+				"ImageTransparency",
+				"CurrentCamera",
+			}),
+			BillboardGui = {
+				"Name",
+				"Active",
+				"AlwaysOnTop",
+				"Brightness",
+				"ClipsDescendants",
+				"Enabled",
+				"LightInfluence",
+				"MaxDistance",
+				"Size",
+				"SizeOffset",
+				"StudsOffset",
+				"StudsOffsetWorldSpace",
+				"ZIndexBehavior",
+				"ExtentsOffset",
+			},
+			SurfaceGui = {
+				"Name",
+				"Active",
+				"AlwaysOnTop",
+				"Brightness",
+				"ClipsDescendants",
+				"Enabled",
+				"LightInfluence",
+				"PixelsPerStud",
+				"SizingMode",
+				"ZIndexBehavior",
+				"ToolPunchThroughDistance",
+				"ZOffset",
+			},
+			UICorner = { "CornerRadius" },
+			-- FIX #9: UIStroke.Color3 is the correct property name, not Color
+			UIStroke = {
+				"Color3",
+				"Thickness",
+				"Transparency",
+				"LineJoinMode",
+				"ApplyStrokeMode",
+				"Enabled",
+			},
+			-- UIGradient.Color is correct (ColorSequence); Transparency is NumberSequence — both fine
+			UIGradient = { "Color", "Offset", "Rotation", "Transparency", "Enabled" },
+			UIPadding = { "PaddingLeft", "PaddingRight", "PaddingTop", "PaddingBottom" },
+			UIListLayout = {
+				"Padding",
+				"FillDirection",
+				"HorizontalAlignment",
+				"VerticalAlignment",
+				"SortOrder",
+				"HorizontalFlex",
+				"VerticalFlex",
+				"ItemLineAlignment",
+				"Wraps",
+			},
+			UIGridLayout = {
+				"CellPadding",
+				"CellSize",
+				"FillDirectionMaxCells",
+				"FillDirection",
+				"HorizontalAlignment",
+				"VerticalAlignment",
+				"SortOrder",
+				"StartCorner",
+			},
+			UITableLayout = {
+				"FillEmptySpaceColumns",
+				"FillEmptySpaceRows",
+				"FillDirection",
+				"HorizontalAlignment",
+				"VerticalAlignment",
+				"MajorAxis",
+				"Padding",
+				"SortOrder",
+			},
+			UIAspectRatioConstraint = { "AspectRatio", "AspectType", "DominantAxis" },
+			UISizeConstraint = { "MinSize", "MaxSize" },
+			UITextSizeConstraint = { "MinTextSize", "MaxTextSize" },
+			UIScale = { "Scale" },
+			UIFlexItem = { "FlexMode", "GrowRatio", "ShrinkRatio" },
+			UIPageLayout = {
+				"Animated",
+				"CircularEnabled",
+				"EasingDirection",
+				"EasingStyle",
+				"GamepadInputEnabled",
+				"Padding",
+				"ScrollWheelInputEnabled",
+				"SortOrder",
+				"TouchInputEnabled",
+				"TweenTime",
+				"FillDirection",
+				"HorizontalAlignment",
+				"VerticalAlignment",
+			},
+			-- FIX #11: removed SelectionBox and SpecialMesh — not valid ScreenGui descendants
+		}
+		local function getProps(obj)
+			return propertyMap[obj.ClassName] or merge(COMMON, {})
+		end
+
+		-- FIX #6: all mutable state is now local to OnClick, not shared across calls
+		local extractedScripts = {}
+		local extractedModules = {}   -- populated by traceModulesFromScript
+		local seenModules = {}        -- keyed by Instance to prevent duplicate extraction
+		local instanceToVar = {}
+		-- FIX #2: store real object names separately from generated var names for reliable lookup
+		local varToRealName = {}
+
+		local function extractScript(scriptObj, parentVar)
+			local source = ""
+			local method = "unknown"
+
+			local zuk = env.ZukDecompile or getgenv()._ZUK_DECOMPILE
+			if zuk and env.getscriptbytecode then
+				local okBC, bytecode = pcall(env.getscriptbytecode, scriptObj)
+				if okBC and bytecode and bytecode ~= "" then
+					local opts = {
+						DecompilerMode = "disasm",
+						DecompilerTimeout = 20,
+						CleanMode = true,
+						ReaderFloatPrecision = 10,
+						ShowDebugInformation = false,
+						ShowTrivialOperations = false,
+						ShowInstructionLines = true,
+						ShowOperationIndex = false,
+						ShowOperationNames = true,
+						ListUsedGlobals = true,
+						UseTypeInfo = true,
+						EnabledRemarks = { ColdRemark = false, InlineRemark = false },
+						ReturnElapsedTime = false,
+						prettyPrint = true,
+					}
+					local okD, result = pcall(zuk, bytecode, opts)
+					if okD and result and result ~= "" then
+						-- FIX #4: removed dead `co` reference; prettyPrint applied directly if available
+						local pp = getgenv()._ZUK_PRETTYPRINT
+						source = (pp and pp(result)) or result
+						method = "zukv2"
+					end
+				end
+			end
+
+			if source == "" then
+				local ok2, src = pcall(function()
+					return scriptObj.Source
+				end)
+				if ok2 and src and src ~= "" then
+					source = src
+					method = "Source"
+				end
+			end
+
+			if source == "" and env.decompile then
+				local ok3, res = pcall(env.decompile, scriptObj)
+				if ok3 and res and res ~= "" then
+					source = res
+					method = "decompile"
+				end
+			end
+
+			if source == "" and env.getscriptclosure then
+				local ok4, fn = pcall(env.getscriptclosure, scriptObj)
+				if ok4 and fn then
+					local ok5, bc = pcall(string.dump, fn)
+					if ok5 and bc then
+						source = "-- [BYTECODE ONLY — paste into a decompiler]\n"
+							.. "-- string.dump length: "
+							.. #bc
+							.. " bytes\n"
+						method = "dump"
+					end
+				end
+			end
+
+			if source == "" then
+				source = "-- [PROTECTED] Could not extract source via any method\n"
+				method = "none"
+			end
+
+			local enabled = true
+			pcall(function()
+				enabled = not scriptObj.Disabled
+			end)
+
+			table.insert(extractedScripts, {
+				parent = parentVar,
+				className = scriptObj.ClassName,
+				name = scriptObj.Name,
+				source = source,
+				enabled = enabled,
+				method = method,
+			})
+		end
+
+		-- Extracts source from a ModuleScript using the same waterfall as extractScript
+		local function extractModuleSource(modObj)
+			local source = ""
+			local method = "unknown"
+
+			local zuk = env.ZukDecompile or getgenv()._ZUK_DECOMPILE
+			if zuk and env.getscriptbytecode then
+				local okBC, bytecode = pcall(env.getscriptbytecode, modObj)
+				if okBC and bytecode and bytecode ~= "" then
+					local opts = {
+						DecompilerMode = "disasm",
+						DecompilerTimeout = 20,
+						CleanMode = true,
+						ReaderFloatPrecision = 10,
+						ShowDebugInformation = false,
+						ShowTrivialOperations = false,
+						ShowInstructionLines = true,
+						ShowOperationIndex = false,
+						ShowOperationNames = true,
+						ListUsedGlobals = true,
+						UseTypeInfo = true,
+						EnabledRemarks = { ColdRemark = false, InlineRemark = false },
+						ReturnElapsedTime = false,
+						prettyPrint = true,
+					}
+					local okD, result = pcall(zuk, bytecode, opts)
+					if okD and result and result ~= "" then
+						local pp = getgenv()._ZUK_PRETTYPRINT
+						source = (pp and pp(result)) or result
+						method = "zukv2"
+					end
+				end
+			end
+
+			if source == "" then
+				local ok2, src = pcall(function() return modObj.Source end)
+				if ok2 and src and src ~= "" then
+					source = src
+					method = "Source"
+				end
+			end
+
+			if source == "" and env.decompile then
+				local ok3, res = pcall(env.decompile, modObj)
+				if ok3 and res and res ~= "" then
+					source = res
+					method = "decompile"
+				end
+			end
+
+			if source == "" then
+				source = "-- [PROTECTED] Could not extract module source via any method\n"
+				method = "none"
+			end
+
+			return source, method
+		end
+
+		-- Walks a script closure's upvalues and constants looking for require() targets.
+		-- For each ModuleScript found, recursively traces its own closure so transitive
+		-- dependencies (modules that require other modules) are also captured.
+		-- depth guards against infinite loops in mutually-requiring module graphs.
+		local function traceModulesFromScript(scriptObj, depth)
+			depth = depth or 0
+			if depth > 8 then return end  -- max transitive depth
+
+			-- need getscriptclosure + getupvalues + getconstants from the executor
+			if not (env.getscriptclosure and env.getupvalues and env.getconstants) then
+				return
+			end
+
+			local okFn, closure = pcall(env.getscriptclosure, scriptObj)
+			if not okFn or not closure then return end
+
+			-- Collect every constant string and upvalue that looks like a ModuleScript
+			-- First pass: upvalues — some executors store the required module's result here
+			local okUV, upvals = pcall(env.getupvalues, closure)
+			if okUV and upvals then
+				for _, uv in pairs(upvals) do
+					local okType, isInst = pcall(function()
+						return typeof(uv) == "Instance"
+					end)
+					if okType and isInst then
+						local okCls, cls = pcall(function() return uv.ClassName end)
+						if okCls and cls == "ModuleScript" and not seenModules[uv] then
+							seenModules[uv] = true
+							local src, meth = extractModuleSource(uv)
+							-- build a safe dotted path from the module up to game root
+							local pathParts = {}
+							local cur = uv
+							for _ = 1, 20 do
+								local okN, nm = pcall(function() return cur.Name end)
+								if not okN then break end
+								table.insert(pathParts, 1, nm)
+								local okP, par = pcall(function() return cur.Parent end)
+								if not okP or par == game or par == nil then break end
+								cur = par
+							end
+							local fullPath = table.concat(pathParts, ".")
+
+							table.insert(extractedModules, {
+								obj      = uv,
+								name     = uv.Name,
+								path     = fullPath,
+								source   = src,
+								method   = meth,
+								depth    = depth,
+								via      = scriptObj.Name,
+							})
+
+							-- recurse: this module may itself require others
+							traceModulesFromScript(uv, depth + 1)
 						end
-					end,
-				})
+					end
+				end
+			end
+
+			-- Second pass: constants — look for string constants that match known
+			-- module names already in the game tree (require("ModuleName") style)
+			local okC, consts = pcall(env.getconstants, closure)
+			if okC and consts then
+				for _, c in pairs(consts) do
+					if type(c) == "string" and #c > 0 and #c < 128 then
+						-- search common module containers for a matching name
+						local SEARCH_ROOTS = {
+							game:GetService("ReplicatedStorage"),
+							game:GetService("StarterPlayerScripts"),
+							game:GetService("StarterGui"),
+							game.Players.LocalPlayer and
+								game.Players.LocalPlayer:FindFirstChild("PlayerScripts"),
+						}
+						for _, root in ipairs(SEARCH_ROOTS) do
+							if root then
+								local okF, found = pcall(function()
+									return root:FindFirstChild(c, true)
+								end)
+								if okF and found
+									and found.ClassName == "ModuleScript"
+									and not seenModules[found]
+								then
+									seenModules[found] = true
+									local src, meth = extractModuleSource(found)
+									local pathParts = {}
+									local cur = found
+									for _ = 1, 20 do
+										local okN, nm = pcall(function() return cur.Name end)
+										if not okN then break end
+										table.insert(pathParts, 1, nm)
+										local okP, par = pcall(function() return cur.Parent end)
+										if not okP or par == game or par == nil then break end
+										cur = par
+									end
+									local fullPath = table.concat(pathParts, ".")
+
+									table.insert(extractedModules, {
+										obj    = found,
+										name   = found.Name,
+										path   = fullPath,
+										source = src,
+										method = meth,
+										depth  = depth,
+										via    = scriptObj.Name .. " (const \"" .. c .. "\")",
+									})
+
+									traceModulesFromScript(found, depth + 1)
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+
+		local flatCounter = { n = 0 }
+		local usedNames = {}
+		local function newVar(base)
+			flatCounter.n += 1
+			local safe = (base or "obj"):gsub("[^%w_]", "_"):gsub("^(%d)", "_%1")
+			local candidate = safe .. "_" .. flatCounter.n
+			usedNames[candidate] = true
+			return candidate
+		end
+
+		local codeLines = {}
+		local indentLevel = 0
+		local function emit(s)
+			local prefix = string.rep("\t", indentLevel)
+			codeLines[#codeLines + 1] = prefix .. s
+		end
+		local function emitRaw(s)
+			codeLines[#codeLines + 1] = s
+		end
+		local function emitBlank()
+			codeLines[#codeLines + 1] = ""
+		end
+
+		-- FIX #1: Removed `Visible = true` from SKIP_DEFAULTS — Visible defaults differ
+		-- per class and suppressing explicit `false` would silently break hidden GUIs.
+		-- Instead we only skip properties whose default is universally safe to omit.
+		local SKIP_DEFAULTS = {
+			BackgroundTransparency = 0,
+			TextTransparency = 0,
+			ImageTransparency = 0,
+			TextStrokeTransparency = 1,
+			BorderSizePixel = 1,
+			ZIndex = 1,
+			LayoutOrder = 0,
+			Rotation = 0,
+			AutomaticSize = Enum.AutomaticSize.None,
+			AutomaticCanvasSize = Enum.AutomaticSize.None,
+			AnchorPoint = Vector2.new(0, 0),
+			ClipsDescendants = false,
+			Active = false,
+			Selectable = false,
+			RichText = false,
+			TextWrapped = false,
+			TextScaled = false,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			AutoButtonColor = true,
+			Enabled = true,
+			ResetOnSpawn = true,
+			DisplayOrder = 0,
+			IgnoreGuiInset = false,
+			ScrollingEnabled = true,
+			Modal = false,
+			MultiLine = false,
+			TextEditable = true,
+			ClearTextOnFocus = true,
+			LineHeight = 1,
+			MaxVisibleGraphemes = -1,
+			ScrollBarThickness = 12,
+		}
+		local function shouldSkip(propName, val)
+			local def = SKIP_DEFAULTS[propName]
+			if def == nil then
+				return false
+			end
+			local tv, td = typeof(val), typeof(def)
+			if tv ~= td then
+				return false
+			end
+			if tv == "Vector2" then
+				return val.X == def.X and val.Y == def.Y
+			end
+			if tv == "UDim2" then
+				return val.X.Scale == def.X.Scale
+					and val.X.Offset == def.X.Offset
+					and val.Y.Scale == def.Y.Scale
+					and val.Y.Offset == def.Y.Offset
+			end
+			if tv == "UDim" then
+				return val.Scale == def.Scale and val.Offset == def.Offset
+			end
+			if tv == "Color3" then
+				return math.floor(val.R * 255 + 0.5) == math.floor(def.R * 255 + 0.5)
+					and math.floor(val.G * 255 + 0.5) == math.floor(def.G * 255 + 0.5)
+					and math.floor(val.B * 255 + 0.5) == math.floor(def.B * 255 + 0.5)
+			end
+			return val == def
+		end
+
+		local SCRIPT_CLASSES = { LocalScript = true, Script = true, ModuleScript = true }
+
+		-- FIX #5: recursion guard to prevent stack overflow on pathological trees
+		local visitedObjects = {}
+
+		local function generateGuiCode(obj, parentVar)
+			-- guard against circular references
+			if visitedObjects[obj] then
+				return
+			end
+			visitedObjects[obj] = true
+
+			local cls = obj.ClassName
+			if SCRIPT_CLASSES[cls] then
+				extractScript(obj, parentVar)
+				return
+			end
+			local varName = newVar(obj.Name)
+			instanceToVar[obj] = varName
+			-- FIX #2: record the real object name against the var for reliable parent lookup
+			varToRealName[varName] = obj.Name
+
+			emit(("local %s = Instance.new(%q)"):format(varName, cls))
+			emit(("%s.Parent = %s"):format(varName, parentVar))
+
+			if obj.Name ~= cls then
+				emit(("%s.Name = %q"):format(varName, obj.Name))
+			end
+
+			local props = getProps(obj)
+			for _, propName in ipairs(props) do
+				if propName == "Name" then
+					continue
+				end
+				local ok, val = pcall(function()
+					return obj[propName]
+				end)
+				if ok and val ~= nil then
+					if not shouldSkip(propName, val) then
+						local s = serialize(val)
+						if s ~= "nil" then
+							emit(("%s.%s = %s"):format(varName, propName, s))
+						end
+					end
+				end
+			end
+
+			local children = obj:GetChildren()
+			if #children > 0 then
+				emitBlank()
+				for _, child in ipairs(children) do
+					generateGuiCode(child, varName)
+				end
+			end
+		end
+
+		emitRaw('local Players = game:GetService("Players")')
+		emitRaw('local RunService = game:GetService("RunService")')
+		emitRaw("local player = Players.LocalPlayer")
+		emitRaw('local playerGui = player:WaitForChild("PlayerGui")')
+		emitBlank()
+		emitRaw("-- Remove existing copy to allow re-injection")
+		emitRaw(("local _existing = playerGui:FindFirstChild(%q)"):format(gui.Name))
+		emitRaw("if _existing then _existing:Destroy() end")
+		emitBlank()
+		emitRaw("--  GUI Structure ")
+		emitRaw("local function createGui()")
+		indentLevel = 1
+
+		local sgVar = newVar(gui.Name)
+		instanceToVar[gui] = sgVar
+		varToRealName[sgVar] = gui.Name
+
+		emit(('local %s = Instance.new("ScreenGui")'):format(sgVar))
+
+		local sgProps = getProps(gui)
+		for _, propName in ipairs(sgProps) do
+			if propName == "Name" then
+				continue
+			end
+			local ok, val = pcall(function()
+				return gui[propName]
+			end)
+			if ok and val ~= nil then
+				if not shouldSkip(propName, val) then
+					local s = serialize(val)
+					if s ~= "nil" then
+						emit(("%s.%s = %s"):format(sgVar, propName, s))
+					end
+				end
+			end
+		end
+		if gui.Name ~= "ScreenGui" then
+			emit(("%s.Name = %q"):format(sgVar, gui.Name))
+		end
+		emitBlank()
+
+		for _, child in ipairs(gui:GetChildren()) do
+			generateGuiCode(child, sgVar)
+		end
+
+		emitBlank()
+		emit(("%s.Parent = playerGui"):format(sgVar))
+		emit(("return %s"):format(sgVar))
+		indentLevel = 0
+		emitRaw("end")
+		emitBlank()
+
+		-- Option B: trace ModuleScript dependencies from each extracted script's closure
+		-- Requires executor to expose getscriptclosure + getupvalues + getconstants.
+		-- Silently skips if those APIs are absent — output is still valid without them.
+		if env.getscriptclosure and env.getupvalues and env.getconstants then
+			for _, sd in ipairs(extractedScripts) do
+				-- we need the original Instance; find it via instanceToVar inverse
+				-- extractScript stored the scriptObj reference directly, so walk extractedScripts
+				-- which already has the source — we only need the live Instance for closure tracing
+				-- Re-locate it from the GUI tree by name + class match
+				local function findScriptObj(root, name, cls)
+					for _, d in ipairs(root:GetDescendants()) do
+						if d.Name == name and d.ClassName == cls then
+							return d
+						end
+					end
+					return nil
+				end
+				local liveObj = findScriptObj(gui, sd.name, sd.className)
+				if liveObj then
+					traceModulesFromScript(liveObj, 0)
+				end
+			end
+		end
+
+		if #extractedScripts > 0 then
+			emitRaw(("--  Extracted Scripts (%d found) "):format(#extractedScripts))
+			for i, sd in ipairs(extractedScripts) do
+				emitRaw(
+					("-- [%d] %s  (%s)  method: %s  enabled: %s"):format(
+						i,
+						sd.name,
+						sd.className,
+						sd.method,
+						tostring(sd.enabled)
+					)
+				)
+				emitRaw(("local function runScript_%d(script_obj)"):format(i))
+				emitRaw("\t-- 'script' and 'script.Parent' aliased for compatibility")
+				emitRaw("\tlocal script = script_obj")
+				-- FIX #15: expose script.Parent explicitly so LocalScript code referencing it works
+				emitRaw("\tlocal scriptParent = script_obj.Parent")
+				if not sd.enabled then
+					-- FIX #3: fixed missing opening bracket on disabled script comment
+					emitRaw("\t--[[ DISABLED SCRIPT — uncomment body to enable")
+				end
+				-- FIX #13: strip leading whitespace from source lines before re-indenting
+				-- to prevent double-indentation of already-indented decompiled code
+				for line in (sd.source .. "\n"):gmatch("[^\n]*\n") do
+					local stripped = line:gsub("^[\t ]*", ""):gsub("\n$", "")
+					emitRaw("\t" .. stripped)
+				end
+				if not sd.enabled then
+					emitRaw("\t--]]")
+				end
+				emitRaw("end")
+				emitBlank()
+			end
+		end
+
+		emitRaw("--  Init ")
+		emitRaw("local gui = createGui()")
+		emitBlank()
+
+		if #extractedModules > 0 then
+			emitRaw(("--  Linked ModuleScripts (%d found) "):format(#extractedModules))
+			emitRaw("-- These were discovered by tracing require() calls and upvalues.")
+			emitRaw("-- Each is wrapped in a loadmodule_ function returning its value,")
+			emitRaw("-- matching standard ModuleScript behaviour (return at end of body).")
+			emitBlank()
+			-- emit each module as a loader function
+			for i, md in ipairs(extractedModules) do
+				emitRaw(
+					("-- [M%d] %s  path: %s  method: %s  via: %s  depth: %d"):format(
+						i, md.name, md.path, md.method, md.via, md.depth
+					)
+				)
+				emitRaw(("local function loadmodule_%d()"):format(i))
+				for line in (md.source .. "\n"):gmatch("[^\n]*\n") do
+					local stripped = line:gsub("^[\t ]*", ""):gsub("\n$", "")
+					emitRaw("\t" .. stripped)
+				end
+				emitRaw("end")
+				emitBlank()
+			end
+			-- emit a require-compat shim table so scripts that call require(ModuleName)
+			-- or require(Instance) can be redirected to the loader functions above
+			emitRaw("-- require() shim: maps module name -> loader result")
+			emitRaw("-- Assign before running scripts that depend on these modules.")
+			emitRaw("local _moduleCache = {}")
+			for i, md in ipairs(extractedModules) do
+				emitRaw(("_moduleCache[%q] = loadmodule_%d()"):format(md.name, i))
+			end
+			emitBlank()
+		end
+
+		if #extractedScripts > 0 then
+			for i, sd in ipairs(extractedScripts) do
+				-- FIX #2: use varToRealName for reliable parent name resolution
+				-- instead of the fragile regex that broke on names ending in _N
+				local parentRef
+				if sd.parent == sgVar then
+					parentRef = "gui"
+				else
+					local realName = varToRealName[sd.parent] or sd.parent
+					parentRef = ("gui:FindFirstChild(%q, true)"):format(realName)
+				end
+				emitRaw(("-- Run: %s [%s]"):format(sd.name, sd.className))
+				emitRaw("task.spawn(function()")
+				emitRaw(("\tlocal parent = %s"):format(parentRef))
+				emitRaw("\tif parent then")
+				emitRaw(("\t\trunScript_%d(parent)"):format(i))
+				emitRaw("\telse")
+				emitRaw(('\t\twarn("[G2S] Parent not found for script: %s")'):format(sd.name))
+				emitRaw("\tend")
+				emitRaw("end)")
+				emitBlank()
+			end
+		end
+
+		local totalProps = 0
+		for _, l in ipairs(codeLines) do
+			if l:find("%.%a+ = ") then
+				totalProps += 1
+			end
+		end
+
+		-- FIX #14: os.date wrapped in pcall — not available in all executor environments
+		local dateStr = "unknown"
+		pcall(function()
+			dateStr = os.date("%Y-%m-%d %H:%M:%S")
+		end)
+
+		local header = table.concat({
+			"--[[                                                          ",
+			"                                                              ",
+			"              GUI -> SCRIPT CONVERTER  v4  (zukv2)                 ",
+			"                                                              ",
+			"    ScreenGui : " .. gui.Name,
+			"    Extracted : " .. dateStr,
+			"    Elements  : " .. flatCounter.n,
+			"    Props     : " .. totalProps,
+			"    Scripts   : " .. #extractedScripts,
+			"    Modules   : " .. #extractedModules,
+			"--]]",
+			"",
+		}, "\n")
+		local output = header .. table.concat(codeLines, "\n")
+
+		ScriptViewer.ViewRaw(output)
+
+		local copied = false
+		if env.setclipboard then
+			copied = pcall(env.setclipboard, output)
+		end
+		if not copied and setclipboard then
+			pcall(setclipboard, output)
+		end
+		if not copied and toclipboard then
+			pcall(toclipboard, output)
+		end
+
+		if getgenv().DoNotif then
+			getgenv().DoNotif(
+				(" GUI -> SCRIPT — %d elem, %d prop, %d script, %d mod"):format(
+					flatCounter.n, totalProps, #extractedScripts, #extractedModules
+				),
+				5
+			)
+		end
+	end,
+})
 
 				context:Register("PLAY_SOUND", {
 					Name = "Play Sound",
@@ -10194,9 +10457,13 @@ local EmbeddedModules = {
 							table.insert(lines, s)
 						end
 
-						w("-- ")
+						w(
+							"-- "
+						)
 						w("--            CLOSURE INSPECTOR [RE]                ")
-						w("-- ")
+						w(
+							"-- "
+						)
 						w("-- Script: " .. Explorer.GetInstancePath(scr))
 						w("-- Generated: " .. os.date("%Y-%m-%d %H:%M:%S"))
 						w("")
@@ -10606,9 +10873,13 @@ local EmbeddedModules = {
 								local function w(s)
 									table.insert(lines, s)
 								end
-								w("-- ")
+								w(
+									"-- "
+								)
 								w("--           ARG CAPTURE REPORT [RE]                ")
-								w("-- ")
+								w(
+									"-- "
+								)
 								w("-- Remote : " .. obj:GetFullName())
 								w("-- Class  : " .. obj.ClassName)
 								w("-- Captured: " .. captureCount .. " calls")
@@ -14028,7 +14299,7 @@ return search]==]
 				end
 
 				funcs.DisplayExplorerIcons = function(self, Frame, index)
-					if CLASS_ICONS[index] then
+										if CLASS_ICONS[index] then
 						local iconMap = Frame:FindFirstChild("IconMap")
 						if not iconMap then
 							Frame.ClipsDescendants = false
@@ -28955,8 +29226,7 @@ local RETURN_ELAPSED_TIME = false
 										if prev and prev.opCode and prev.opCode.name == "NAMECALL" then
 											nmMethod = ":"
 												.. tostring(
-													consts[prev.extraData[2] + 1]
-															and consts[prev.extraData[2] + 1].value
+													consts[prev.extraData[2] + 1] and consts[prev.extraData[2] + 1].value
 														or ""
 												)
 											nArgs -= 1
@@ -29550,7 +29820,9 @@ local RETURN_ELAPSED_TIME = false
 					w("  Entry proto  : #" .. parsed.entryProto)
 					w("  Strings total: " .. #parsed.stringTable)
 					w("")
-					w(" STRING TABLE ")
+					w(
+						" STRING TABLE "
+					)
 					for i, s in ipairs(parsed.stringTable) do
 						w(string.format("  [%3d] %q", i, s))
 					end
@@ -29599,7 +29871,9 @@ local RETURN_ELAPSED_TIME = false
 							walkProto(inner, i2)
 						end
 					end
-					w(" PROTO TREE ")
+					w(
+						" PROTO TREE "
+					)
 					for i, proto in ipairs(parsed.protos) do
 						walkProto(proto, i)
 					end
@@ -31234,7 +31508,8 @@ local RETURN_ELAPSED_TIME = false
 				local existNI = mt and mt.__newindex
 				local newMt = mt or {}
 				newMt.__index = function(t, k)
-					local v = existIdx and (type(existIdx) == "function" and existIdx(t, k) or existIdx[k])
+					local v = existIdx
+							and (type(existIdx) == "function" and existIdx(t, k) or existIdx[k])
 						or rawget(t, k)
 					task.defer(function()
 						addEvent("__index", k, v, label)
