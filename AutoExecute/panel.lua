@@ -575,6 +575,8 @@ getgenv().UserInputService = UserInputService
 getgenv().TweenService = TweenService
 getgenv().RunService = RunService
 getgenv().Workspace = Workspace
+
+
 getgenv().addcmd = function(name, aliases, func)
 	if not name or not func then
 		warn("[addcmd] Registration failed: missing name or function.")
@@ -592,13 +594,14 @@ end
 
 addcmd = getgenv().addcmd
 
-Modules.Performance = {
+=Modules.Performance = {
 	State = {
 		IsEnabled = false,
 		OriginalProperties = {},
 		Connections = {},
 	},
 }
+
 local LIGHTING_EFFECT_CLASSES = {
 	"Atmosphere",
 	"Clouds",
@@ -608,189 +611,267 @@ local LIGHTING_EFFECT_CLASSES = {
 	"DepthOfFieldEffect",
 	"ColorCorrectionEffect",
 }
-local QUALITY_LEVEL_STEP = Enum.QualityLevel.Level01
-local function SaveAndDisable(instance, props)
-	local saved = {}
-	for _, prop in ipairs(props) do
-		local ok, val = pcall(function()
-			return instance[prop]
-		end)
-		if ok then
-			saved[prop] = val
+
+local TECH_COST = {
+	[Enum.Technology.Future] = 4,
+	[Enum.Technology.ShadowMap] = 3,
+	[Enum.Technology.Voxel] = 2,
+	[Enum.Technology.Compatibility] = 1,
+}
+
+local PARTICLE_CLASSES = {
+	ParticleEmitter = true,
+	Trail = true,
+	Beam = true,
+}
+
+local function saveAndSet(store, instance, prop, newValue)
+	local ok, cur = pcall(function()
+		return instance[prop]
+	end)
+	if not ok then
+		return
+	end
+	store[#store + 1] = { obj = instance, prop = prop, was = cur }
+	pcall(function()
+		instance[prop] = newValue
+	end)
+end
+
+local function restoreAll(store)
+	for _, entry in ipairs(store) do
+		if entry.obj and entry.obj.Parent then
 			pcall(function()
-				instance[prop] = (type(val) == "boolean" and false or getattr(val))
+				entry.obj[entry.prop] = entry.was
 			end)
 		end
 	end
-	return saved
 end
-local function DisableParticlesIn(root, store)
-	for _, obj in ipairs(root:GetDescendants()) do
-		if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") then
-			local ok, cur = pcall(function()
-				return obj.Enabled
-			end)
-			if ok then
-				store[obj] = cur
-				pcall(function()
-					obj.Enabled = false
-				end)
+
+local function disableParticlesUnder(root, store)
+	if not root then
+		return
+	end
+	local ok, descendants = pcall(function()
+		return root:GetDescendants()
+	end)
+	if not ok then
+		return
+	end
+	for _, obj in ipairs(descendants) do
+		if PARTICLE_CLASSES[obj.ClassName] then
+			saveAndSet(store, obj, "Enabled", false)
+		end
+	end
+end
+
+local function watchParticles(root, store)
+	if not root then
+		return nil
+	end
+	local ok, conn = pcall(function()
+		return root.DescendantAdded:Connect(function(obj)
+			if PARTICLE_CLASSES[obj.ClassName] and Modules.Performance.State.IsEnabled then
+				saveAndSet(store, obj, "Enabled", false)
 			end
-		end
-	end
+		end)
+	end)
+	return ok and conn or nil
 end
+
 function Modules.Performance:Enable()
 	if self.State.IsEnabled then
 		return
 	end
-	self.State.IsEnabled = true
-	self.State.OriginalProperties = {}
-	local orig = self.State.OriginalProperties
-	local lighting = game:GetService("Lighting")
-	local terrain = workspace:FindFirstChildOfClass("Terrain")
-	local matService = game:GetService("MaterialService")
-	local renderSettings = settings():GetService("RenderSettings")
-	orig.Lighting = {
-		Technology = lighting.Technology,
-		GlobalShadows = lighting.GlobalShadows,
-		EnvironmentDiffuseScale = lighting.EnvironmentDiffuseScale,
-		EnvironmentSpecularScale = lighting.EnvironmentSpecularScale,
-	}
-	pcall(function()
-		lighting.Technology = Enum.Technology.Compatibility
-		lighting.GlobalShadows = false
-		lighting.EnvironmentDiffuseScale = 0
-		lighting.EnvironmentSpecularScale = 0
-	end)
-	orig.LightingEffects = {}
-	for _, effect in ipairs(lighting:GetChildren()) do
-		for _, cls in ipairs(LIGHTING_EFFECT_CLASSES) do
-			if effect:IsA(cls) then
-				local ok, enabled = pcall(function()
-					return effect.Enabled
-				end)
-				if ok then
-					orig.LightingEffects[effect] = enabled
-					pcall(function()
-						effect.Enabled = false
-					end)
-				end
-				break
-			end
-		end
-	end
-	if terrain then
-		orig.Terrain = {
-			Decoration = terrain.Decoration,
-			WaterWaveSize = terrain.WaterWaveSize,
-			WaterWaveSpeed = terrain.WaterWaveSpeed,
-		}
-		pcall(function()
-			terrain.Decoration = false
-			terrain.WaterWaveSize = 0
-			terrain.WaterWaveSpeed = 0
-		end)
-	end
-	local okM, curQ = pcall(function()
-		return matService.MaterialQuality
-	end)
-	if okM then
-		orig.MaterialService = { MaterialQuality = curQ }
-		pcall(function()
-			matService.MaterialQuality = Enum.MaterialQuality.Low
-		end)
-	end
-	local okQ, curLevel = pcall(function()
-		return renderSettings.QualityLevel
-	end)
-	if okQ then
-		orig.QualityLevel = curLevel
-		pcall(function()
-			renderSettings.QualityLevel = QUALITY_LEVEL_STEP
-		end)
-	end
-	orig.Particles = {}
-	DisableParticlesIn(workspace, orig.Particles)
-	self.State.Connections.ParticleAdded = workspace.DescendantAdded:Connect(function(obj)
-		if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") then
-			if self.State.OriginalProperties.Particles then
-				local ok, cur = pcall(function()
-					return obj.Enabled
-				end)
-				if ok then
-					self.State.OriginalProperties.Particles[obj] = cur
-					pcall(function()
-						obj.Enabled = false
-					end)
-				end
-			end
-		end
-	end)
-	DoNotif("Performance Mode: ENABLED", 2)
-end
-function Modules.Performance:Disable()
-	if not self.State.IsEnabled then
-		return
-	end
-	self.State.IsEnabled = false
+
 	for _, conn in pairs(self.State.Connections) do
 		pcall(function()
 			conn:Disconnect()
 		end)
 	end
 	self.State.Connections = {}
+	self.State.OriginalProperties = {}
+	self.State.IsEnabled = true
+
 	local orig = self.State.OriginalProperties
+	local conns = self.State.Connections
 	local lighting = game:GetService("Lighting")
-	local terrain = workspace:FindFirstChildOfClass("Terrain")
 	local matService = game:GetService("MaterialService")
-	local renderSettings = settings():GetService("RenderSettings")
-	if orig.Lighting then
-		for prop, val in pairs(orig.Lighting) do
-			pcall(function()
-				lighting[prop] = val
-			end)
+	local renderSettings = pcall(function()
+		return settings():GetService("RenderSettings")
+	end) and settings():GetService("RenderSettings") or nil
+	local terrain = workspace:FindFirstChildOfClass("Terrain")
+	local localPlayer = game:GetService("Players").LocalPlayer
+
+	orig.LightingTech = {}
+	local okT, curTech = pcall(function()
+		return lighting.Technology
+	end)
+	if okT then
+		local curCost = TECH_COST[curTech] or 1
+		if curCost > TECH_COST[Enum.Technology.Compatibility] then
+			saveAndSet(orig.LightingTech, lighting, "Technology", Enum.Technology.Compatibility)
+			saveAndSet(orig.LightingTech, lighting, "GlobalShadows", false)
+			saveAndSet(orig.LightingTech, lighting, "EnvironmentDiffuseScale", 0)
+			saveAndSet(orig.LightingTech, lighting, "EnvironmentSpecularScale", 0)
+		else
+			saveAndSet(orig.LightingTech, lighting, "EnvironmentDiffuseScale", 0)
+			saveAndSet(orig.LightingTech, lighting, "EnvironmentSpecularScale", 0)
 		end
 	end
-	if orig.LightingEffects then
-		for effect, wasEnabled in pairs(orig.LightingEffects) do
-			if effect and effect.Parent then
-				pcall(function()
-					effect.Enabled = wasEnabled
-				end)
+
+	orig.LightingEffects = {}
+	local okD, lightingDescs = pcall(function()
+		return lighting:GetDescendants()
+	end)
+	if okD then
+		for _, effect in ipairs(lightingDescs) do
+			for _, cls in ipairs(LIGHTING_EFFECT_CLASSES) do
+				if effect:IsA(cls) then
+					saveAndSet(orig.LightingEffects, effect, "Enabled", false)
+					break
+				end
 			end
 		end
 	end
-	if terrain and orig.Terrain then
-		for prop, val in pairs(orig.Terrain) do
-			pcall(function()
-				terrain[prop] = val
-			end)
+
+	orig.Terrain = {}
+	if terrain then
+		saveAndSet(orig.Terrain, terrain, "Decoration", false)
+		saveAndSet(orig.Terrain, terrain, "WaterWaveSize", 0)
+		saveAndSet(orig.Terrain, terrain, "WaterWaveSpeed", 0)
+		saveAndSet(orig.Terrain, terrain, "WaterTransparency", 0.5)
+	end
+
+	orig.MaterialService = {}
+	local okMs, _ = pcall(function()
+		saveAndSet(orig.MaterialService, matService, "MaterialQuality", Enum.MaterialQuality.Low)
+	end)
+	if not okMs then
+		warn("[Perf] MaterialService.MaterialQuality not settable on this executor")
+	end
+
+	orig.RenderSettings = {}
+	if renderSettings then
+		local okQ, _ = pcall(function()
+			saveAndSet(orig.RenderSettings, renderSettings, "QualityLevel", Enum.QualityLevel.Level01)
+		end)
+		if not okQ then
+			warn("[Perf] RenderSettings.QualityLevel not settable on this executor")
 		end
 	end
-	if orig.MaterialService then
-		for prop, val in pairs(orig.MaterialService) do
-			pcall(function()
-				matService[prop] = val
-			end)
+
+	orig.ShadowParts = {}
+	local okWD, wDescs = pcall(function()
+		return workspace:GetDescendants()
+	end)
+	if okWD then
+		for _, obj in ipairs(wDescs) do
+			if obj:IsA("BasePart") then
+				local okS, cur = pcall(function()
+					return obj.CastShadow
+				end)
+				if okS and cur then
+					orig.ShadowParts[#orig.ShadowParts + 1] = { obj = obj, prop = "CastShadow", was = true }
+					pcall(function()
+						obj.CastShadow = false
+					end)
+				end
+			end
 		end
 	end
-	if orig.QualityLevel then
+	local okSC, shadowConn = pcall(function()
+		return workspace.DescendantAdded:Connect(function(obj)
+			if obj:IsA("BasePart") and self.State.IsEnabled then
+				local okS, cur = pcall(function()
+					return obj.CastShadow
+				end)
+				if okS and cur then
+					orig.ShadowParts[#orig.ShadowParts + 1] = { obj = obj, prop = "CastShadow", was = true }
+					pcall(function()
+						obj.CastShadow = false
+					end)
+				end
+			end
+		end)
+	end)
+	if okSC then
+		conns.ShadowAdded = shadowConn
+	end
+
+	orig.Particles = {}
+	disableParticlesUnder(workspace, orig.Particles)
+	if localPlayer then
+		disableParticlesUnder(localPlayer.Character, orig.Particles)
+		disableParticlesUnder(localPlayer.PlayerGui, orig.Particles)
+		disableParticlesUnder(localPlayer.Backpack, orig.Particles)
+	end
+
+	local wsConn = watchParticles(workspace, orig.Particles)
+	if wsConn then
+		conns.ParticleWorkspace = wsConn
+	end
+
+	if localPlayer then
+		local charConn = watchParticles(localPlayer.Character, orig.Particles)
+		if charConn then
+			conns.ParticleCharacter = charConn
+		end
+
+		local okRe, respawnConn = pcall(function()
+			return localPlayer.CharacterAdded:Connect(function(char)
+				if conns.ParticleCharacter then
+					pcall(function()
+						conns.ParticleCharacter:Disconnect()
+					end)
+				end
+				task.defer(function()
+					if self.State.IsEnabled then
+						disableParticlesUnder(char, orig.Particles)
+						local newConn = watchParticles(char, orig.Particles)
+						if newConn then
+							conns.ParticleCharacter = newConn
+						end
+					end
+				end)
+			end)
+		end)
+		if okRe then
+			conns.CharacterRespawn = respawnConn
+		end
+	end
+
+	DoNotif("Performance Mode: ENABLED", 2)
+end
+
+function Modules.Performance:Disable()
+	if not self.State.IsEnabled then
+		return
+	end
+	self.State.IsEnabled = false
+
+	for _, conn in pairs(self.State.Connections) do
 		pcall(function()
-			renderSettings.QualityLevel = orig.QualityLevel
+			conn:Disconnect()
 		end)
 	end
-	if orig.Particles then
-		for obj, wasEnabled in pairs(orig.Particles) do
-			if obj and obj.Parent then
-				pcall(function()
-					obj.Enabled = wasEnabled
-				end)
-			end
-		end
-	end
+	self.State.Connections = {}
+
+	local orig = self.State.OriginalProperties
+
+	restoreAll(orig.Particles or {})
+	restoreAll(orig.ShadowParts or {})
+	restoreAll(orig.RenderSettings or {})
+	restoreAll(orig.MaterialService or {})
+	restoreAll(orig.Terrain or {})
+	restoreAll(orig.LightingEffects or {})
+	restoreAll(orig.LightingTech or {})
+
 	self.State.OriginalProperties = {}
+
 	DoNotif("Performance Mode: DISABLED", 2)
 end
+
 function Modules.Performance:Toggle()
 	if self.State.IsEnabled then
 		self:Disable()
@@ -798,6 +879,7 @@ function Modules.Performance:Toggle()
 		self:Enable()
 	end
 end
+
 RegisterCommand({
 	Name = "fpsboost",
 	Aliases = { "noshadows", "performance" },
@@ -808,7 +890,7 @@ end)
 RegisterCommand({
 	Name = "desync",
 	Aliases = { "psync" },
-	Description = "Zukas Safe Desync.",
+	Description = "Zukas P Desync.",
 	ArgsDesc = {},
 	Permissions = {},
 }, function(args, speaker)
@@ -34054,641 +34136,7 @@ RegisterCommand({
 	setReadOnly(Meta, true)
 	Log("Anti-Kick on.")
 end)
-Modules.ScriptSearcher = {
-	State = {
-		IsEnabled = false,
-		UI = {},
-		Connections = {},
-		IsSearching = false,
-		LastQuery = "",
-		LastResults = {},
-		CurrentPage = 1,
-		ResultsPerPage = 20,
-		SearchHistory = {},
-		SortMode = "newest",
-		ActiveFilters = {},
-		CurrentSource = "scriptblox",
-		GameInfo = {},
-		GameScripts = {},
-	},
-	Config = {
-		ACCENT = Color3.fromRGB(0, 255, 255),
-		BG = Color3.fromRGB(20, 20, 20),
-		APIs = {
-			scriptblox = "https://scriptblox.com/api/script/search?q=%s&mode=free&max=100",
-			RoScripts = "https://api.rscripts.net/",
-		},
-		MAX_HISTORY = 15,
-	},
-	Dependencies = { "HttpService", "Players", "CoreGui", "UserInputService", "RunService" },
-	Services = {},
-}
-function Modules.ScriptSearcher:SearchGameScripts()
-	if self.State.IsSearching then
-		return
-	end
-	self.State.IsSearching = true
-	self.State.CurrentPage = 1
-	self.State.LastResults = {}
-	local gameId = game.GameId
-	self.State.LastQuery = "game:" .. gameId
-	local scroll = self.State.UI.ResultScroll
-	for _, v in ipairs(scroll:GetChildren()) do
-		if not v:IsA("UIListLayout") then
-			v:Destroy()
-		end
-	end
-	local status = Instance.new("TextLabel", scroll)
-	status.Size = UDim2.new(1, 0, 0, 30)
-	status.BackgroundTransparency = 1
-	status.Text = "Searching scripts for game " .. gameId .. "..."
-	status.TextColor3 = self.Config.ACCENT
-	status.Font = Enum.Font.Code
-	status.TextSize = 14
-	task.spawn(function()
-		local requestFunc = (typeof(request) == "function" and request)
-			or (typeof(syn) == "table" and syn.request)
-			or (typeof(http) == "table" and http.request)
-		if not requestFunc then
-			status.Text = "ERR: NO HTTP CAPABILITY"
-			self.State.IsSearching = false
-			return
-		end
-		local apiUrl = self.Config.APIs[self.State.CurrentSource] or self.Config.APIs.scriptblox
-		local url = apiUrl:format(self.Services.HttpService:UrlEncode("game:" .. gameId))
-		local success, res = pcall(function()
-			return requestFunc({ Url = url, Method = "GET" })
-		end)
-		if success and res.StatusCode == 200 then
-			status:Destroy()
-			local data = self.Services.HttpService:JSONDecode(res.Body)
-			if data.result and data.result.scripts then
-				self.State.LastResults = data.result.scripts
-				self.State.GameScripts = self.State.LastResults
-				self:_displayPage(1)
-				DoNotif("Found " .. #self.State.LastResults .. " scripts for this game.", 2)
-			else
-				status.Text = "No scripts found for this game."
-			end
-		else
-			status.Text = "API Link Failed."
-		end
-		self.State.IsSearching = false
-	end)
-end
-function Modules.ScriptSearcher:FetchGameInfo()
-	local gameId = game.GameId
-	local players = self.Services.Players:GetPlayers()
-	self.State.GameInfo = {
-		GameId = gameId,
-		GameName = game:GetService("MarketplaceService"):GetProductInfo(gameId).Name,
-		Creator = "Unknown",
-		PlayerCount = #players,
-		MaxPlayers = self.Services.Players.MaxPlayers,
-		Description = game:GetService("MarketplaceService"):GetProductInfo(gameId).Description,
-	}
-	return self.State.GameInfo
-end
-function Modules.ScriptSearcher:PerformSearch(query)
-	if self.State.IsSearching then
-		return
-	end
-	if query == "" then
-		return DoNotif("Enter a search query.", 2)
-	end
-	self.State.IsSearching = true
-	self.State.LastQuery = query
-	self.State.CurrentPage = 1
-	self.State.LastResults = {}
-	if not table.find(self.State.SearchHistory, query) then
-		table.insert(self.State.SearchHistory, 1, query)
-		if #self.State.SearchHistory > self.Config.MAX_HISTORY then
-			table.remove(self.State.SearchHistory, #self.State.SearchHistory)
-		end
-	end
-	local scroll = self.State.UI.ResultScroll
-	for _, v in ipairs(scroll:GetChildren()) do
-		if not v:IsA("UIListLayout") then
-			v:Destroy()
-		end
-	end
-	local status = Instance.new("TextLabel", scroll)
-	status.Size = UDim2.new(1, 0, 0, 30)
-	status.BackgroundTransparency = 1
-	status.Text = "Searching '" .. self.State.CurrentSource .. "'..."
-	status.TextColor3 = self.Config.ACCENT
-	status.Font = Enum.Font.Code
-	status.TextSize = 14
-	task.spawn(function()
-		local requestFunc = (typeof(request) == "function" and request)
-			or (typeof(syn) == "table" and syn.request)
-			or (typeof(http) == "table" and http.request)
-		if not requestFunc then
-			status.Text = "ERR: NO HTTP CAPABILITY"
-			self.State.IsSearching = false
-			return
-		end
-		local apiUrl = self.Config.APIs[self.State.CurrentSource] or self.Config.APIs.scriptblox
-		local url = apiUrl:format(self.Services.HttpService:UrlEncode(query))
-		local success, res = pcall(function()
-			return requestFunc({ Url = url, Method = "GET" })
-		end)
-		if success and res.StatusCode == 200 then
-			status:Destroy()
-			local data = self.Services.HttpService:JSONDecode(res.Body)
-			if data.result and data.result.scripts then
-				self.State.LastResults = data.result.scripts
-				self:_displayPage(1)
-				DoNotif("Found " .. #self.State.LastResults .. " results.", 2)
-			else
-				status.Text = "No results found."
-			end
-		else
-			status.Text = "API Link Failed."
-		end
-		self.State.IsSearching = false
-	end)
-end
-function Modules.ScriptSearcher:_displayPage(page)
-	local scroll = self.State.UI.ResultScroll
-	for _, v in ipairs(scroll:GetChildren()) do
-		if not v:IsA("UIListLayout") then
-			v:Destroy()
-		end
-	end
-	local startIdx = (page - 1) * self.State.ResultsPerPage + 1
-	local endIdx = math.min(page * self.State.ResultsPerPage, #self.State.LastResults)
-	if startIdx > #self.State.LastResults then
-		local noMore = Instance.new("TextLabel", scroll)
-		noMore.Size = UDim2.new(1, 0, 0, 30)
-		noMore.BackgroundTransparency = 1
-		noMore.Text = "No more results."
-		noMore.TextColor3 = Color3.fromRGB(150, 150, 150)
-		return
-	end
-	for i = startIdx, endIdx do
-		self:_createResultCard(self.State.LastResults[i])
-	end
-	local pageInfo = Instance.new("TextLabel", scroll)
-	pageInfo.Size = UDim2.new(1, 0, 0, 20)
-	pageInfo.BackgroundTransparency = 1
-	pageInfo.Text = "Page " .. page .. " of " .. math.ceil(#self.State.LastResults / self.State.ResultsPerPage)
-	pageInfo.TextColor3 = self.Config.ACCENT
-	pageInfo.Font = Enum.Font.Code
-	pageInfo.TextSize = 10
-	self.State.CurrentPage = page
-end
-function Modules.ScriptSearcher:RefreshSearch()
-	if self.State.LastQuery == "" then
-		return DoNotif("No previous search to refresh.", 2)
-	end
-	self:PerformSearch(self.State.LastQuery)
-end
-function Modules.ScriptSearcher:NextPage()
-	local maxPage = math.ceil(#self.State.LastResults / self.State.ResultsPerPage)
-	if self.State.CurrentPage < maxPage then
-		self:_displayPage(self.State.CurrentPage + 1)
-	else
-		DoNotif("Already on last page.", 2)
-	end
-end
-function Modules.ScriptSearcher:PrevPage()
-	if self.State.CurrentPage > 1 then
-		self:_displayPage(self.State.CurrentPage - 1)
-	else
-		DoNotif("Already on first page.", 2)
-	end
-end
-function Modules.ScriptSearcher:SetSort(mode)
-	self.State.SortMode = mode
-	if #self.State.LastResults > 0 then
-		if mode == "popular" then
-			table.sort(self.State.LastResults, function(a, b)
-				return (a.favorites or 0) > (b.favorites or 0)
-			end)
-		elseif mode == "newest" then
-			table.sort(self.State.LastResults, function(a, b)
-				return (a.updated_at or 0) > (b.updated_at or 0)
-			end)
-		end
-		self:_displayPage(1)
-	end
-end
-function Modules.ScriptSearcher:SetSource(source)
-	if self.Config.APIs[source] then
-		self.State.CurrentSource = source
-		DoNotif("Source switched to: " .. source, 2)
-	end
-end
-function Modules.ScriptSearcher:ShowHistory()
-	local scroll = self.State.UI.ResultScroll
-	for _, v in ipairs(scroll:GetChildren()) do
-		if not v:IsA("UIListLayout") then
-			v:Destroy()
-		end
-	end
-	if #self.State.SearchHistory == 0 then
-		local empty = Instance.new("TextLabel", scroll)
-		empty.Size = UDim2.new(1, 0, 0, 30)
-		empty.BackgroundTransparency = 1
-		empty.Text = "No search history."
-		empty.TextColor3 = Color3.fromRGB(150, 150, 150)
-		return
-	end
-	for _, query in ipairs(self.State.SearchHistory) do
-		local historyBtn = Instance.new("TextButton", scroll)
-		historyBtn.Size = UDim2.new(1, -10, 0, 30)
-		historyBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-		historyBtn.BorderSizePixel = 1
-		historyBtn.BorderColor3 = Color3.fromRGB(60, 60, 60)
-		historyBtn.Text = "?" .. query
-		historyBtn.TextColor3 = self.Config.ACCENT
-		historyBtn.Font = Enum.Font.Code
-		historyBtn.TextSize = 11
-		historyBtn.MouseButton1Click:Connect(function()
-			self:PerformSearch(query)
-		end)
-	end
-end
-function Modules.ScriptSearcher:_createResultCard(data)
-	local scroll = self.State.UI.ResultScroll
-	local card = Instance.new("Frame", scroll)
-	card.Size = UDim2.new(1, -10, 0, 65)
-	card.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-	card.BorderSizePixel = 1
-	card.BorderColor3 = Color3.fromRGB(60, 60, 60)
-	local title = Instance.new("TextLabel", card)
-	title.Size = UDim2.new(1, -100, 0, 25)
-	title.Position = UDim2.fromOffset(5, 5)
-	title.Text = data.title
-	title.TextColor3 = Color3.new(1, 1, 1)
-	title.Font = Enum.Font.Code
-	title.TextSize = 13
-	title.TextXAlignment = "Left"
-	title.BackgroundTransparency = 1
-	title.ClipsDescendants = true
-	local gameLabel = Instance.new("TextLabel", card)
-	gameLabel.Size = UDim2.new(1, -100, 0, 20)
-	gameLabel.Position = UDim2.fromOffset(5, 30)
-	gameLabel.Text = "Game: " .. (data.game.name or "Universal")
-	gameLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-	gameLabel.Font = Enum.Font.Code
-	gameLabel.TextSize = 11
-	gameLabel.TextXAlignment = "Left"
-	gameLabel.BackgroundTransparency = 1
-	local function mkBtn(text, xPos, color, callback)
-		local b = Instance.new("TextButton", card)
-		b.Size = UDim2.fromOffset(80, 22)
-		b.Position = UDim2.new(1, xPos, 0, 20)
-		b.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-		b.BorderSizePixel = 1
-		b.BorderColor3 = color
-		b.Text = text
-		b.TextColor3 = color
-		b.Font = Enum.Font.Code
-		b.TextSize = 10
-		b.MouseButton1Click:Connect(callback)
-		return b
-	end
-	mkBtn("EXECUTE", -85, self.Config.ACCENT, function()
-		local func, err = loadstring(data.script)
-		if func then
-			task.spawn(func)
-			DoNotif("Executed: " .. data.title, 2)
-		else
-			warn(err)
-			DoNotif("Syntax Error in script.", 3)
-		end
-	end)
-	mkBtn("COPY", -170, Color3.fromRGB(200, 150, 100), function()
-		setclipboard(data.script)
-		DoNotif("Script copied to clipboard.", 2)
-	end)
-	mkBtn("VIEW", -255, Color3.fromRGB(200, 100, 255), function()
-		print("--- [SOURCE: " .. data.title .. "] ---")
-		print(data.script)
-		print("--------------------------------------")
-		DoNotif("Source printed to F9 Console.", 2)
-	end)
-end
-function Modules.ScriptSearcher:CreateUI()
-	if self.State.UI.Main then
-		self.State.UI.Main.Visible = true
-		return
-	end
-	local sg = Instance.new("ScreenGui", self.Services.CoreGui)
-	sg.Name = "Zuka_ScriptHub_RC8"
-	local main = Instance.new("Frame", sg)
-	main.Size = UDim2.fromOffset(600, 550)
-	main.Position = UDim2.fromScale(0.5, 0.5)
-	main.AnchorPoint = Vector2.new(0.5, 0.5)
-	main.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-	main.BorderSizePixel = 2
-	main.BorderColor3 = self.Config.ACCENT
-	main.Active = true
-	local header = Instance.new("Frame", main)
-	header.Size = UDim2.new(1, 0, 0, 30)
-	header.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-	header.BorderSizePixel = 0
-	local title = Instance.new("TextLabel", header)
-	title.Size = UDim2.new(0.7, -60, 1, 0)
-	title.Position = UDim2.fromOffset(10, 0)
-	title.Text = "DATABASE BROWSER v2"
-	title.TextColor3 = self.Config.ACCENT
-	title.Font = Enum.Font.Code
-	title.TextSize = 14
-	title.TextXAlignment = "Left"
-	title.BackgroundTransparency = 1
-	local close = Instance.new("TextButton", header)
-	close.Size = UDim2.fromOffset(30, 30)
-	close.Position = UDim2.new(1, -30, 0, 0)
-	close.Text = "X"
-	close.TextColor3 = Color3.new(1, 0, 0)
-	close.BackgroundTransparency = 1
-	close.MouseButton1Click:Connect(function()
-		sg:Destroy()
-		self.State.UI = {}
-	end)
-	local searchBar = Instance.new("TextBox", main)
-	searchBar.Size = UDim2.new(1, -230, 0, 30)
-	searchBar.Position = UDim2.fromOffset(10, 40)
-	searchBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-	searchBar.BorderSizePixel = 1
-	searchBar.BorderColor3 = Color3.fromRGB(80, 80, 80)
-	searchBar.PlaceholderText = "Enter keywords..."
-	searchBar.Text = ""
-	searchBar.TextColor3 = Color3.new(1, 1, 1)
-	searchBar.Font = Enum.Font.Code
-	searchBar.TextSize = 14
-	local gameSearchBtn = Instance.new("TextButton", main)
-	gameSearchBtn.Size = UDim2.fromOffset(80, 30)
-	gameSearchBtn.Position = UDim2.new(1, -300, 0, 40)
-	gameSearchBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-	gameSearchBtn.BorderSizePixel = 1
-	gameSearchBtn.BorderColor3 = Color3.fromRGB(100, 200, 150)
-	gameSearchBtn.Text = "GAME"
-	gameSearchBtn.TextColor3 = Color3.fromRGB(100, 255, 150)
-	gameSearchBtn.Font = Enum.Font.Code
-	gameSearchBtn.TextSize = 10
-	gameSearchBtn.MouseButton1Click:Connect(function()
-		self:SearchGameScripts()
-	end)
-	local searchBtn = Instance.new("TextButton", main)
-	searchBtn.Size = UDim2.fromOffset(70, 30)
-	searchBtn.Position = UDim2.new(1, -210, 0, 40)
-	searchBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-	searchBtn.BorderSizePixel = 1
-	searchBtn.BorderColor3 = self.Config.ACCENT
-	searchBtn.Text = "SEARCH"
-	searchBtn.TextColor3 = self.Config.ACCENT
-	searchBtn.Font = Enum.Font.Code
-	searchBtn.TextSize = 10
-	searchBtn.MouseButton1Click:Connect(function()
-		self:PerformSearch(searchBar.Text)
-	end)
-	local refreshBtn = Instance.new("TextButton", main)
-	refreshBtn.Size = UDim2.fromOffset(70, 30)
-	refreshBtn.Position = UDim2.new(1, -140, 0, 40)
-	refreshBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-	refreshBtn.BorderSizePixel = 1
-	refreshBtn.BorderColor3 = Color3.fromRGB(100, 150, 100)
-	refreshBtn.Text = "REFRESH"
-	refreshBtn.TextColor3 = Color3.fromRGB(100, 200, 100)
-	refreshBtn.Font = Enum.Font.Code
-	refreshBtn.TextSize = 10
-	refreshBtn.MouseButton1Click:Connect(function()
-		self:RefreshSearch()
-	end)
-	local historyBtn = Instance.new("TextButton", main)
-	historyBtn.Size = UDim2.fromOffset(60, 30)
-	historyBtn.Position = UDim2.new(1, -70, 0, 40)
-	historyBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-	historyBtn.BorderSizePixel = 1
-	historyBtn.BorderColor3 = Color3.fromRGB(150, 100, 200)
-	historyBtn.Text = "HISTORY"
-	historyBtn.TextColor3 = Color3.fromRGB(200, 150, 255)
-	historyBtn.Font = Enum.Font.Code
-	historyBtn.TextSize = 9
-	historyBtn.MouseButton1Click:Connect(function()
-		self:ShowHistory()
-	end)
-	local sortLabel = Instance.new("TextLabel", main)
-	sortLabel.Size = UDim2.fromOffset(40, 25)
-	sortLabel.Position = UDim2.fromOffset(10, 75)
-	sortLabel.Text = "Sort:"
-	sortLabel.TextColor3 = self.Config.ACCENT
-	sortLabel.BackgroundTransparency = 1
-	sortLabel.Font = Enum.Font.Code
-	sortLabel.TextSize = 10
-	local sortBtn = Instance.new("TextButton", main)
-	sortBtn.Size = UDim2.fromOffset(80, 25)
-	sortBtn.Position = UDim2.fromOffset(55, 75)
-	sortBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-	sortBtn.BorderSizePixel = 1
-	sortBtn.BorderColor3 = Color3.fromRGB(80, 80, 80)
-	sortBtn.Text = "NEWEST"
-	sortBtn.TextColor3 = Color3.new(1, 1, 1)
-	sortBtn.Font = Enum.Font.Code
-	sortBtn.TextSize = 9
-	local sortModes = { "newest", "popular" }
-	local sortIndex = 1
-	sortBtn.MouseButton1Click:Connect(function()
-		sortIndex = sortIndex % #sortModes + 1
-		sortBtn.Text = sortModes[sortIndex]:upper()
-		self:SetSort(sortModes[sortIndex])
-	end)
-	local sourceLabel = Instance.new("TextLabel", main)
-	sourceLabel.Size = UDim2.fromOffset(45, 25)
-	sourceLabel.Position = UDim2.fromOffset(145, 75)
-	sourceLabel.Text = "Source:"
-	sourceLabel.TextColor3 = self.Config.ACCENT
-	sourceLabel.BackgroundTransparency = 1
-	sourceLabel.Font = Enum.Font.Code
-	sourceLabel.TextSize = 10
-	local sourceBtn = Instance.new("TextButton", main)
-	sourceBtn.Size = UDim2.fromOffset(90, 25)
-	sourceBtn.Position = UDim2.fromOffset(195, 75)
-	sourceBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-	sourceBtn.BorderSizePixel = 1
-	sourceBtn.BorderColor3 = Color3.fromRGB(80, 80, 80)
-	sourceBtn.Text = "SCRIPTBLOX"
-	sourceBtn.TextColor3 = Color3.new(1, 1, 1)
-	sourceBtn.Font = Enum.Font.Code
-	sourceBtn.TextSize = 9
-	local sources = { "scriptblox" }
-	local sourceIndex = 1
-	sourceBtn.MouseButton1Click:Connect(function()
-		sourceIndex = sourceIndex % #sources + 1
-		sourceBtn.Text = sources[sourceIndex]:upper()
-		self:SetSource(sources[sourceIndex])
-	end)
-	local resultsPerPageLabel = Instance.new("TextLabel", main)
-	resultsPerPageLabel.Size = UDim2.fromOffset(55, 25)
-	resultsPerPageLabel.Position = UDim2.fromOffset(295, 75)
-	resultsPerPageLabel.Text = "Per Page:"
-	resultsPerPageLabel.TextColor3 = self.Config.ACCENT
-	resultsPerPageLabel.BackgroundTransparency = 1
-	resultsPerPageLabel.Font = Enum.Font.Code
-	resultsPerPageLabel.TextSize = 10
-	local resultsPerPageBtn = Instance.new("TextButton", main)
-	resultsPerPageBtn.Size = UDim2.fromOffset(60, 25)
-	resultsPerPageBtn.Position = UDim2.fromOffset(355, 75)
-	resultsPerPageBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-	resultsPerPageBtn.BorderSizePixel = 1
-	resultsPerPageBtn.BorderColor3 = Color3.fromRGB(80, 80, 80)
-	resultsPerPageBtn.Text = "20"
-	resultsPerPageBtn.TextColor3 = Color3.new(1, 1, 1)
-	resultsPerPageBtn.Font = Enum.Font.Code
-	resultsPerPageBtn.TextSize = 9
-	local pageOptions = { 10, 20, 50 }
-	local pageIndex = 2
-	resultsPerPageBtn.MouseButton1Click:Connect(function()
-		pageIndex = pageIndex % #pageOptions + 1
-		self.State.ResultsPerPage = pageOptions[pageIndex]
-		resultsPerPageBtn.Text = tostring(pageOptions[pageIndex])
-		if #self.State.LastResults > 0 then
-			self:_displayPage(1)
-		end
-	end)
-	local prevPageBtn = Instance.new("TextButton", main)
-	prevPageBtn.Size = UDim2.fromOffset(60, 25)
-	prevPageBtn.Position = UDim2.new(1, -180, 0, 75)
-	prevPageBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-	prevPageBtn.BorderSizePixel = 1
-	prevPageBtn.BorderColor3 = self.Config.ACCENT
-	prevPageBtn.Text = " PREV"
-	prevPageBtn.TextColor3 = self.Config.ACCENT
-	prevPageBtn.Font = Enum.Font.Code
-	prevPageBtn.TextSize = 9
-	prevPageBtn.MouseButton1Click:Connect(function()
-		self:PrevPage()
-	end)
-	local nextPageBtn = Instance.new("TextButton", main)
-	nextPageBtn.Size = UDim2.fromOffset(60, 25)
-	nextPageBtn.Position = UDim2.new(1, -110, 0, 75)
-	nextPageBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-	nextPageBtn.BorderSizePixel = 1
-	nextPageBtn.BorderColor3 = self.Config.ACCENT
-	nextPageBtn.Text = "NEXT "
-	nextPageBtn.TextColor3 = self.Config.ACCENT
-	nextPageBtn.Font = Enum.Font.Code
-	nextPageBtn.TextSize = 9
-	nextPageBtn.MouseButton1Click:Connect(function()
-		self:NextPage()
-	end)
-	local gameInfoPanel = Instance.new("Frame", main)
-	gameInfoPanel.Size = UDim2.new(1, -20, 0, 85)
-	gameInfoPanel.Position = UDim2.fromOffset(10, 105)
-	gameInfoPanel.BackgroundColor3 = Color3.fromRGB(25, 35, 40)
-	gameInfoPanel.BorderSizePixel = 1
-	gameInfoPanel.BorderColor3 = Color3.fromRGB(100, 200, 150)
-	local gameNameLabel = Instance.new("TextLabel", gameInfoPanel)
-	gameNameLabel.Size = UDim2.new(1, -10, 0, 20)
-	gameNameLabel.Position = UDim2.fromOffset(5, 3)
-	gameNameLabel.Text = "Game: Loading..."
-	gameNameLabel.TextColor3 = Color3.fromRGB(100, 255, 150)
-	gameNameLabel.Font = Enum.Font.Code
-	gameNameLabel.TextSize = 11
-	gameNameLabel.TextXAlignment = "Left"
-	gameNameLabel.BackgroundTransparency = 1
-	local gameIdLabel = Instance.new("TextLabel", gameInfoPanel)
-	gameIdLabel.Size = UDim2.new(1, -10, 0, 15)
-	gameIdLabel.Position = UDim2.fromOffset(5, 23)
-	gameIdLabel.Text = "ID: " .. game.GameId
-	gameIdLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-	gameIdLabel.Font = Enum.Font.Code
-	gameIdLabel.TextSize = 9
-	gameIdLabel.TextXAlignment = "Left"
-	gameIdLabel.BackgroundTransparency = 1
-	local playerCountLabel = Instance.new("TextLabel", gameInfoPanel)
-	playerCountLabel.Size = UDim2.new(0.5, -5, 0, 15)
-	playerCountLabel.Position = UDim2.fromOffset(5, 38)
-	playerCountLabel.Text = "Players: "
-		.. #self.Services.Players:GetPlayers()
-		.. "/"
-		.. self.Services.Players.MaxPlayers
-	playerCountLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-	playerCountLabel.Font = Enum.Font.Code
-	playerCountLabel.TextSize = 9
-	playerCountLabel.TextXAlignment = "Left"
-	playerCountLabel.BackgroundTransparency = 1
-	local scriptCountLabel = Instance.new("TextLabel", gameInfoPanel)
-	scriptCountLabel.Size = UDim2.new(0.5, -5, 0, 15)
-	scriptCountLabel.Position = UDim2.new(0.5, 5, 0, 38)
-	scriptCountLabel.Text = " Scripts: Searching..."
-	scriptCountLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-	scriptCountLabel.Font = Enum.Font.Code
-	scriptCountLabel.TextSize = 9
-	scriptCountLabel.TextXAlignment = "Left"
-	scriptCountLabel.BackgroundTransparency = 1
-	local descLabel = Instance.new("TextLabel", gameInfoPanel)
-	descLabel.Size = UDim2.new(1, -10, 0, 20)
-	descLabel.Position = UDim2.fromOffset(5, 53)
-	descLabel.Text = "Description: Loading..."
-	descLabel.TextColor3 = Color3.fromRGB(130, 130, 130)
-	descLabel.Font = Enum.Font.Code
-	descLabel.TextSize = 8
-	descLabel.TextXAlignment = "Left"
-	descLabel.TextWrapped = true
-	descLabel.BackgroundTransparency = 1
-	task.spawn(function()
-		local success, gameInfo = pcall(function()
-			return self:FetchGameInfo()
-		end)
-		if success and gameInfo then
-			gameNameLabel.Text = "Game: " .. (gameInfo.GameName or "Unknown")
-			scriptCountLabel.Text = " Scripts: " .. #self.State.GameScripts .. " available"
-			descLabel.Text = " " .. (gameInfo.Description or "No description available"):sub(1, 120)
-		else
-			gameNameLabel.Text = "Game: " .. tostring(game.GameId)
-			descLabel.Text = "Could not fetch game info"
-		end
-	end)
-	local scroll = Instance.new("ScrollingFrame", main)
-	scroll.Size = UDim2.new(1, -20, 1, -205)
-	scroll.Position = UDim2.fromOffset(10, 195)
-	scroll.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-	scroll.BorderSizePixel = 1
-	scroll.BorderColor3 = Color3.fromRGB(50, 50, 50)
-	scroll.ScrollBarThickness = 3
-	scroll.ScrollBarImageColor3 = self.Config.ACCENT
-	scroll.AutomaticCanvasSize = "Y"
-	local layout = Instance.new("UIListLayout", scroll)
-	layout.Padding = UDim.new(0, 5)
-	layout.HorizontalAlignment = "Center"
-	local dragging, dragStart, startPos
-	header.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging, dragStart, startPos = true, input.Position, main.Position
-		end
-	end)
-	self.Services.UserInputService.InputChanged:Connect(function(input)
-		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-			local delta = input.Position - dragStart
-			main.Position =
-				UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-		end
-	end)
-	self.Services.UserInputService.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging = false
-		end
-	end)
-	self.State.UI = { Main = main, ResultScroll = scroll }
-	DoNotif("ScriptHub v2 Initialized - Full Featured Search", 2)
-end
-function Modules.ScriptSearcher:Initialize()
-	for _, s in ipairs(self.Dependencies) do
-		self.Services[s] = game:GetService(s)
-	end
-	RegisterCommand({
-		Name = "Hub",
-		Aliases = { "search", "scripts" },
-		Description = "Opens the ScriptBlox database searcher.",
-	}, function()
-		self:CreateUI()
-	end)
-end
+
 Modules.GoToPart = {
 	State = {
 		LastSearchResults = {},
@@ -35034,13 +34482,6 @@ RegisterCommand({
 		end
 	end)
 	print("Combat script loaded — E: target | R: toggle | T: auto-target")
-end)
-RegisterCommand({
-	Name = "myzex",
-	Aliases = { "zx" },
-	Description = "remade",
-}, function(args)
-	loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/OBF/refs/heads/main/Dex.lua"))()
 end)
 RegisterCommand({
 	Name = "backroomsguns",
@@ -35391,57 +34832,6 @@ RegisterCommand({
 		removed += 1
 	end
 	print("[ClearLighting] Removed " .. removed .. " objects from Lighting.")
-end)
-RegisterCommand({
-	Name = "nokill",
-	Aliases = { "antire" },
-	Description = "nokill command",
-}, function(args)
-	local lp = game:GetService("Players").LocalPlayer
-	local last
-	game:GetService("RunService").Heartbeat:Connect(function()
-		local hrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-		if not hrp then
-			return
-		end
-		if last and (hrp.Position - last.Position).Magnitude > 200 then
-			hrp.CFrame = last
-			warn("denied")
-		else
-			last = hrp.CFrame
-		end
-	end)
-	if false then
-		local _d = {}
-		for _i = 1, 100 do
-			_d[_i] = _i * math.pi
-		end
-		warn(table.concat(_d, ","))
-	end
-	local _j1 = math.random()
-	local _j2 = tostring(_j1)
-	local _j3 = #_j2
-	local _j4 = {}
-	for _i = 1, _j3 do
-		_j4[_i] = _j2:sub(_i, _i)
-	end
-	local lp = game:GetService("Players").LocalPlayer
-	local mt = getrawmetatable(lp)
-	setreadonly(mt, false)
-	local orig = rawget(mt, "__index")
-	rawset(
-		mt,
-		"__index",
-		newcclosure(function(self, key)
-			if key == "Kick" then
-				return function()
-					warn("denied")
-				end
-			end
-			return orig(self, key)
-		end)
-	)
-	setreadonly(mt, true)
 end)
 RegisterCommand({
 	Name = "newreach",
@@ -37147,65 +36537,89 @@ function Modules.Heavy:Initialize()
 end
 
 RegisterCommand({
-    Name        = "jump",
-    Aliases     = {"jmp"},
-    Description = "allows jumping if the game restricts it",
+	Name = "jump",
+	Aliases = { "jmp" },
+	Description = "allows jumping if the game restricts it",
 }, function(args)
-    local Players = game:GetService("Players")
-    local RunService = game:GetService("RunService")
-    local UserInputService = game:GetService("UserInputService")
-    local LocalPlayer = Players.LocalPlayer
+	local Players = game:GetService("Players")
+	local RunService = game:GetService("RunService")
+	local UserInputService = game:GetService("UserInputService")
+	local LocalPlayer = Players.LocalPlayer
 
-    getgenv().RestoredJumpPower = 50
-    getgenv().BypassEnabled = true
+	getgenv().JumpEnabled = true
 
-    local mt = getrawmetatable(game)
-    local old_newindex = mt.__newindex
-    setreadonly(mt, false)
+	local mt = getrawmetatable(game)
+	local old_newindex = mt.__newindex
+	setreadonly(mt, false)
+	mt.__newindex = newcclosure(function(t, k, v)
+		if getgenv().JumpEnabled and (k == "JumpPower" or k == "JumpHeight") and v == 0 then
+			local stored = getgenv()._JumpValues and getgenv()._JumpValues[t]
+			if stored and stored[k] and stored[k] > 0 then
+				return old_newindex(t, k, stored[k])
+			end
+			return old_newindex(t, k, 50)
+		end
+		return old_newindex(t, k, v)
+	end)
+	setreadonly(mt, true)
 
-    mt.__newindex = newcclosure(function(t, k, v)
-    	if getgenv().BypassEnabled and (k == "JumpPower" or k == "JumpHeight") then
-    		if v == 0 then
-    			return old_newindex(t, k, getgenv().RestoredJumpPower)
-    		end
-    	end
-    	return old_newindex(t, k, v)
-    end)
+	local function ApplyJump(character)
+		local humanoid = character:WaitForChild("Humanoid")
 
-    setreadonly(mt, true)
+		getgenv()._JumpValues = getgenv()._JumpValues or {}
+		getgenv()._JumpValues[humanoid] = {
+			JumpPower = humanoid.JumpPower > 0 and humanoid.JumpPower or 50,
+			JumpHeight = humanoid.JumpHeight > 0 and humanoid.JumpHeight or 7.2,
+		}
 
-    local function ApplyBypass(character)
-    	local humanoid = character:WaitForChild("Humanoid")
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+		if humanoid.JumpPower == 0 then
+			humanoid.JumpPower = getgenv()._JumpValues[humanoid].JumpPower
+		end
 
-    	RunService.Stepped:Connect(function()
-    		if getgenv().BypassEnabled and humanoid then
-    			humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+		character.AncestryChanged:Connect(function()
+			if not character:IsDescendantOf(game) then
+				if getgenv()._JumpValues then
+					getgenv()._JumpValues[humanoid] = nil
+				end
+			end
+		end)
+	end
 
-    			if humanoid.JumpPower == 0 then
-    				humanoid.JumpPower = getgenv().RestoredJumpPower
-    			end
-    		end
-    	end)
-    end
+	local GROUND_STATES = {
+		[Enum.HumanoidStateType.Running] = true,
+		[Enum.HumanoidStateType.RunningNoPhysics] = true,
+		[Enum.HumanoidStateType.Landed] = true,
+		[Enum.HumanoidStateType.Seated] = false,
+	}
 
-    UserInputService.JumpRequest:Connect(function()
-    	if getgenv().BypassEnabled then
-    		local character = LocalPlayer.Character
-    		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	UserInputService.JumpRequest:Connect(function()
+		if not getgenv().JumpEnabled then
+			return
+		end
+		local character = LocalPlayer.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if not humanoid then
+			return
+		end
 
-    		if humanoid then
-    			humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-    		end
-    	end
-    end)
+		local state = humanoid:GetState()
+		if GROUND_STATES[state] == false then
+			return
+		end
+		if GROUND_STATES[state] == true or state == Enum.HumanoidStateType.None then
+			humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+		end
+	end)
 
-    LocalPlayer.CharacterAdded:Connect(ApplyBypass)
-    if LocalPlayer.Character then
-    	ApplyBypass(LocalPlayer.Character)
-    end
+	LocalPlayer.CharacterAdded:Connect(ApplyJump)
+	if LocalPlayer.Character then
+		ApplyJump(LocalPlayer.Character)
+	end
 
-    print("Syn: Jump Restoration Active.")
+	print("Jump Restoration Active.")
 end)
+
 
 -- Loadstrings
 local function loadstringCmd(url, notif)
@@ -38902,7 +38316,7 @@ RegisterCommand({
 		loadAimbotGUI(args)
 	else
 		if args and args[1] then
-			DoNotif("Aimbot is already open. Re-open to set a command-line target.", 4)
+			DoNotif("Aimbot is already open.", 4)
 		else
 			DoNotif("Aimbot GUI is already open.", 2)
 		end
