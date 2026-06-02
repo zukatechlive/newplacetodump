@@ -1,3 +1,4 @@
+
 --[[
 
 
@@ -17,12 +18,6 @@ o888bood8P'      `Y8bod8P'       o88'   888o
 
 
 
-
-
--- ============================================================
--- Hardcoded Base64 class icons (zukv2 icon system)
--- Writes PNGs to workspace folder and maps ClassName -> customasset URL
--- ============================================================
 local CLASS_ICONS = {}
 local function buildIconTable()
 	if not (type(writefile) == "function" and type(getcustomasset) == "function") then
@@ -168,7 +163,6 @@ local function buildIconTable()
 	end
 end
 buildIconTable()
--- ============================================================
 
 local _GC_START = collectgarbage("count")
 local _TIMESTAMP = os.clock()
@@ -14041,8 +14035,7 @@ return search]==]
 				end
 
 				funcs.DisplayExplorerIcons = function(self, Frame, index)
-					-- Prefer hardcoded Base64 custom assets when available (zukv2 icon system)
-					if CLASS_ICONS[index] then
+										if CLASS_ICONS[index] then
 						local iconMap = Frame:FindFirstChild("IconMap")
 						if not iconMap then
 							Frame.ClipsDescendants = false
@@ -35043,17 +35036,8 @@ Main = (function()
 end)()
 Main.Init()
 
-
-
-
---       ___           ___           __      
---      /  /\         /  /\         |  |\    
---     /  /::\       /  /::\        |  |:|   
---    /  /:/\:\     /  /:/\:\       |  |:|   
---   /  /:/  \:\   /  /::\ \:\      |__|:|__ 
+--      /  /\         /  /\         |  |\
+--    /  /:/\:\     /  /:/\:\       |  |:|
 --  /__/:/ \__\:| /__/:/\:\ \:\ ____/__/::::\
---  \  \:\ /  /:/ \  \:\ \:\_\/ \__\::::/~~~~
---   \  \:\  /:/   \  \:\ \:\      |~~|:|    
---    \  \:\/:/     \  \:\_\/      |  |:|    
---     \__\::/       \  \:\        |__|:|    
---         ~~         \__\/         \__\|
+--   \  \:\  /:/   \  \:\ \:\      |~~|:|
+--     \__\::/       \  \:\        |__|:|
