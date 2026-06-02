@@ -594,7 +594,7 @@ end
 
 addcmd = getgenv().addcmd
 
-=Modules.Performance = {
+Modules.Performance = {
 	State = {
 		IsEnabled = false,
 		OriginalProperties = {},
