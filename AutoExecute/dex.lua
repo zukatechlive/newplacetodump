@@ -8435,15 +8435,15 @@ local EmbeddedModules = {
 							CleanMode = true,
 							ReaderFloatPrecision = 10,
 							ShowDebugInformation = false,
-							ShowTrivialOperations = false,
-							ShowInstructionLines = true,
+							ShowTrivialOperations = true,
+							ShowInstructionLines = false,
 							ShowOperationIndex = false,
 							ShowOperationNames = true,
-							ListUsedGlobals = true,
+							ListUsedGlobals = false,
 							UseTypeInfo = true,
 							EnabledRemarks = { ColdRemark = false, InlineRemark = false },
 							ReturnElapsedTime = false,
-							prettyPrint = true,
+							prettyPrint = false,
 						}
 
 						local function decompileObj(obj)
