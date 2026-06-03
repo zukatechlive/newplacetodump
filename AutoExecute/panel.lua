@@ -4146,7 +4146,6 @@ function Modules.FlingProtection:Toggle()
 		end
 	end
 end
-do
 	local ATTR_OG_SIZE = "Zuka_OriginalSize"
 	local SEL_BOX_NAME = "Zuka_ReachSelectionBox"
 	local TweenService = game:GetService("TweenService")
