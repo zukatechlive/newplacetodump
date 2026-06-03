@@ -2915,26 +2915,80 @@ end)
 Modules.Fly = {
 	State = {
 		IsActive = false,
-		Speed = 60,
-		SprintMultiplier = 2.5,
 		Connections = {},
 		BodyMovers = {},
+		Keys = {},
+		Gamepad = { Left = Vector3.zero, RightTrigger = 0, LeftTrigger = 0 },
 	},
+	Config = {
+		Speed = 500,
+		SprintMultiplier = 8.5,
+		Acceleration = 18,
+		Deceleration = 14,
+		TiltAngle = 20,
+		TiltSpeed = 10,
+		BoostMultiplier = 4,
+		BoostDuration = 0.6,
+		BoostCooldown = 3.0,
+		HoverAmplitude = 0.25,
+		HoverFrequency = 0.55,
+		HoverRollAmount = 1.8,
+		HoverBlendSpeed = 5,
+		StopDeadzone = 0.12,
+		VelocityDamping = 0.88,
+	},
+	_vel = Vector3.zero,
+	_tiltCF = CFrame.identity,
+	_hoverTime = 0,
+	_hoverBlend = 0,
+	_altLocked = false,
+	_lockedY = 0,
 }
-function Modules.Fly:SetSpeed(s)
+local Fly = Modules.Fly
+local function expDecay(a, b, tau, dt)
+	return a + (b - a) * (1 - math.exp(-dt / tau))
+end
+local function accelToTau(accel)
+	return 1 / math.max(accel, 0.001)
+end
+function Fly:SetSpeed(s)
 	local n = tonumber(s)
 	if n and n > 0 then
-		self.State.Speed = n
-		DoNotif("Fly speed set to: " .. n, 1)
+		self.Config.Speed = n
+		DoNotif("Fly speed → " .. n, 1)
 	else
 		DoNotif("Invalid speed.", 1)
 	end
 end
-function Modules.Fly:Disable()
+function Fly:SetAcceleration(a)
+	local n = tonumber(a)
+	if n and n > 0 then
+		self.Config.Acceleration = n
+		DoNotif("Fly acceleration → " .. n, 1)
+	else
+		DoNotif("Invalid value.", 1)
+	end
+end
+function Fly:ToggleAltitudeLock()
+	local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+	if not hrp then
+		return
+	end
+	self._altLocked = not self._altLocked
+	self._lockedY = hrp.Position.Y
+	DoNotif(self._altLocked and ("Altitude locked @ Y=" .. math.round(self._lockedY)) or "Altitude unlocked", 1)
+end
+function Fly:Disable()
 	if not self.State.IsActive then
 		return
 	end
 	self.State.IsActive = false
+	self._vel = Vector3.zero
+	self._tiltCF = CFrame.identity
+	self._hoverBlend = 0
+	self._hoverTime = 0
+	self._altLocked = false
+	self._boostActive = false
 	local h = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
 	if h then
 		h.PlatformStand = false
@@ -2944,15 +2998,15 @@ function Modules.Fly:Disable()
 			mover:Destroy()
 		end
 	end
-	for _, connection in ipairs(self.State.Connections) do
-		connection:Disconnect()
+	for _, conn in ipairs(self.State.Connections) do
+		conn:Disconnect()
 	end
 	table.clear(self.State.BodyMovers)
 	table.clear(self.State.Connections)
+	table.clear(self.State.Keys)
 	DoNotif("Fly disabled.", 1)
 end
-function Modules.Fly:Enable()
-	local self = self
+function Fly:Enable()
 	if self.State.IsActive then
 		return
 	end
@@ -2964,79 +3018,192 @@ function Modules.Fly:Enable()
 		return
 	end
 	self.State.IsActive = true
-	DoNotif("Fly Enabled.", 1)
 	humanoid.PlatformStand = true
-	local hrpAttachment = Instance.new("Attachment", hrp)
-	local worldAttachment = Instance.new("Attachment", workspace.Terrain)
-	worldAttachment.WorldCFrame = hrp.CFrame
+	DoNotif("Fly enabled.", 2)
+	local attachment = Instance.new("Attachment", hrp)
 	local alignOrientation = Instance.new("AlignOrientation")
 	alignOrientation.Mode = Enum.OrientationAlignmentMode.OneAttachment
-	alignOrientation.Attachment0 = hrpAttachment
+	alignOrientation.Attachment0 = attachment
 	alignOrientation.Responsiveness = 200
 	alignOrientation.MaxTorque = math.huge
 	alignOrientation.Parent = hrp
 	local linearVelocity = Instance.new("LinearVelocity")
-	linearVelocity.Attachment0 = hrpAttachment
+	linearVelocity.Attachment0 = attachment
 	linearVelocity.RelativeTo = Enum.ActuatorRelativeTo.World
 	linearVelocity.MaxForce = math.huge
 	linearVelocity.VectorVelocity = Vector3.zero
 	linearVelocity.Parent = hrp
-	self.State.BodyMovers.HRPAttachment = hrpAttachment
-	self.State.BodyMovers.WorldAttachment = worldAttachment
+	self.State.BodyMovers.Attachment = attachment
 	self.State.BodyMovers.AlignOrientation = alignOrientation
 	self.State.BodyMovers.LinearVelocity = linearVelocity
-	local keys = {}
 	local function onInput(input, gameProcessed)
-		if not gameProcessed then
-			keys[input.KeyCode] = (input.UserInputState == Enum.UserInputState.Begin)
+		if gameProcessed then
+			return
+		end
+		local down = input.UserInputState == Enum.UserInputState.Begin
+		self.State.Keys[input.KeyCode] = down
+		if down and input.KeyCode == Enum.KeyCode.X then
+			self:ToggleAltitudeLock()
+		end
+	end
+	local function onThumbstick(input)
+		local gp = self.State.Gamepad
+		if input.KeyCode == Enum.KeyCode.Thumbstick1 then
+			gp.Left = input.Position
+		elseif input.KeyCode == Enum.KeyCode.ButtonR2 then
+			gp.RightTrigger = input.Position.Z
+		elseif input.KeyCode == Enum.KeyCode.ButtonL2 then
+			gp.LeftTrigger = input.Position.Z
 		end
 	end
 	table.insert(self.State.Connections, UserInputService.InputBegan:Connect(onInput))
 	table.insert(self.State.Connections, UserInputService.InputEnded:Connect(onInput))
-	local loop = RunService.RenderStepped:Connect(function()
+	table.insert(self.State.Connections, UserInputService.InputChanged:Connect(onThumbstick))
+	local loop = RunService.Heartbeat:Connect(function(dt)
 		if not self.State.IsActive or not hrp.Parent then
 			return
 		end
+		dt = math.min(dt, 0.05)
 		local camera = workspace.CurrentCamera
-		alignOrientation.CFrame = camera.CFrame
-		local direction = Vector3.new()
+		local keys = self.State.Keys
+		local cfg = self.Config
+		local gp = self.State.Gamepad
+		local camLook = camera.CFrame.LookVector
+		local camRight = camera.CFrame.RightVector
+		local dx, dy, dz = 0, 0, 0
 		if keys[Enum.KeyCode.W] then
-			direction += camera.CFrame.LookVector
+			dx += camLook.X
+			dy += camLook.Y
+			dz += camLook.Z
 		end
 		if keys[Enum.KeyCode.S] then
-			direction -= camera.CFrame.LookVector
+			dx -= camLook.X
+			dy -= camLook.Y
+			dz -= camLook.Z
 		end
 		if keys[Enum.KeyCode.D] then
-			direction += camera.CFrame.RightVector
+			dx += camRight.X
+			dy += camRight.Y
+			dz += camRight.Z
 		end
 		if keys[Enum.KeyCode.A] then
-			direction -= camera.CFrame.RightVector
+			dx -= camRight.X
+			dy -= camRight.Y
+			dz -= camRight.Z
 		end
 		if keys[Enum.KeyCode.Space] or keys[Enum.KeyCode.E] then
-			direction += Vector3.yAxis
+			dy += 1
 		end
-		if keys[Enum.KeyCode.LeftControl] or keys[Enum.KeyCode.Q] then
-			direction -= Vector3.yAxis
+		if keys[Enum.KeyCode.LeftControl] or keys[Enum.KeyCode.O] then
+			dy -= 1
 		end
-		local speed = keys[Enum.KeyCode.LeftShift] and self.State.Speed * self.State.SprintMultiplier
-			or self.State.Speed
-		linearVelocity.VectorVelocity = direction.Magnitude > 0 and direction.Unit * speed or Vector3.zero
+		local gpFlat = Vector3.new(gp.Left.X, 0, -gp.Left.Y)
+		if gpFlat.Magnitude > 0.1 then
+			local camFlat = CFrame.new(Vector3.zero, Vector3.new(camLook.X, 0, camLook.Z))
+			local world = camFlat:VectorToWorldSpace(gpFlat)
+			dx += world.X
+			dy += world.Y
+			dz += world.Z
+		end
+		dy += gp.RightTrigger - gp.LeftTrigger
+		local speed = cfg.Speed
+		if keys[Enum.KeyCode.LeftShift] then
+			speed = speed * cfg.SprintMultiplier
+		end
+		if keys[Enum.KeyCode.Q] then
+			speed = speed * cfg.BoostMultiplier
+		end
+		local mag2 = dx * dx + dy * dy + dz * dz
+		local hasInput = mag2 > 0.0001
+		local targetX, targetY, targetZ
+		if hasInput then
+			local invMag = speed / math.sqrt(mag2)
+			targetX, targetY, targetZ = dx * invMag, dy * invMag, dz * invMag
+		else
+			targetX, targetY, targetZ = 0, 0, 0
+		end
+		local tau = accelToTau(hasInput and cfg.Acceleration or cfg.Deceleration)
+		local vx = expDecay(self._vel.X, targetX, tau, dt)
+		local vy = expDecay(self._vel.Y, targetY, tau, dt)
+		local vz = expDecay(self._vel.Z, targetZ, tau, dt)
+		if not hasInput then
+			local dampFactor = cfg.VelocityDamping ^ dt
+			vx = vx * dampFactor
+			vy = vy * dampFactor
+			vz = vz * dampFactor
+		end
+		if not hasInput and (vx * vx + vy * vy + vz * vz) < cfg.StopDeadzone * cfg.StopDeadzone then
+			vx, vy, vz = 0, 0, 0
+		end
+		self._vel = Vector3.new(vx, vy, vz)
+		self._hoverTime += dt
+		local hoverOsc = math.sin(self._hoverTime * cfg.HoverFrequency * math.pi * 2)
+		local horizSpeed = math.sqrt(vx * vx + vz * vz)
+		local moving = (horizSpeed + math.abs(vy)) > 0.5
+		local targetBlend = moving and 0 or 1
+		local blendTau = (targetBlend > self._hoverBlend) and accelToTau(cfg.HoverBlendSpeed) or 0.05
+		self._hoverBlend = expDecay(self._hoverBlend, targetBlend, blendTau, dt)
+		local hoverY = hoverOsc * cfg.HoverAmplitude * self._hoverBlend
+		local hoverRoll = math.rad(cfg.HoverRollAmount * hoverOsc * self._hoverBlend)
+		local finalVX = vx
+		local finalVY = vy
+		local finalVZ = vz
+		if self._altLocked then
+			finalVY = (self._lockedY - hrp.Position.Y) * 12
+		else
+			finalVY = finalVY + hoverY * 6
+		end
+		linearVelocity.VectorVelocity = Vector3.new(finalVX, finalVY, finalVZ)
+		local tiltCF = CFrame.identity
+		if horizSpeed > 1.0 then
+			local maxSpeed = cfg.Speed * cfg.SprintMultiplier
+			local speedRatio = math.clamp(horizSpeed / maxSpeed, 0, 1)
+			local tiltDeg = cfg.TiltAngle * speedRatio
+			local camYaw = CFrame.new(Vector3.zero, Vector3.new(camLook.X, 0, camLook.Z))
+			local horizDir = Vector3.new(vx, 0, vz).Unit
+			local localDir = camYaw:Inverse():VectorToObjectSpace(horizDir)
+			tiltCF = CFrame.Angles(math.rad(-tiltDeg * localDir.Z), 0, math.rad(-tiltDeg * localDir.X))
+		end
+		self._tiltCF = self._tiltCF:Lerp(tiltCF, 1 - math.exp(-dt * cfg.TiltSpeed))
+		alignOrientation.CFrame = camera.CFrame * self._tiltCF * CFrame.Angles(0, 0, hoverRoll)
 	end)
 	table.insert(self.State.Connections, loop)
 end
-function Modules.Fly:Toggle()
+function Fly:Toggle()
 	if self.State.IsActive then
 		self:Disable()
 	else
 		self:Enable()
 	end
 end
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then
+		return
+	end
+	if input.KeyCode == Enum.KeyCode.X then
+		Fly:Toggle()
+	end
+end)
+RegisterCommand({ Name = "fly", Aliases = { "flight" }, Description = "Toggle fly. (also bound to F)" }, function()
+	Fly:Toggle()
+end)
 RegisterCommand(
-	{ Name = "fly", Aliases = { "flight" }, Description = "The most boring script anyone can use." },
-	function()
-		Modules.Fly:Toggle()
+	{ Name = "flyspeed", Aliases = { "fs" }, Description = "Set fly speed. Usage: flyspeed <n>" },
+	function(args)
+		Fly:SetSpeed(args[1])
 	end
 )
+RegisterCommand({
+	Name = "flyaccel",
+	Aliases = { "fa" },
+	Description = "Set fly acceleration. Usage: flyaccel <n>",
+}, function(args)
+	Fly:SetAcceleration(args[1])
+end)
+
+RegisterCommand({ Name = "altlock", Aliases = { "al" }, Description = "Lock altitude at current height." }, function()
+	Fly:ToggleAltitudeLock()
+end)
 
 Modules.NoClip = {
 	State = {
@@ -4059,432 +4226,639 @@ do
 		end
 		return m
 	end
-	Modules.ReachController = {
-		State = {
-			IsEnabled = false,
-			UI = nil,
-		},
+Modules.ReachController = {
+	State = {
+		IsEnabled = false,
+		UI = nil,
+	},
+}
+
+function Modules.ReachController:Enable()
+	if self.State.IsEnabled then
+		return
+	end
+	self.State.IsEnabled = true
+	local conns = makeConnManager()
+	self._conns = conns
+
+	local W = 280
+	local H_MIN = 32
+	local H_FULL = 420
+	local PAD = 10
+	local isCollapsed = false
+
+	local ui = Instance.new("ScreenGui")
+	ui.Name = "ReachController_Zuka"
+	ui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+	ui.ResetOnSpawn = false
+	self.State.UI = ui
+
+	local frame = Instance.new("Frame", ui)
+	frame.Size = UDim2.fromOffset(W, H_FULL)
+	frame.Position = UDim2.fromScale(0, 0)
+	frame.BackgroundColor3 = Color3.fromRGB(12, 12, 18)
+	frame.BorderSizePixel = 0
+	frame.ClipsDescendants = true
+	Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+
+	local outerStroke = Instance.new("UIStroke", frame)
+	outerStroke.Color = Color3.fromRGB(55, 55, 75)
+	outerStroke.Thickness = 1
+
+	local accent = Instance.new("Frame", frame)
+	accent.Size = UDim2.new(1, 0, 0, 2)
+	accent.BackgroundColor3 = Color3.fromRGB(60, 160, 255)
+	accent.BorderSizePixel = 0
+
+	local titleBar = Instance.new("Frame", frame)
+	titleBar.Size = UDim2.new(1, 0, 0, H_MIN)
+	titleBar.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
+	titleBar.BorderSizePixel = 0
+
+	local titleLabel = Instance.new("TextLabel", titleBar)
+	titleLabel.Size = UDim2.new(1, -40, 1, 0)
+	titleLabel.Position = UDim2.fromOffset(10, 0)
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Font = Enum.Font.GothamBold
+	titleLabel.Text = "REACH CONTROLLER"
+	titleLabel.TextColor3 = Color3.fromRGB(180, 210, 255)
+	titleLabel.TextSize = 11
+	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+	local collapseBtn = Instance.new("TextButton", titleBar)
+	collapseBtn.Size = UDim2.fromOffset(22, 22)
+	collapseBtn.Position = UDim2.new(1, -27, 0.5, 0)
+	collapseBtn.AnchorPoint = Vector2.new(1, 0.5)
+	collapseBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+	collapseBtn.Text = "—"
+	collapseBtn.Font = Enum.Font.GothamBold
+	collapseBtn.TextColor3 = Color3.fromRGB(160, 180, 255)
+	collapseBtn.TextSize = 12
+	Instance.new("UICorner", collapseBtn).CornerRadius = UDim.new(0, 4)
+
+	local sep = Instance.new("Frame", frame)
+	sep.Size = UDim2.new(1, -20, 0, 1)
+	sep.Position = UDim2.fromOffset(10, H_MIN)
+	sep.BackgroundColor3 = Color3.fromRGB(40, 40, 58)
+	sep.BorderSizePixel = 0
+
+	local content = Instance.new("Frame", frame)
+	content.Name = "Content"
+	content.Size = UDim2.new(1, 0, 1, -H_MIN - 1)
+	content.Position = UDim2.fromOffset(0, H_MIN + 1)
+	content.BackgroundTransparency = 1
+
+	local function sectionLabel(text, yOff)
+		local lbl = Instance.new("TextLabel", content)
+		lbl.Size = UDim2.new(1, -PAD * 2, 0, 16)
+		lbl.Position = UDim2.fromOffset(PAD, yOff)
+		lbl.BackgroundTransparency = 1
+		lbl.Font = Enum.Font.GothamSemibold
+		lbl.Text = text
+		lbl.TextColor3 = Color3.fromRGB(110, 130, 170)
+		lbl.TextSize = 10
+		lbl.TextXAlignment = Enum.TextXAlignment.Left
+		return lbl
+	end
+
+	local function makeBtn(parent, text, xOff, yOff, w, h, bgColor)
+		local btn = Instance.new("TextButton", parent)
+		btn.Size = UDim2.fromOffset(w, h)
+		btn.Position = UDim2.fromOffset(xOff, yOff)
+		btn.BackgroundColor3 = bgColor or Color3.fromRGB(40, 40, 58)
+		btn.Font = Enum.Font.GothamSemibold
+		btn.Text = text
+		btn.TextColor3 = Color3.fromRGB(210, 220, 240)
+		btn.TextSize = 11
+		btn.BorderSizePixel = 0
+		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 5)
+		btn.MouseEnter:Connect(function()
+			tween(btn, { BackgroundTransparency = 0.25 }, 0.1)
+		end)
+		btn.MouseLeave:Connect(function()
+			tween(btn, { BackgroundTransparency = 0 }, 0.1)
+		end)
+		return btn
+	end
+
+	local function makeInputBox(parent, placeholder, xOff, yOff, w, defaultVal)
+		local box = Instance.new("TextBox", parent)
+		box.Size = UDim2.fromOffset(w, 26)
+		box.Position = UDim2.fromOffset(xOff, yOff)
+		box.BackgroundColor3 = Color3.fromRGB(22, 22, 34)
+		box.Font = Enum.Font.Code
+		box.Text = tostring(defaultVal or "")
+		box.PlaceholderText = placeholder
+		box.PlaceholderColor3 = Color3.fromRGB(70, 80, 100)
+		box.TextColor3 = Color3.fromRGB(100, 210, 255)
+		box.TextSize = 13
+		box.BorderSizePixel = 0
+		Instance.new("UICorner", box).CornerRadius = UDim.new(0, 5)
+		local stroke = Instance.new("UIStroke", box)
+		stroke.Color = Color3.fromRGB(50, 50, 72)
+		local pad = Instance.new("UIPadding", box)
+		pad.PaddingLeft = UDim.new(0, 6)
+		box.Focused:Connect(function()
+			tween(stroke, { Color = Color3.fromRGB(60, 140, 255) }, 0.1)
+		end)
+		box.FocusLost:Connect(function()
+			tween(stroke, { Color = Color3.fromRGB(50, 50, 72) }, 0.1)
+		end)
+		return box, stroke
+	end
+
+	local y = PAD
+
+	sectionLabel("REACH SIZE", y)
+	y += 18
+
+	local sizeBox, sizeStroke = makeInputBox(content, "e.g. 8", PAD, y, W - PAD * 2, currentReachSize)
+	y += 30
+
+	sectionLabel("REACH TYPE", y)
+	y += 18
+
+	local reachTypes = {
+		{ id = "directional", label = "Directional" },
+		{ id = "box", label = "Box" },
+		{ id = "sphere", label = "Sphere" },
+		{ id = "cylinder", label = "Cylinder" },
+		{ id = "capsule", label = "Capsule" },
+		{ id = "front", label = "Front Only" },
+		{ id = "wide", label = "Wide Sweep" },
+		{ id = "vertical", label = "Vertical" },
+		{ id = "custom", label = "Custom XYZ" },
 	}
-	function Modules.ReachController:Enable()
-		if self.State.IsEnabled then
+
+	local COLS = 3
+	local BTN_W = math.floor((W - PAD * 2 - (COLS - 1) * 5) / COLS)
+	local BTN_H = 24
+	local typeButtons = {}
+
+	for i, entry in ipairs(reachTypes) do
+		local col = (i - 1) % COLS
+		local row = math.floor((i - 1) / COLS)
+		local xOff = PAD + col * (BTN_W + 5)
+		local yOff = y + row * (BTN_H + 5)
+		local btn = makeBtn(content, entry.label, xOff, yOff, BTN_W, BTN_H)
+		typeButtons[entry.id] = btn
+	end
+
+	local ROWS = math.ceil(#reachTypes / COLS)
+	y += ROWS * (BTN_H + 5) + 4
+
+	local customPanel = Instance.new("Frame", content)
+	customPanel.Size = UDim2.new(1, -PAD * 2, 0, 30)
+	customPanel.Position = UDim2.fromOffset(PAD, y)
+	customPanel.BackgroundTransparency = 1
+	customPanel.Visible = false
+
+	local customPanelH = 30
+	local axisLabels = { "X", "Y", "Z" }
+	local axisFn = { "customX", "customY", "customZ" }
+	local axisBoxes = {}
+	local axisW = math.floor((W - PAD * 2 - 10) / 3)
+
+	for i, axisName in ipairs(axisLabels) do
+		local xOff = (i - 1) * (axisW + 5)
+
+		local lbl = Instance.new("TextLabel", customPanel)
+		lbl.Size = UDim2.fromOffset(axisW, 12)
+		lbl.Position = UDim2.fromOffset(xOff, 0)
+		lbl.BackgroundTransparency = 1
+		lbl.Font = Enum.Font.GothamSemibold
+		lbl.Text = axisName
+		lbl.TextColor3 = Color3.fromRGB(100, 160, 255)
+		lbl.TextSize = 10
+		lbl.TextXAlignment = Enum.TextXAlignment.Center
+
+		local box = makeInputBox(customPanel, "size", xOff, 14, axisW, currentReachSize)
+		axisBoxes[axisFn[i]] = box
+	end
+
+	y += customPanelH + 6
+
+	local activeLabel = Instance.new("TextLabel", content)
+	activeLabel.Size = UDim2.new(1, -PAD * 2, 0, 18)
+	activeLabel.Position = UDim2.fromOffset(PAD, y)
+	activeLabel.BackgroundTransparency = 1
+	activeLabel.Font = Enum.Font.Gotham
+	activeLabel.Text = "Active Part: none"
+	activeLabel.TextColor3 = Color3.fromRGB(80, 90, 110)
+	activeLabel.TextSize = 10
+	activeLabel.TextXAlignment = Enum.TextXAlignment.Left
+	activeLabel.TextTruncate = Enum.TextTruncate.AtEnd
+	y += 22
+
+	local function setActiveLabel(partName)
+		if partName then
+			activeLabel.Text = "Active: " .. partName
+			activeLabel.TextColor3 = Color3.fromRGB(80, 220, 120)
+		else
+			activeLabel.Text = "Active Part: none"
+			activeLabel.TextColor3 = Color3.fromRGB(80, 90, 110)
+		end
+	end
+
+	sectionLabel("TOOL PARTS", y)
+	y += 18
+
+	local listH = H_FULL - H_MIN - 1 - y - 44
+	local scroll = Instance.new("ScrollingFrame", content)
+	scroll.Size = UDim2.new(1, -PAD * 2, 0, listH)
+	scroll.Position = UDim2.fromOffset(PAD, y)
+	scroll.BackgroundColor3 = Color3.fromRGB(16, 16, 24)
+	scroll.BorderSizePixel = 0
+	scroll.ScrollBarThickness = 5
+	scroll.ScrollBarImageColor3 = Color3.fromRGB(60, 100, 200)
+	scroll.CanvasSize = UDim2.fromOffset(0, 0)
+	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	Instance.new("UICorner", scroll).CornerRadius = UDim.new(0, 5)
+
+	local listLayout = Instance.new("UIListLayout", scroll)
+	listLayout.Padding = UDim.new(0, 4)
+	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local listPad = Instance.new("UIPadding", scroll)
+	listPad.PaddingTop = UDim.new(0, 4)
+	listPad.PaddingBottom = UDim.new(0, 4)
+	listPad.PaddingLeft = UDim.new(0, 4)
+	listPad.PaddingRight = UDim.new(0, 4)
+
+	y += listH + 8
+
+	local resetBtn = makeBtn(content, "↺  Reset Reach", PAD, y, W - PAD * 2, 28, Color3.fromRGB(160, 35, 35))
+	resetBtn.TextColor3 = Color3.fromRGB(255, 200, 200)
+
+	local function computeSize(reachType, originalSize, size, cx, cy, cz)
+		local ox, oy, oz = originalSize.X, originalSize.Y, originalSize.Z
+
+		if reachType == "directional" then
+			return Vector3.new(ox, oy, oz + size), Vector3.new(0, 0, -size / 2)
+		elseif reachType == "box" then
+			return Vector3.new(size, size, size), Vector3.new(0, 0, 0)
+		elseif reachType == "sphere" then
+			local base = math.max(ox, oy, oz)
+			local s = base + size
+			return Vector3.new(s, s, s), Vector3.new(0, 0, 0)
+		elseif reachType == "cylinder" then
+			local radius = math.max(ox, oy) * 0.5 + (size * 0.15)
+			return Vector3.new(radius, radius, oz + size), Vector3.new(0, 0, -size / 2)
+		elseif reachType == "capsule" then
+			local radius = math.max(ox, oy) * 0.5 + (size * 0.15)
+			return Vector3.new(radius, oy + size * 0.5, oz + size), Vector3.new(0, 0, -size / 2)
+		elseif reachType == "front" then
+			return Vector3.new(ox, oy, oz + size), Vector3.new(0, 0, -(size / 2))
+		elseif reachType == "wide" then
+			local sweep = size * 1.5
+			return Vector3.new(ox + sweep, oy, oz + sweep), Vector3.new(0, 0, 0)
+		elseif reachType == "vertical" then
+			return Vector3.new(ox, oy + size * 1.5, oz + size * 0.5), Vector3.new(0, 0, 0)
+		elseif reachType == "custom" then
+			return Vector3.new(cx or ox, cy or oy, cz or oz), Vector3.new(0, 0, 0)
+		end
+
+		return Vector3.new(ox, oy, oz + size), Vector3.new(0, 0, -size / 2)
+	end
+
+	local function liveApply()
+		if modifiedPart and modifiedPart.Parent then
+			local cx = tonumber(axisBoxes["customX"].Text)
+			local cy = tonumber(axisBoxes["customY"].Text)
+			local cz = tonumber(axisBoxes["customZ"].Text)
+
+			if not modifiedPart:GetAttribute("_RC_OrigSize") then
+				local s = modifiedPart.Size
+				modifiedPart:SetAttribute("_RC_OrigSize_X", s.X)
+				modifiedPart:SetAttribute("_RC_OrigSize_Y", s.Y)
+				modifiedPart:SetAttribute("_RC_OrigSize_Z", s.Z)
+			end
+
+			local origSize = Vector3.new(
+				modifiedPart:GetAttribute("_RC_OrigSize_X") or modifiedPart.Size.X,
+				modifiedPart:GetAttribute("_RC_OrigSize_Y") or modifiedPart.Size.Y,
+				modifiedPart:GetAttribute("_RC_OrigSize_Z") or modifiedPart.Size.Z
+			)
+
+			local newSize, cfOffset = computeSize(currentReachType, origSize, currentReachSize, cx, cy, cz)
+
+			modifiedPart.Size = newSize
+
+			if cfOffset and cfOffset ~= Vector3.new(0, 0, 0) then
+				modifiedPart.CFrame = modifiedPart.CFrame * CFrame.new(cfOffset)
+			end
+		end
+	end
+
+	local COLOR_ACTIVE = Color3.fromRGB(40, 100, 200)
+	local COLOR_INACTIVE = Color3.fromRGB(30, 30, 45)
+	local TEXT_ACTIVE = Color3.fromRGB(220, 235, 255)
+	local TEXT_INACTIVE = Color3.fromRGB(130, 140, 160)
+
+	local function syncTypeButtons()
+		for id, btn in pairs(typeButtons) do
+			local isActive = (id == currentReachType)
+			btn.BackgroundColor3 = isActive and COLOR_ACTIVE or COLOR_INACTIVE
+			btn.TextColor3 = isActive and TEXT_ACTIVE or TEXT_INACTIVE
+		end
+		customPanel.Visible = (currentReachType == "custom")
+	end
+	syncTypeButtons()
+
+	for _, entry in ipairs(reachTypes) do
+		typeButtons[entry.id].MouseButton1Click:Connect(function()
+			currentReachType = entry.id
+			syncTypeButtons()
+			liveApply()
+		end)
+	end
+
+	sizeBox.FocusLost:Connect(function()
+		local n = tonumber(sizeBox.Text)
+		if n and n > 0 then
+			currentReachSize = n
+			liveApply()
+		else
+			sizeBox.Text = tostring(currentReachSize)
+		end
+	end)
+
+	sizeBox:GetPropertyChangedSignal("Text"):Connect(function()
+		local n = tonumber(sizeBox.Text)
+		if n and n > 0 then
+			currentReachSize = n
+			liveApply()
+		end
+	end)
+
+	for _, box in pairs(axisBoxes) do
+		box:GetPropertyChangedSignal("Text"):Connect(function()
+			if currentReachType == "custom" then
+				liveApply()
+			end
+		end)
+	end
+
+	local function populateParts()
+		for _, child in ipairs(scroll:GetChildren()) do
+			if child:IsA("TextButton") then
+				child:Destroy()
+			end
+		end
+		if not activeTool then
 			return
 		end
-		self.State.IsEnabled = true
-		local conns = makeConnManager()
-		self._conns = conns
-		local ui = Instance.new("ScreenGui")
-		ui.Name = "ReachController_Zuka"
-		ui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-		ui.ResetOnSpawn = false
-		self.State.UI = ui
-		local W, H_FULL, H_MIN = 260, 340, 32
-		local isCollapsed = false
-		local frame = Instance.new("Frame", ui)
-		frame.Size = UDim2.fromOffset(W, H_FULL)
-		frame.Position = UDim2.fromScale(0, 0)
-		frame.BackgroundColor3 = Color3.fromRGB(12, 12, 18)
-		frame.BorderSizePixel = 0
-		frame.ClipsDescendants = true
-		Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
-		local outerStroke = Instance.new("UIStroke", frame)
-		outerStroke.Color = Color3.fromRGB(55, 55, 75)
-		outerStroke.Thickness = 1
-		local accent = Instance.new("Frame", frame)
-		accent.Size = UDim2.new(1, 0, 0, 2)
-		accent.BackgroundColor3 = Color3.fromRGB(60, 160, 255)
-		accent.BorderSizePixel = 0
-		local titleBar = Instance.new("Frame", frame)
-		titleBar.Size = UDim2.new(1, 0, 0, H_MIN)
-		titleBar.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
-		titleBar.BorderSizePixel = 0
-		local titleLabel = Instance.new("TextLabel", titleBar)
-		titleLabel.Size = UDim2.new(1, -40, 1, 0)
-		titleLabel.Position = UDim2.fromOffset(10, 0)
-		titleLabel.BackgroundTransparency = 1
-		titleLabel.Font = Enum.Font.GothamBold
-		titleLabel.Text = "REACH CONTROLLER"
-		titleLabel.TextColor3 = Color3.fromRGB(180, 210, 255)
-		titleLabel.TextSize = 11
-		titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-		local collapseBtn = Instance.new("TextButton", titleBar)
-		collapseBtn.Size = UDim2.fromOffset(22, 22)
-		collapseBtn.Position = UDim2.new(1, -27, 0.5, 0)
-		collapseBtn.AnchorPoint = Vector2.new(1, 0.5)
-		collapseBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
-		collapseBtn.Text = "—"
-		collapseBtn.Font = Enum.Font.GothamBold
-		collapseBtn.TextColor3 = Color3.fromRGB(160, 180, 255)
-		collapseBtn.TextSize = 12
-		Instance.new("UICorner", collapseBtn).CornerRadius = UDim.new(0, 4)
-		local sep = Instance.new("Frame", frame)
-		sep.Size = UDim2.new(1, -20, 0, 1)
-		sep.Position = UDim2.fromOffset(10, H_MIN)
-		sep.BackgroundColor3 = Color3.fromRGB(40, 40, 58)
-		sep.BorderSizePixel = 0
-		local content = Instance.new("Frame", frame)
-		content.Name = "Content"
-		content.Size = UDim2.new(1, 0, 1, -H_MIN - 1)
-		content.Position = UDim2.fromOffset(0, H_MIN + 1)
-		content.BackgroundTransparency = 1
-		local PAD = 10
-		local y = PAD
-		local function sectionLabel(text, yOff)
-			local lbl = Instance.new("TextLabel", content)
-			lbl.Size = UDim2.new(1, -PAD * 2, 0, 16)
-			lbl.Position = UDim2.fromOffset(PAD, yOff)
-			lbl.BackgroundTransparency = 1
-			lbl.Font = Enum.Font.GothamSemibold
-			lbl.Text = text
-			lbl.TextColor3 = Color3.fromRGB(110, 130, 170)
-			lbl.TextSize = 10
-			lbl.TextXAlignment = Enum.TextXAlignment.Left
-			return lbl
+		local parts = {}
+		for _, d in ipairs(activeTool:GetDescendants()) do
+			if d:IsA("BasePart") then
+				table.insert(parts, d)
+			end
 		end
-		local function makeBtn(parent, text, xOff, yOff, w, h, bgColor)
-			local btn = Instance.new("TextButton", parent)
-			btn.Size = UDim2.fromOffset(w, h)
-			btn.Position = UDim2.fromOffset(xOff, yOff)
-			btn.BackgroundColor3 = bgColor or Color3.fromRGB(40, 40, 58)
-			btn.Font = Enum.Font.GothamSemibold
-			btn.Text = text
-			btn.TextColor3 = Color3.fromRGB(210, 220, 240)
+		for i, part in ipairs(parts) do
+			local btn = Instance.new("TextButton", scroll)
+			btn.LayoutOrder = i
+			btn.Size = UDim2.new(1, 0, 0, 28)
+			btn.BackgroundColor3 = Color3.fromRGB(28, 28, 42)
+			btn.Font = Enum.Font.Code
+			btn.Text = part.Name
+			btn.TextColor3 = Color3.fromRGB(190, 200, 220)
 			btn.TextSize = 12
 			btn.BorderSizePixel = 0
-			Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 5)
+			btn.TextTruncate = Enum.TextTruncate.AtEnd
+			Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+
+			local btnStroke = Instance.new("UIStroke", btn)
+			btnStroke.Color = Color3.fromRGB(40, 40, 60)
+			btnStroke.Thickness = 1
+
+			local function refreshBtnHighlight()
+				local isActive = modifiedPart == part
+				btnStroke.Color = isActive and Color3.fromRGB(40, 100, 200) or Color3.fromRGB(40, 40, 60)
+				btn.TextColor3 = isActive and Color3.fromRGB(120, 200, 255) or Color3.fromRGB(190, 200, 220)
+			end
+			refreshBtnHighlight()
+
 			btn.MouseEnter:Connect(function()
-				tween(btn, { BackgroundTransparency = 0.25 }, 0.1)
+				if modifiedPart ~= part then
+					tween(btn, { BackgroundColor3 = Color3.fromRGB(38, 38, 56) }, 0.1)
+				end
 			end)
 			btn.MouseLeave:Connect(function()
-				tween(btn, { BackgroundTransparency = 0 }, 0.1)
+				if modifiedPart ~= part then
+					tween(btn, { BackgroundColor3 = Color3.fromRGB(28, 28, 42) }, 0.1)
+				end
 			end)
-			return btn
-		end
-		sectionLabel("REACH SIZE", y)
-		y += 18
-		local sizeBox = Instance.new("TextBox", content)
-		sizeBox.Size = UDim2.new(1, -PAD * 2, 0, 30)
-		sizeBox.Position = UDim2.fromOffset(PAD, y)
-		sizeBox.BackgroundColor3 = Color3.fromRGB(22, 22, 34)
-		sizeBox.Font = Enum.Font.Code
-		sizeBox.Text = tostring(currentReachSize)
-		sizeBox.TextColor3 = Color3.fromRGB(100, 210, 255)
-		sizeBox.TextSize = 14
-		sizeBox.BorderSizePixel = 0
-		Instance.new("UICorner", sizeBox).CornerRadius = UDim.new(0, 5)
-		local sizeStroke = Instance.new("UIStroke", sizeBox)
-		sizeStroke.Color = Color3.fromRGB(50, 50, 72)
-		local sizePad = Instance.new("UIPadding", sizeBox)
-		sizePad.PaddingLeft = UDim.new(0, 8)
-		y += 34
-		sectionLabel("REACH TYPE", y)
-		y += 18
-		local BW = (W - PAD * 2 - 6) / 2
-		local dirBtn = makeBtn(content, "Directional", PAD, y, BW, 28)
-		local boxBtn = makeBtn(content, "Box", PAD + BW + 6, y, BW, 28)
-		local function syncTypeButtons()
-			if currentReachType == "directional" then
-				dirBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 200)
-				dirBtn.TextColor3 = Color3.fromRGB(220, 235, 255)
-				boxBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-				boxBtn.TextColor3 = Color3.fromRGB(130, 140, 160)
-			else
-				boxBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 200)
-				boxBtn.TextColor3 = Color3.fromRGB(220, 235, 255)
-				dirBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-				dirBtn.TextColor3 = Color3.fromRGB(130, 140, 160)
-			end
-		end
-		syncTypeButtons()
-		y += 32
-		local activeLabel = Instance.new("TextLabel", content)
-		activeLabel.Size = UDim2.new(1, -PAD * 2, 0, 18)
-		activeLabel.Position = UDim2.fromOffset(PAD, y)
-		activeLabel.BackgroundTransparency = 1
-		activeLabel.Font = Enum.Font.Gotham
-		activeLabel.Text = "Active Part: none"
-		activeLabel.TextColor3 = Color3.fromRGB(80, 90, 110)
-		activeLabel.TextSize = 10
-		activeLabel.TextXAlignment = Enum.TextXAlignment.Left
-		activeLabel.TextTruncate = Enum.TextTruncate.AtEnd
-		y += 22
-		local function setActiveLabel(partName: string?)
-			if partName then
-				activeLabel.Text = "Active: " .. partName
-				activeLabel.TextColor3 = Color3.fromRGB(80, 220, 120)
-			else
-				activeLabel.Text = "Active Part: none"
-				activeLabel.TextColor3 = Color3.fromRGB(80, 90, 110)
-			end
-		end
-		sectionLabel("TOOL PARTS", y)
-		y += 18
-		local listH = H_FULL - H_MIN - 1 - y - 44
-		local scroll = Instance.new("ScrollingFrame", content)
-		scroll.Size = UDim2.new(1, -PAD * 2, 0, listH)
-		scroll.Position = UDim2.fromOffset(PAD, y)
-		scroll.BackgroundColor3 = Color3.fromRGB(16, 16, 24)
-		scroll.BorderSizePixel = 0
-		scroll.ScrollBarThickness = 5
-		scroll.ScrollBarImageColor3 = Color3.fromRGB(60, 100, 200)
-		scroll.CanvasSize = UDim2.fromOffset(0, 0)
-		scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-		Instance.new("UICorner", scroll).CornerRadius = UDim.new(0, 5)
-		local listLayout = Instance.new("UIListLayout", scroll)
-		listLayout.Padding = UDim.new(0, 4)
-		listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-		local listPad = Instance.new("UIPadding", scroll)
-		listPad.PaddingTop = UDim.new(0, 4)
-		listPad.PaddingBottom = UDim.new(0, 4)
-		listPad.PaddingLeft = UDim.new(0, 4)
-		listPad.PaddingRight = UDim.new(0, 4)
-		y += listH + 8
-		local resetBtn = makeBtn(content, "↺  Reset Reach", PAD, y, W - PAD * 2, 28, Color3.fromRGB(160, 35, 35))
-		resetBtn.TextColor3 = Color3.fromRGB(255, 200, 200)
-		local function liveApply()
-			if modifiedPart and modifiedPart.Parent then
-				applyPart(modifiedPart, currentReachSize, currentReachType)
-			end
-		end
-		local function populateParts()
-			for _, child in ipairs(scroll:GetChildren()) do
-				if child:IsA("TextButton") then
-					child:Destroy()
+
+			btn.MouseButton1Click:Connect(function()
+				if not part or not part.Parent or not activeTool then
+					warn("[ReachController] Part or tool is gone.")
+					return
 				end
-			end
-			if not activeTool then
-				return
-			end
-			local parts = {}
-			for _, d in ipairs(activeTool:GetDescendants()) do
-				if d:IsA("BasePart") then
-					table.insert(parts, d)
+				if modifiedPart and modifiedPart ~= part then
+					applyPart(modifiedPart, nil, nil)
+					modifiedPart:SetAttribute("_RC_OrigSize_X", nil)
+					modifiedPart:SetAttribute("_RC_OrigSize_Y", nil)
+					modifiedPart:SetAttribute("_RC_OrigSize_Z", nil)
 				end
-			end
-			for i, part in ipairs(parts) do
-				local btn = Instance.new("TextButton", scroll)
-				btn.LayoutOrder = i
-				btn.Size = UDim2.new(1, 0, 0, 28)
-				btn.BackgroundColor3 = Color3.fromRGB(28, 28, 42)
-				btn.Font = Enum.Font.Code
-				btn.Text = part.Name
-				btn.TextColor3 = Color3.fromRGB(190, 200, 220)
-				btn.TextSize = 12
-				btn.BorderSizePixel = 0
-				btn.TextTruncate = Enum.TextTruncate.AtEnd
-				Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-				local btnStroke = Instance.new("UIStroke", btn)
-				btnStroke.Color = Color3.fromRGB(40, 40, 60)
-				btnStroke.Thickness = 1
-				local function refreshBtnHighlight()
-					local isActive = modifiedPart == part
-					btnStroke.Color = isActive and Color3.fromRGB(40, 100, 200) or Color3.fromRGB(40, 40, 60)
-					btn.TextColor3 = isActive and Color3.fromRGB(120, 200, 255) or Color3.fromRGB(190, 200, 220)
+
+				if not part:GetAttribute("_RC_OrigSize_X") then
+					part:SetAttribute("_RC_OrigSize_X", part.Size.X)
+					part:SetAttribute("_RC_OrigSize_Y", part.Size.Y)
+					part:SetAttribute("_RC_OrigSize_Z", part.Size.Z)
 				end
-				refreshBtnHighlight()
-				btn.MouseEnter:Connect(function()
-					if modifiedPart ~= part then
-						tween(btn, { BackgroundColor3 = Color3.fromRGB(38, 38, 56) }, 0.1)
-					end
-				end)
-				btn.MouseLeave:Connect(function()
-					if modifiedPart ~= part then
-						tween(btn, { BackgroundColor3 = Color3.fromRGB(28, 28, 42) }, 0.1)
-					end
-				end)
-				btn.MouseButton1Click:Connect(function()
-					if not part or not part.Parent or not activeTool then
-						warn("[ReachController] Part or tool is gone.")
-						return
-					end
-					if modifiedPart and modifiedPart ~= part then
-						applyPart(modifiedPart, nil, nil)
-					end
-					modifiedPart = part
-					persistentToolName = activeTool.Name
-					persistentPartName = part.Name
-					applyPart(part, currentReachSize, currentReachType)
-					setActiveLabel(part.Name)
-					for _, child in ipairs(scroll:GetChildren()) do
-						if child:IsA("TextButton") then
-							local childPart = activeTool and activeTool:FindFirstChild(child.Text, true)
-							local childIsActive = childPart == part
-							child:FindFirstChildOfClass("UIStroke").Color = childIsActive
-									and Color3.fromRGB(40, 100, 200)
-								or Color3.fromRGB(40, 40, 60)
-							child.TextColor3 = childIsActive and Color3.fromRGB(120, 200, 255)
-								or Color3.fromRGB(190, 200, 220)
-						end
-					end
-					print(string.format("[ReachController] Applied to '%s' on '%s'.", part.Name, activeTool.Name))
-				end)
-			end
-		end
-		local function onToolEquipped(tool: Tool)
-			activeTool = tool
-			populateParts()
-			setActiveLabel(modifiedPart and modifiedPart.Name or nil)
-			conns:disconnect("toolUnequipped")
-			conns:add(
-				"toolUnequipped",
-				tool.Unequipped:Connect(function()
-					activeTool = nil
-					populateParts()
-				end)
-			)
-		end
-		local function onCharacterAdded(character: Model)
-			conns:disconnect("charChildAdded")
-			conns:disconnect("charReapply")
-			if persistentToolName and persistentPartName then
-				local function tryReapply(child)
-					if child:IsA("Tool") and child.Name == persistentToolName then
-						local part = child:WaitForChild(persistentPartName, 3)
-						if part and part:IsA("BasePart") then
-							modifiedPart = part
-							applyPart(part, currentReachSize, currentReachType)
-							setActiveLabel(part.Name)
-						end
-					end
-				end
-				local existing = character:FindFirstChild(persistentToolName)
-				if existing then
-					tryReapply(existing)
-				end
-				conns:add("charReapply", character.ChildAdded:Connect(tryReapply))
-			end
-			conns:add(
-				"charChildAdded",
-				character.ChildAdded:Connect(function(child)
-					if child:IsA("Tool") then
-						onToolEquipped(child)
-					end
-				end)
-			)
-			local firstTool = character:FindFirstChildOfClass("Tool")
-			if firstTool then
-				onToolEquipped(firstTool)
-			end
-		end
-		sizeBox.FocusLost:Connect(function()
-			local n = tonumber(sizeBox.Text)
-			if n and n > 0 then
-				currentReachSize = n
+
+				modifiedPart = part
+				persistentToolName = activeTool.Name
+				persistentPartName = part.Name
+
 				liveApply()
-			else
-				sizeBox.Text = tostring(currentReachSize)
-			end
-			tween(sizeStroke, { Color = Color3.fromRGB(50, 50, 72) }, 0.1)
-		end)
-		sizeBox.Focused:Connect(function()
-			tween(sizeStroke, { Color = Color3.fromRGB(60, 140, 255) }, 0.1)
-		end)
-		sizeBox:GetPropertyChangedSignal("Text"):Connect(function()
-			local n = tonumber(sizeBox.Text)
-			if n and n > 0 then
-				currentReachSize = n
-				liveApply()
-			end
-		end)
-		dirBtn.MouseButton1Click:Connect(function()
-			currentReachType = "directional"
-			syncTypeButtons()
-			liveApply()
-		end)
-		boxBtn.MouseButton1Click:Connect(function()
-			currentReachType = "box"
-			syncTypeButtons()
-			liveApply()
-		end)
-		resetBtn.MouseButton1Click:Connect(function()
-			resetReach()
-			setActiveLabel(nil)
-			for _, child in ipairs(scroll:GetChildren()) do
-				if child:IsA("TextButton") then
-					local s = child:FindFirstChildOfClass("UIStroke")
-					if s then
-						s.Color = Color3.fromRGB(40, 40, 60)
+				setActiveLabel(part.Name)
+
+				for _, child in ipairs(scroll:GetChildren()) do
+					if child:IsA("TextButton") then
+						local childPart = activeTool and activeTool:FindFirstChild(child.Text, true)
+						local childIsActive = childPart == part
+						local s = child:FindFirstChildOfClass("UIStroke")
+						if s then
+							s.Color = childIsActive and Color3.fromRGB(40, 100, 200) or Color3.fromRGB(40, 40, 60)
+						end
+						child.TextColor3 = childIsActive and Color3.fromRGB(120, 200, 255)
+							or Color3.fromRGB(190, 200, 220)
 					end
-					child.TextColor3 = Color3.fromRGB(190, 200, 220)
 				end
-			end
-			print("[ReachController] Reach reset.")
-		end)
-		collapseBtn.MouseButton1Click:Connect(function()
-			isCollapsed = not isCollapsed
-			local targetH = isCollapsed and H_MIN or H_FULL
-			collapseBtn.Text = isCollapsed and "+" or "—"
-			content.Visible = not isCollapsed
-			sep.Visible = not isCollapsed
-			tween(
-				frame,
-				{ Size = UDim2.fromOffset(W, targetH) },
-				0.2,
-				Enum.EasingStyle.Quad,
-				isCollapsed and Enum.EasingDirection.In or Enum.EasingDirection.Out
-			)
-		end)
-		titleBar.InputBegan:Connect(function(input)
-			if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
-				return
-			end
-			local dragStart = input.Position
-			local startPos = frame.Position
-			local moveConn, endConn
-			moveConn = UserInputService.InputChanged:Connect(function(mi)
-				if mi.UserInputType == Enum.UserInputType.MouseMovement then
-					local d = mi.Position - dragStart
-					frame.Position =
-						UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
-				end
+
+				print(
+					string.format(
+						"[ReachController] Applied '%s' to '%s' on '%s'.",
+						currentReachType,
+						part.Name,
+						activeTool.Name
+					)
+				)
 			end)
-			endConn = UserInputService.InputEnded:Connect(function(ei)
-				if ei.UserInputType == Enum.UserInputType.MouseButton1 then
-					moveConn:Disconnect()
-					endConn:Disconnect()
-				end
-			end)
-		end)
-		if LocalPlayer.Character then
-			onCharacterAdded(LocalPlayer.Character)
 		end
-		conns:add("charAdded", LocalPlayer.CharacterAdded:Connect(onCharacterAdded))
-		frame.Size = UDim2.fromOffset(W, 0)
-		ui.Parent = CoreGui
-		tween(frame, { Size = UDim2.fromOffset(W, H_FULL) }, 0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-		DoNotif("Reach Controller: ENABLED.", 2)
 	end
-	function Modules.ReachController:Disable()
-		if not self.State.IsEnabled then
+
+	local function onToolEquipped(tool)
+		activeTool = tool
+		populateParts()
+		setActiveLabel(modifiedPart and modifiedPart.Name or nil)
+		conns:disconnect("toolUnequipped")
+		conns:add(
+			"toolUnequipped",
+			tool.Unequipped:Connect(function()
+				activeTool = nil
+				populateParts()
+			end)
+		)
+	end
+
+	local function onCharacterAdded(character)
+		conns:disconnect("charChildAdded")
+		conns:disconnect("charReapply")
+
+		if persistentToolName and persistentPartName then
+			local function tryReapply(child)
+				if child:IsA("Tool") and child.Name == persistentToolName then
+					local part = child:WaitForChild(persistentPartName, 3)
+					if part and part:IsA("BasePart") then
+						part:SetAttribute("_RC_OrigSize_X", part.Size.X)
+						part:SetAttribute("_RC_OrigSize_Y", part.Size.Y)
+						part:SetAttribute("_RC_OrigSize_Z", part.Size.Z)
+						modifiedPart = part
+						liveApply()
+						setActiveLabel(part.Name)
+					end
+				end
+			end
+			local existing = character:FindFirstChild(persistentToolName)
+			if existing then
+				tryReapply(existing)
+			end
+			conns:add("charReapply", character.ChildAdded:Connect(tryReapply))
+		end
+
+		conns:add(
+			"charChildAdded",
+			character.ChildAdded:Connect(function(child)
+				if child:IsA("Tool") then
+					onToolEquipped(child)
+				end
+			end)
+		)
+
+		local firstTool = character:FindFirstChildOfClass("Tool")
+		if firstTool then
+			onToolEquipped(firstTool)
+		end
+	end
+
+	resetBtn.MouseButton1Click:Connect(function()
+		if modifiedPart then
+			modifiedPart:SetAttribute("_RC_OrigSize_X", nil)
+			modifiedPart:SetAttribute("_RC_OrigSize_Y", nil)
+			modifiedPart:SetAttribute("_RC_OrigSize_Z", nil)
+		end
+		resetReach()
+		setActiveLabel(nil)
+		for _, child in ipairs(scroll:GetChildren()) do
+			if child:IsA("TextButton") then
+				local s = child:FindFirstChildOfClass("UIStroke")
+				if s then
+					s.Color = Color3.fromRGB(40, 40, 60)
+				end
+				child.TextColor3 = Color3.fromRGB(190, 200, 220)
+			end
+		end
+		print("[ReachController] Reach reset.")
+	end)
+
+	collapseBtn.MouseButton1Click:Connect(function()
+		isCollapsed = not isCollapsed
+		local targetH = isCollapsed and H_MIN or H_FULL
+		collapseBtn.Text = isCollapsed and "+" or "—"
+		content.Visible = not isCollapsed
+		sep.Visible = not isCollapsed
+		tween(
+			frame,
+			{ Size = UDim2.fromOffset(W, targetH) },
+			0.2,
+			Enum.EasingStyle.Quad,
+			isCollapsed and Enum.EasingDirection.In or Enum.EasingDirection.Out
+		)
+	end)
+
+	titleBar.InputBegan:Connect(function(input)
+		if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
 			return
 		end
-		self.State.IsEnabled = false
-		resetReach()
-		if self._conns then
-			self._conns:clean()
-			self._conns = nil
-		end
-		if self.State.UI then
-			self.State.UI:Destroy()
-			self.State.UI = nil
-		end
-		DoNotif("Reach Controller: DISABLED.", 2)
-	end
-	function Modules.ReachController:Toggle()
-		if self.State.IsEnabled then
-			self:Disable()
-		else
-			self:Enable()
-		end
-	end
-	RegisterCommand({
-		Name = "reachgui",
-		Aliases = { "reachcontroller" },
-		Description = "Toggles the advanced tool reach controller GUI.",
-	}, function()
-		Modules.ReachController:Toggle()
+		local dragStart = input.Position
+		local startPos = frame.Position
+		local moveConn, endConn
+		moveConn = UserInputService.InputChanged:Connect(function(mi)
+			if mi.UserInputType == Enum.UserInputType.MouseMovement then
+				local d = mi.Position - dragStart
+				frame.Position =
+					UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+			end
+		end)
+		endConn = UserInputService.InputEnded:Connect(function(ei)
+			if ei.UserInputType == Enum.UserInputType.MouseButton1 then
+				moveConn:Disconnect()
+				endConn:Disconnect()
+			end
+		end)
 	end)
+
+	if LocalPlayer.Character then
+		onCharacterAdded(LocalPlayer.Character)
+	end
+	conns:add("charAdded", LocalPlayer.CharacterAdded:Connect(onCharacterAdded))
+
+	frame.Size = UDim2.fromOffset(W, 0)
+	ui.Parent = CoreGui
+	tween(frame, { Size = UDim2.fromOffset(W, H_FULL) }, 0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+	DoNotif("Reach Controller: ENABLED.", 2)
 end
 
+function Modules.ReachController:Disable()
+	if not self.State.IsEnabled then
+		return
+	end
+	self.State.IsEnabled = false
+	if modifiedPart then
+		modifiedPart:SetAttribute("_RC_OrigSize_X", nil)
+		modifiedPart:SetAttribute("_RC_OrigSize_Y", nil)
+		modifiedPart:SetAttribute("_RC_OrigSize_Z", nil)
+	end
+	resetReach()
+	if self._conns then
+		self._conns:clean()
+		self._conns = nil
+	end
+	if self.State.UI then
+		self.State.UI:Destroy()
+		self.State.UI = nil
+	end
+	DoNotif("Reach Controller: DISABLED.", 2)
+end
+
+function Modules.ReachController:Toggle()
+	if self.State.IsEnabled then
+		self:Disable()
+	else
+		self:Enable()
+	end
+end
+
+RegisterCommand({
+	Name = "reachgui",
+	Aliases = { "reachcontroller" },
+	Description = "Toggles the advanced tool reach controller GUI.",
+}, function()
+	Modules.ReachController:Toggle()
+end)
 Modules.Reach = {
 	Connections = {},
 	State = {
