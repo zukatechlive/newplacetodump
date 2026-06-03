@@ -2915,80 +2915,26 @@ end)
 Modules.Fly = {
 	State = {
 		IsActive = false,
+		Speed = 60,
+		SprintMultiplier = 2.5,
 		Connections = {},
 		BodyMovers = {},
-		Keys = {},
-		Gamepad = { Left = Vector3.zero, RightTrigger = 0, LeftTrigger = 0 },
 	},
-	Config = {
-		Speed = 500,
-		SprintMultiplier = 8.5,
-		Acceleration = 18,
-		Deceleration = 14,
-		TiltAngle = 20,
-		TiltSpeed = 10,
-		BoostMultiplier = 4,
-		BoostDuration = 0.6,
-		BoostCooldown = 3.0,
-		HoverAmplitude = 0.25,
-		HoverFrequency = 0.55,
-		HoverRollAmount = 1.8,
-		HoverBlendSpeed = 5,
-		StopDeadzone = 0.12,
-		VelocityDamping = 0.88,
-	},
-	_vel = Vector3.zero,
-	_tiltCF = CFrame.identity,
-	_hoverTime = 0,
-	_hoverBlend = 0,
-	_altLocked = false,
-	_lockedY = 0,
 }
-local Fly = Modules.Fly
-local function expDecay(a, b, tau, dt)
-	return a + (b - a) * (1 - math.exp(-dt / tau))
-end
-local function accelToTau(accel)
-	return 1 / math.max(accel, 0.001)
-end
-function Fly:SetSpeed(s)
+function Modules.Fly:SetSpeed(s)
 	local n = tonumber(s)
 	if n and n > 0 then
-		self.Config.Speed = n
-		DoNotif("Fly speed → " .. n, 1)
+		self.State.Speed = n
+		DoNotif("Fly speed set to: " .. n, 1)
 	else
 		DoNotif("Invalid speed.", 1)
 	end
 end
-function Fly:SetAcceleration(a)
-	local n = tonumber(a)
-	if n and n > 0 then
-		self.Config.Acceleration = n
-		DoNotif("Fly acceleration → " .. n, 1)
-	else
-		DoNotif("Invalid value.", 1)
-	end
-end
-function Fly:ToggleAltitudeLock()
-	local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-	if not hrp then
-		return
-	end
-	self._altLocked = not self._altLocked
-	self._lockedY = hrp.Position.Y
-	DoNotif(self._altLocked and ("Altitude locked @ Y=" .. math.round(self._lockedY)) or "Altitude unlocked", 1)
-end
-function Fly:Disable()
+function Modules.Fly:Disable()
 	if not self.State.IsActive then
 		return
 	end
 	self.State.IsActive = false
-	self._vel = Vector3.zero
-	self._tiltCF = CFrame.identity
-	self._hoverBlend = 0
-	self._hoverTime = 0
-	self._altLocked = false
-	self._boostActive = false
 	local h = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
 	if h then
 		h.PlatformStand = false
@@ -2998,15 +2944,15 @@ function Fly:Disable()
 			mover:Destroy()
 		end
 	end
-	for _, conn in ipairs(self.State.Connections) do
-		conn:Disconnect()
+	for _, connection in ipairs(self.State.Connections) do
+		connection:Disconnect()
 	end
 	table.clear(self.State.BodyMovers)
 	table.clear(self.State.Connections)
-	table.clear(self.State.Keys)
 	DoNotif("Fly disabled.", 1)
 end
-function Fly:Enable()
+function Modules.Fly:Enable()
+	local self = self
 	if self.State.IsActive then
 		return
 	end
@@ -3018,192 +2964,79 @@ function Fly:Enable()
 		return
 	end
 	self.State.IsActive = true
+	DoNotif("Fly Enabled.", 1)
 	humanoid.PlatformStand = true
-	DoNotif("Fly enabled.", 2)
-	local attachment = Instance.new("Attachment", hrp)
+	local hrpAttachment = Instance.new("Attachment", hrp)
+	local worldAttachment = Instance.new("Attachment", workspace.Terrain)
+	worldAttachment.WorldCFrame = hrp.CFrame
 	local alignOrientation = Instance.new("AlignOrientation")
 	alignOrientation.Mode = Enum.OrientationAlignmentMode.OneAttachment
-	alignOrientation.Attachment0 = attachment
+	alignOrientation.Attachment0 = hrpAttachment
 	alignOrientation.Responsiveness = 200
 	alignOrientation.MaxTorque = math.huge
 	alignOrientation.Parent = hrp
 	local linearVelocity = Instance.new("LinearVelocity")
-	linearVelocity.Attachment0 = attachment
+	linearVelocity.Attachment0 = hrpAttachment
 	linearVelocity.RelativeTo = Enum.ActuatorRelativeTo.World
 	linearVelocity.MaxForce = math.huge
 	linearVelocity.VectorVelocity = Vector3.zero
 	linearVelocity.Parent = hrp
-	self.State.BodyMovers.Attachment = attachment
+	self.State.BodyMovers.HRPAttachment = hrpAttachment
+	self.State.BodyMovers.WorldAttachment = worldAttachment
 	self.State.BodyMovers.AlignOrientation = alignOrientation
 	self.State.BodyMovers.LinearVelocity = linearVelocity
+	local keys = {}
 	local function onInput(input, gameProcessed)
-		if gameProcessed then
-			return
-		end
-		local down = input.UserInputState == Enum.UserInputState.Begin
-		self.State.Keys[input.KeyCode] = down
-		if down and input.KeyCode == Enum.KeyCode.X then
-			self:ToggleAltitudeLock()
-		end
-	end
-	local function onThumbstick(input)
-		local gp = self.State.Gamepad
-		if input.KeyCode == Enum.KeyCode.Thumbstick1 then
-			gp.Left = input.Position
-		elseif input.KeyCode == Enum.KeyCode.ButtonR2 then
-			gp.RightTrigger = input.Position.Z
-		elseif input.KeyCode == Enum.KeyCode.ButtonL2 then
-			gp.LeftTrigger = input.Position.Z
+		if not gameProcessed then
+			keys[input.KeyCode] = (input.UserInputState == Enum.UserInputState.Begin)
 		end
 	end
 	table.insert(self.State.Connections, UserInputService.InputBegan:Connect(onInput))
 	table.insert(self.State.Connections, UserInputService.InputEnded:Connect(onInput))
-	table.insert(self.State.Connections, UserInputService.InputChanged:Connect(onThumbstick))
-	local loop = RunService.Heartbeat:Connect(function(dt)
+	local loop = RunService.RenderStepped:Connect(function()
 		if not self.State.IsActive or not hrp.Parent then
 			return
 		end
-		dt = math.min(dt, 0.05)
 		local camera = workspace.CurrentCamera
-		local keys = self.State.Keys
-		local cfg = self.Config
-		local gp = self.State.Gamepad
-		local camLook = camera.CFrame.LookVector
-		local camRight = camera.CFrame.RightVector
-		local dx, dy, dz = 0, 0, 0
+		alignOrientation.CFrame = camera.CFrame
+		local direction = Vector3.new()
 		if keys[Enum.KeyCode.W] then
-			dx += camLook.X
-			dy += camLook.Y
-			dz += camLook.Z
+			direction += camera.CFrame.LookVector
 		end
 		if keys[Enum.KeyCode.S] then
-			dx -= camLook.X
-			dy -= camLook.Y
-			dz -= camLook.Z
+			direction -= camera.CFrame.LookVector
 		end
 		if keys[Enum.KeyCode.D] then
-			dx += camRight.X
-			dy += camRight.Y
-			dz += camRight.Z
+			direction += camera.CFrame.RightVector
 		end
 		if keys[Enum.KeyCode.A] then
-			dx -= camRight.X
-			dy -= camRight.Y
-			dz -= camRight.Z
+			direction -= camera.CFrame.RightVector
 		end
 		if keys[Enum.KeyCode.Space] or keys[Enum.KeyCode.E] then
-			dy += 1
+			direction += Vector3.yAxis
 		end
-		if keys[Enum.KeyCode.LeftControl] or keys[Enum.KeyCode.O] then
-			dy -= 1
+		if keys[Enum.KeyCode.LeftControl] or keys[Enum.KeyCode.Q] then
+			direction -= Vector3.yAxis
 		end
-		local gpFlat = Vector3.new(gp.Left.X, 0, -gp.Left.Y)
-		if gpFlat.Magnitude > 0.1 then
-			local camFlat = CFrame.new(Vector3.zero, Vector3.new(camLook.X, 0, camLook.Z))
-			local world = camFlat:VectorToWorldSpace(gpFlat)
-			dx += world.X
-			dy += world.Y
-			dz += world.Z
-		end
-		dy += gp.RightTrigger - gp.LeftTrigger
-		local speed = cfg.Speed
-		if keys[Enum.KeyCode.LeftShift] then
-			speed = speed * cfg.SprintMultiplier
-		end
-		if keys[Enum.KeyCode.Q] then
-			speed = speed * cfg.BoostMultiplier
-		end
-		local mag2 = dx * dx + dy * dy + dz * dz
-		local hasInput = mag2 > 0.0001
-		local targetX, targetY, targetZ
-		if hasInput then
-			local invMag = speed / math.sqrt(mag2)
-			targetX, targetY, targetZ = dx * invMag, dy * invMag, dz * invMag
-		else
-			targetX, targetY, targetZ = 0, 0, 0
-		end
-		local tau = accelToTau(hasInput and cfg.Acceleration or cfg.Deceleration)
-		local vx = expDecay(self._vel.X, targetX, tau, dt)
-		local vy = expDecay(self._vel.Y, targetY, tau, dt)
-		local vz = expDecay(self._vel.Z, targetZ, tau, dt)
-		if not hasInput then
-			local dampFactor = cfg.VelocityDamping ^ dt
-			vx = vx * dampFactor
-			vy = vy * dampFactor
-			vz = vz * dampFactor
-		end
-		if not hasInput and (vx * vx + vy * vy + vz * vz) < cfg.StopDeadzone * cfg.StopDeadzone then
-			vx, vy, vz = 0, 0, 0
-		end
-		self._vel = Vector3.new(vx, vy, vz)
-		self._hoverTime += dt
-		local hoverOsc = math.sin(self._hoverTime * cfg.HoverFrequency * math.pi * 2)
-		local horizSpeed = math.sqrt(vx * vx + vz * vz)
-		local moving = (horizSpeed + math.abs(vy)) > 0.5
-		local targetBlend = moving and 0 or 1
-		local blendTau = (targetBlend > self._hoverBlend) and accelToTau(cfg.HoverBlendSpeed) or 0.05
-		self._hoverBlend = expDecay(self._hoverBlend, targetBlend, blendTau, dt)
-		local hoverY = hoverOsc * cfg.HoverAmplitude * self._hoverBlend
-		local hoverRoll = math.rad(cfg.HoverRollAmount * hoverOsc * self._hoverBlend)
-		local finalVX = vx
-		local finalVY = vy
-		local finalVZ = vz
-		if self._altLocked then
-			finalVY = (self._lockedY - hrp.Position.Y) * 12
-		else
-			finalVY = finalVY + hoverY * 6
-		end
-		linearVelocity.VectorVelocity = Vector3.new(finalVX, finalVY, finalVZ)
-		local tiltCF = CFrame.identity
-		if horizSpeed > 1.0 then
-			local maxSpeed = cfg.Speed * cfg.SprintMultiplier
-			local speedRatio = math.clamp(horizSpeed / maxSpeed, 0, 1)
-			local tiltDeg = cfg.TiltAngle * speedRatio
-			local camYaw = CFrame.new(Vector3.zero, Vector3.new(camLook.X, 0, camLook.Z))
-			local horizDir = Vector3.new(vx, 0, vz).Unit
-			local localDir = camYaw:Inverse():VectorToObjectSpace(horizDir)
-			tiltCF = CFrame.Angles(math.rad(-tiltDeg * localDir.Z), 0, math.rad(-tiltDeg * localDir.X))
-		end
-		self._tiltCF = self._tiltCF:Lerp(tiltCF, 1 - math.exp(-dt * cfg.TiltSpeed))
-		alignOrientation.CFrame = camera.CFrame * self._tiltCF * CFrame.Angles(0, 0, hoverRoll)
+		local speed = keys[Enum.KeyCode.LeftShift] and self.State.Speed * self.State.SprintMultiplier
+			or self.State.Speed
+		linearVelocity.VectorVelocity = direction.Magnitude > 0 and direction.Unit * speed or Vector3.zero
 	end)
 	table.insert(self.State.Connections, loop)
 end
-function Fly:Toggle()
+function Modules.Fly:Toggle()
 	if self.State.IsActive then
 		self:Disable()
 	else
 		self:Enable()
 	end
 end
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed then
-		return
-	end
-	if input.KeyCode == Enum.KeyCode.X then
-		Fly:Toggle()
-	end
-end)
-RegisterCommand({ Name = "fly", Aliases = { "flight" }, Description = "Toggle fly. (also bound to F)" }, function()
-	Fly:Toggle()
-end)
 RegisterCommand(
-	{ Name = "flyspeed", Aliases = { "fs" }, Description = "Set fly speed. Usage: flyspeed <n>" },
-	function(args)
-		Fly:SetSpeed(args[1])
+	{ Name = "fly", Aliases = { "flight" }, Description = "The most boring script anyone can use." },
+	function()
+		Modules.Fly:Toggle()
 	end
 )
-RegisterCommand({
-	Name = "flyaccel",
-	Aliases = { "fa" },
-	Description = "Set fly acceleration. Usage: flyaccel <n>",
-}, function(args)
-	Fly:SetAcceleration(args[1])
-end)
-
-RegisterCommand({ Name = "altlock", Aliases = { "al" }, Description = "Lock altitude at current height." }, function()
-	Fly:ToggleAltitudeLock()
-end)
 
 Modules.NoClip = {
 	State = {
