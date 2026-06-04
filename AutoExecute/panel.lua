@@ -37248,6 +37248,14 @@ local function loadstringCmd(url, notif)
 	DoNotif(notif, 3)
 end
 
+RegisterCommand({
+    Name        = "propedit",
+    Aliases     = {"stats"},
+    Description = "lock your ws / etc",
+}, function(args)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/random/misc/PropertyLock.lua"))()
+end)
+
 RegisterCommand(
 	{ Name = "zsniper", Aliases = {}, Description = "For https://www.roblox.com/games/14419907512/Zombie-game" },
 	function()
