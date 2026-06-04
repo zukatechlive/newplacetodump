@@ -308,8 +308,8 @@ function CFrameDesync:_createUI()
 	self.State.UI = screenGui
 	local mainFrame = Instance.new("Frame")
 	mainFrame.Name = "MainFrame"
-	mainFrame.Size = UDim2.fromOffset(358, 640)
-	mainFrame.Position = UDim2.new(1, -373, 0.5, -320)
+	mainFrame.Size = UDim2.fromOffset(280, 520)
+	mainFrame.Position = UDim2.new(1, -292, 0.5, -260)
 	mainFrame.BackgroundColor3 = TERM.BG
 	mainFrame.BorderSizePixel = 0
 	mainFrame.ClipsDescendants = false
@@ -320,7 +320,7 @@ function CFrameDesync:_createUI()
 	outerStroke.LineJoinMode = Enum.LineJoinMode.Miter
 	local titleBar = Instance.new("Frame", mainFrame)
 	titleBar.Name = "TitleBar"
-	titleBar.Size = UDim2.new(1, 0, 0, 26)
+	titleBar.Size = UDim2.new(1, 0, 0, 20)
 	titleBar.BackgroundColor3 = TERM.BG2
 	titleBar.BorderSizePixel = 0
 	local titleBarBorder = Instance.new("UIStroke", titleBar)
@@ -328,33 +328,33 @@ function CFrameDesync:_createUI()
 	titleBarBorder.Thickness = 1
 	titleBarBorder.LineJoinMode = Enum.LineJoinMode.Miter
 	local winChrome = Instance.new("TextLabel", titleBar)
-	winChrome.Size = UDim2.new(0, 22, 1, 0)
+	winChrome.Size = UDim2.new(0, 18, 1, 0)
 	winChrome.Position = UDim2.fromOffset(0, 0)
 	winChrome.BackgroundTransparency = 1
 	winChrome.Text = " >"
 	winChrome.TextColor3 = TERM.ACCENT
 	winChrome.Font = Enum.Font.Code
-	winChrome.TextSize = 12
+	winChrome.TextSize = 10
 	winChrome.TextXAlignment = Enum.TextXAlignment.Left
 	local titleText = Instance.new("TextLabel", titleBar)
-	titleText.Size = UDim2.new(1, -170, 1, 0)
-	titleText.Position = UDim2.fromOffset(22, 0)
+	titleText.Size = UDim2.new(1, -130, 1, 0)
+	titleText.Position = UDim2.fromOffset(18, 0)
 	titleText.BackgroundTransparency = 1
-	titleText.Text = "cframedesync -- standalone v2"
+	titleText.Text = "cframedesync v2"
 	titleText.TextColor3 = TERM.FG_DIM
 	titleText.Font = Enum.Font.Code
-	titleText.TextSize = 11
+	titleText.TextSize = 10
 	titleText.TextXAlignment = Enum.TextXAlignment.Left
 	local statusBadge = Instance.new("TextLabel", titleBar)
 	statusBadge.Name = "StatusBadge"
-	statusBadge.Size = UDim2.fromOffset(80, 18)
-	statusBadge.Position = UDim2.new(1, -88, 0.5, -9)
+	statusBadge.Size = UDim2.fromOffset(70, 14)
+	statusBadge.Position = UDim2.new(1, -74, 0.5, -7)
 	statusBadge.BackgroundColor3 = TERM.BG3
 	statusBadge.BorderSizePixel = 0
 	statusBadge.Text = "[OFFLINE]"
 	statusBadge.TextColor3 = TERM.FG_MUT
 	statusBadge.Font = Enum.Font.Code
-	statusBadge.TextSize = 10
+	statusBadge.TextSize = 9
 	local sbStroke = Instance.new("UIStroke", statusBadge)
 	sbStroke.Color = TERM.FG_MUT
 	sbStroke.Thickness = 1
@@ -381,8 +381,8 @@ function CFrameDesync:_createUI()
 	end)
 	local scroll = Instance.new("ScrollingFrame", mainFrame)
 	scroll.Name = "Content"
-	scroll.Size = UDim2.new(1, -2, 1, -28)
-	scroll.Position = UDim2.new(0, 1, 0, 27)
+	scroll.Size = UDim2.new(1, -2, 1, -22)
+	scroll.Position = UDim2.new(0, 1, 0, 21)
 	scroll.BackgroundTransparency = 1
 	scroll.BorderSizePixel = 0
 	scroll.ScrollBarThickness = 3
@@ -396,7 +396,7 @@ function CFrameDesync:_createUI()
 	local function sectionDiv(labelText, order)
 		local row = Instance.new("Frame", scroll)
 		row.LayoutOrder = order
-		row.Size = UDim2.new(1, 0, 0, 20)
+		row.Size = UDim2.new(1, 0, 0, 15)
 		row.BackgroundColor3 = TERM.BG2
 		row.BorderSizePixel = 0
 		local divStroke = Instance.new("UIStroke", row)
@@ -410,7 +410,7 @@ function CFrameDesync:_createUI()
 		lbl.Text = "── " .. labelText .. " "
 		lbl.TextColor3 = TERM.FG_DIM
 		lbl.Font = Enum.Font.Code
-		lbl.TextSize = 10
+		lbl.TextSize = 9
 		lbl.TextXAlignment = Enum.TextXAlignment.Left
 	end
 	local function padFrame(order, height)
@@ -429,7 +429,7 @@ function CFrameDesync:_createUI()
 		b.Text = text
 		b.TextColor3 = textColor or TERM.FG
 		b.Font = Enum.Font.Code
-		b.TextSize = 12
+		b.TextSize = 10
 		if stroke then
 			local s = Instance.new("UIStroke", b)
 			s.Color = strokeColor or TERM.BORDER
@@ -438,10 +438,10 @@ function CFrameDesync:_createUI()
 		end
 		return b
 	end
-	local togWrap = padFrame(10, 36)
+	local togWrap = padFrame(10, 28)
 	local togInner = Instance.new("Frame", togWrap)
-	togInner.Size = UDim2.new(1, -12, 1, -8)
-	togInner.Position = UDim2.fromOffset(6, 4)
+	togInner.Size = UDim2.new(1, -12, 1, -6)
+	togInner.Position = UDim2.fromOffset(6, 3)
 	togInner.BackgroundTransparency = 1
 	togInner.BorderSizePixel = 0
 	local desyncToggle = termBtn(togInner, "[ ACTIVATE ]", TERM.BG2, TERM.FG, true, TERM.ACCENT)
@@ -450,10 +450,10 @@ function CFrameDesync:_createUI()
 		self:ToggleDesync()
 	end)
 	sectionDiv("MANIPULATION MODE", 20)
-	local modeWrap = padFrame(21, 34)
+	local modeWrap = padFrame(21, 26)
 	local modeInner = Instance.new("Frame", modeWrap)
-	modeInner.Size = UDim2.new(1, -12, 1, -8)
-	modeInner.Position = UDim2.fromOffset(6, 4)
+	modeInner.Size = UDim2.new(1, -12, 1, -6)
+	modeInner.Position = UDim2.fromOffset(6, 3)
 	modeInner.BackgroundTransparency = 1
 	modeInner.BorderSizePixel = 0
 	local modeLayout = Instance.new("UIListLayout", modeInner)
@@ -469,7 +469,7 @@ function CFrameDesync:_createUI()
 		mb.Text = modeOpt
 		mb.TextColor3 = isActive and TERM.BG or TERM.FG_DIM
 		mb.Font = Enum.Font.Code
-		mb.TextSize = 11
+		mb.TextSize = 10
 		local ms = Instance.new("UIStroke", mb)
 		ms.Color = isActive and TERM.ACCENT or TERM.BORDER
 		ms.Thickness = 1
@@ -486,16 +486,16 @@ function CFrameDesync:_createUI()
 		end)
 	end
 	sectionDiv("INCREMENT", 30)
-	local incWrap = padFrame(31, 34)
+	local incWrap = padFrame(31, 26)
 	local incBox = Instance.new("TextBox", incWrap)
-	incBox.Size = UDim2.new(1, -12, 1, -8)
-	incBox.Position = UDim2.fromOffset(6, 4)
+	incBox.Size = UDim2.new(1, -12, 1, -6)
+	incBox.Position = UDim2.fromOffset(6, 3)
 	incBox.BackgroundColor3 = TERM.BG3
 	incBox.BorderSizePixel = 0
 	incBox.Text = "1"
 	incBox.TextColor3 = TERM.FG
 	incBox.Font = Enum.Font.Code
-	incBox.TextSize = 12
+	incBox.TextSize = 10
 	incBox.PlaceholderText = "enter increment..."
 	incBox.PlaceholderColor3 = TERM.FG_MUT
 	local incStroke = Instance.new("UIStroke", incBox)
@@ -511,10 +511,10 @@ function CFrameDesync:_createUI()
 		end
 	end)
 	sectionDiv("OFFSET CONTROLS", 40)
-	local gridWrap = padFrame(41, 84)
+	local gridWrap = padFrame(41, 66)
 	local axGrid = Instance.new("Frame", gridWrap)
-	axGrid.Size = UDim2.new(1, -12, 1, -8)
-	axGrid.Position = UDim2.fromOffset(6, 4)
+	axGrid.Size = UDim2.new(1, -12, 1, -6)
+	axGrid.Position = UDim2.fromOffset(6, 3)
 	axGrid.BackgroundTransparency = 1
 	axGrid.BorderSizePixel = 0
 	local AXES = {
@@ -525,8 +525,8 @@ function CFrameDesync:_createUI()
 		{ t = "+Z", o = Vector3.new(0, 0, 1) },
 		{ t = "-Z", o = Vector3.new(0, 0, -1) },
 	}
-	local CELL_W = math.floor((358 - 12 - 8) / 3)
-	local CELL_H = 38
+	local CELL_W = math.floor((280 - 12 - 8) / 3)
+	local CELL_H = 30
 	for i, ax in ipairs(AXES) do
 		local col = (i - 1) % 3
 		local row = math.floor((i - 1) / 3)
@@ -538,7 +538,7 @@ function CFrameDesync:_createUI()
 		btn.Text = ax.t
 		btn.TextColor3 = TERM.FG
 		btn.Font = Enum.Font.Code
-		btn.TextSize = 13
+		btn.TextSize = 11
 		local bs = Instance.new("UIStroke", btn)
 		bs.Color = Color3.new(0, 0, 0)
 		bs.Thickness = 1
@@ -548,7 +548,7 @@ function CFrameDesync:_createUI()
 			self:AdjustOffset(vec)
 		end)
 	end
-	local resetWrap = padFrame(42, 34)
+	local resetWrap = padFrame(42, 26)
 	local resetBtn = termBtn(
 		Instance.new("Frame", resetWrap),
 		"[ RESET OFFSET ]",
@@ -557,8 +557,8 @@ function CFrameDesync:_createUI()
 		true,
 		Color3.fromRGB(100, 30, 30)
 	)
-	resetBtn.Parent.Size = UDim2.new(1, -12, 1, -8)
-	resetBtn.Parent.Position = UDim2.fromOffset(6, 4)
+	resetBtn.Parent.Size = UDim2.new(1, -12, 1, -6)
+	resetBtn.Parent.Position = UDim2.fromOffset(6, 3)
 	resetBtn.Parent.BackgroundTransparency = 1
 	resetBtn.Parent.BorderSizePixel = 0
 	resetBtn.Size = UDim2.new(1, 0, 1, 0)
@@ -569,30 +569,30 @@ function CFrameDesync:_createUI()
 	sectionDiv("PART PIN  [cyan=pinned → stays at real pos]", 60)
 	local pinButtons = {}
 	for gi, group in ipairs(PART_GROUPS) do
-		local rowWrap = padFrame(60 + gi, 30)
+		local rowWrap = padFrame(60 + gi, 22)
 		local rowInner = Instance.new("Frame", rowWrap)
 		rowInner.Size = UDim2.new(1, -12, 1, -4)
 		rowInner.Position = UDim2.fromOffset(6, 2)
 		rowInner.BackgroundTransparency = 1
 		rowInner.BorderSizePixel = 0
 		local lbl = Instance.new("TextLabel", rowInner)
-		lbl.Size = UDim2.new(0, 100, 1, 0)
+		lbl.Size = UDim2.new(0, 80, 1, 0)
 		lbl.Position = UDim2.fromOffset(0, 0)
 		lbl.BackgroundTransparency = 1
 		lbl.Text = group.label
 		lbl.TextColor3 = TERM.FG_DIM
 		lbl.Font = Enum.Font.Code
-		lbl.TextSize = 10
+		lbl.TextSize = 9
 		lbl.TextXAlignment = Enum.TextXAlignment.Left
 		local pb = Instance.new("TextButton", rowInner)
-		pb.Size = UDim2.new(1, -106, 1, 0)
-		pb.Position = UDim2.fromOffset(102, 0)
+		pb.Size = UDim2.new(1, -84, 1, 0)
+		pb.Position = UDim2.fromOffset(82, 0)
 		pb.BackgroundColor3 = TERM.BG2
 		pb.BorderSizePixel = 0
 		pb.Text = "FREE"
 		pb.TextColor3 = TERM.FG_MUT
 		pb.Font = Enum.Font.Code
-		pb.TextSize = 10
+		pb.TextSize = 9
 		local pbs = Instance.new("UIStroke", pb)
 		pbs.Color = TERM.BORDER
 		pbs.Thickness = 1
@@ -632,10 +632,10 @@ function CFrameDesync:_createUI()
 		end)
 	end
 	sectionDiv("QUICK PRESETS", 80)
-	local presetWrap = padFrame(81, 34)
+	local presetWrap = padFrame(81, 26)
 	local presetInner = Instance.new("Frame", presetWrap)
-	presetInner.Size = UDim2.new(1, -12, 1, -8)
-	presetInner.Position = UDim2.fromOffset(6, 4)
+	presetInner.Size = UDim2.new(1, -12, 1, -6)
+	presetInner.Position = UDim2.fromOffset(6, 3)
 	presetInner.BackgroundTransparency = 1
 	presetInner.BorderSizePixel = 0
 	local presetLayout = Instance.new("UIListLayout", presetInner)
@@ -665,7 +665,7 @@ function CFrameDesync:_createUI()
 		pb.Text = preset.label
 		pb.TextColor3 = TERM.FG_DIM
 		pb.Font = Enum.Font.Code
-		pb.TextSize = 9
+		pb.TextSize = 8
 		local ps = Instance.new("UIStroke", pb)
 		ps.Color = TERM.BORDER
 		ps.Thickness = 1
@@ -704,17 +704,17 @@ function CFrameDesync:_createUI()
 		end)
 	end
 	sectionDiv("LIVE STATUS", 90)
-	local infoWrap = padFrame(91, 120)
+	local infoWrap = padFrame(91, 90)
 	local infoBox = Instance.new("TextLabel", infoWrap)
 	infoBox.Name = "InfoBox"
-	infoBox.Size = UDim2.new(1, -12, 1, -8)
-	infoBox.Position = UDim2.fromOffset(6, 4)
+	infoBox.Size = UDim2.new(1, -12, 1, -6)
+	infoBox.Position = UDim2.fromOffset(6, 3)
 	infoBox.BackgroundColor3 = TERM.BG3
 	infoBox.BorderSizePixel = 0
 	infoBox.Font = Enum.Font.Code
 	infoBox.Text = "STATUS  : INACTIVE\nAWAITING ACTIVATION"
 	infoBox.TextColor3 = TERM.ACCENT
-	infoBox.TextSize = 11
+	infoBox.TextSize = 9
 	infoBox.TextXAlignment = Enum.TextXAlignment.Left
 	infoBox.TextYAlignment = Enum.TextYAlignment.Top
 	infoBox.TextWrapped = true
@@ -723,10 +723,10 @@ function CFrameDesync:_createUI()
 	ibStroke.Thickness = 1
 	ibStroke.LineJoinMode = Enum.LineJoinMode.Miter
 	local ibPad = Instance.new("UIPadding", infoBox)
-	ibPad.PaddingLeft = UDim.new(0, 7)
-	ibPad.PaddingTop = UDim.new(0, 6)
-	ibPad.PaddingBottom = UDim.new(0, 6)
-	local spacer = padFrame(99, 8)
+	ibPad.PaddingLeft = UDim.new(0, 5)
+	ibPad.PaddingTop = UDim.new(0, 4)
+	ibPad.PaddingBottom = UDim.new(0, 4)
+	local spacer = padFrame(99, 4)
 	spacer.BackgroundTransparency = 1
 	desyncToggle.Parent = scroll
 	desyncToggle.LayoutOrder = 10
