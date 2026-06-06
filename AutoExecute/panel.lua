@@ -6023,7 +6023,7 @@ RegisterCommand({
 	setReadOnly(Meta, true)
 	Log("Anti-Teleport on.")
 end)
-RegisterCommand({
+--[[RegisterCommand({
 	Name = "anticframetp",
 	Aliases = { "antic" },
 	Description = "Anti Cframe Teleporter.",
@@ -6130,7 +6130,7 @@ RegisterCommand({
 		end
 	end
 	AntiCFrame:Toggle(true)
-end)
+end)]]
 Modules.FireRemotes = {
 	State = {
 		Enabled = false,
@@ -37238,6 +37238,151 @@ RegisterCommand({
     Description = "Wipe the orb's conversation memory"
 }, function()
     Modules.AdminOrb:ClearMemory()
+end)
+
+local AntiCFrameState = nil
+local function InitializeAntiCFrame()
+	local Players = game:GetService("Players")
+	local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
+
+	local State = {
+		Enabled = false,
+		Debug = true,
+		Connections = {
+			Global = {},
+			Character = {},
+		},
+		Allowed = {},
+		LastCFrame = {},
+		ProtectedParts = {},
+	}
+
+	local function Log(msg)
+		if State.Debug then
+			print(string.format("[Anti-CFrame]: %s", msg))
+		end
+	end
+
+	local function ClearConnections(group)
+		if State.Connections[group] then
+			for _, con in ipairs(State.Connections[group]) do
+				con:Disconnect()
+			end
+			State.Connections[group] = {}
+		end
+	end
+
+	local function HookPart(part)
+		if not part:IsA("BasePart") or State.Allowed[part] ~= nil then
+			return
+		end
+		State.Allowed[part] = false
+		State.LastCFrame[part] = part.CFrame
+		table.insert(State.ProtectedParts, part)
+
+		local con = part:GetPropertyChangedSignal("CFrame"):Connect(function()
+			if not State.Enabled then
+				return
+			end
+			if State.Allowed[part] then
+				return
+			end
+
+			local last = State.LastCFrame[part]
+			if last then
+				State.Allowed[part] = true
+				part.CFrame = last
+				task.wait()
+				State.Allowed[part] = false
+				Log("Blocked forced movement on: " .. part.Name)
+			end
+		end)
+		table.insert(State.Connections["Character"], con)
+	end
+
+	local function SetupCharacter(char)
+		ClearConnections("Character")
+		State.Allowed = {}
+		State.LastCFrame = {}
+		State.ProtectedParts = {}
+
+		for _, part in ipairs(char:GetDescendants()) do
+			if part:IsA("BasePart") then
+				HookPart(part)
+			end
+		end
+
+		local descCon = char.DescendantAdded:Connect(function(desc)
+			if desc:IsA("BasePart") then
+				HookPart(desc)
+			end
+		end)
+		table.insert(State.Connections["Character"], descCon)
+
+		task.spawn(function()
+			while State.Enabled and char and char.Parent do
+				for _, part in ipairs(State.ProtectedParts) do
+					if part and part.Parent and not State.Allowed[part] then
+						State.LastCFrame[part] = part.CFrame
+					end
+				end
+				task.wait(0.1)
+			end
+		end)
+	end
+
+	function State:Toggle(state)
+		self.Enabled = state
+		if state then
+			local char = LocalPlayer.Character
+			if char then
+				SetupCharacter(char)
+			end
+
+			local respawnCon = LocalPlayer.CharacterAdded:Connect(function(newChar)
+				task.wait(0.5)
+				SetupCharacter(newChar)
+			end)
+			self.Connections["Global"] = { respawnCon }
+			Log("Anti-CFrame Teleport Protection Active.")
+		else
+			ClearConnections("Global")
+			ClearConnections("Character")
+			self.Allowed = {}
+			self.LastCFrame = {}
+			self.ProtectedParts = {}
+			Log("Anti-CFrame Teleport Protection Disabled.")
+		end
+	end
+
+	return State
+end
+
+RegisterCommand({
+	Name = "anticframetp",
+	Aliases = { "antic" },
+	Description = "Anti Cframe Teleporter.",
+	ArgsDesc = {},
+	Permissions = {},
+}, function(args, speaker)
+	if not AntiCFrameState then
+		AntiCFrameState = InitializeAntiCFrame()
+	end
+	AntiCFrameState:Toggle(true)
+end)
+
+RegisterCommand({
+	Name = "unanticframetp",
+	Aliases = { "unantic" },
+	Description = "Disables Anti Cframe Teleporter.",
+	ArgsDesc = {},
+	Permissions = {},
+}, function(args, speaker)
+	if AntiCFrameState then
+		AntiCFrameState:Toggle(false)
+	else
+		print("[Anti-CFrame]: System was not running.")
+	end
 end)
 
 -- Loadstrings
