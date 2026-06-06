@@ -37410,6 +37410,15 @@ RegisterCommand(
 		)
 	end
 )
+
+RegisterCommand({
+    Name        = "ketamine",
+    Aliases     = {"ket"},
+    Description = "remote spy",
+}, function(args)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/Ketamine-RemSpy.lua"))()
+end)
+
 RegisterCommand(
 	{ Name = "zshotgun", Aliases = {}, Description = "For https://www.roblox.com/games/14419907512/Zombie-game" },
 	function()
