@@ -37611,12 +37611,6 @@ RegisterCommand(
 		)
 	end
 )
-RegisterCommand({ Name = "Decompiler", Aliases = {}, Description = "Better Decompiler GUI" }, function()
-	loadstringCmd(
-		"https://raw.githubusercontent.com/idioticanisgae-pixel/LuaDecompiler/refs/heads/main/DecompilerLuau.lua",
-		"Loading Decompiler"
-	)
-end)
 RegisterCommand(
 	{ Name = "reachfix", Aliases = { "fix" }, Description = "Makes your equipped tool invisible when using reach" },
 	function()
@@ -37729,7 +37723,13 @@ RegisterCommand({
     loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/CframeEditor.lua"))()
 end)
 
-
+RegisterCommand({
+    Name        = "ztycoon",
+    Aliases     = {"zt"},
+    Description = "makes guns op in some random tycoon paste",
+}, function(args)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/random/Tycoon.lua"))()
+end)
 
 
 -- loadstringend
