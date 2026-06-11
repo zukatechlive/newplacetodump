@@ -156,7 +156,7 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerMouse = LocalPlayer:GetMouse()
 local CurrentCamera = Workspace.CurrentCamera
 
-do
+--[[do
     local THEME = {
         Title        = "ZukaTech",
         Subtitle     = "Made by @OverZuka — We're so back...",
@@ -409,7 +409,7 @@ do
     end
     task.wait(THEME.FadeOutTime + 0.05)
     splashGui:Destroy()
-end
+end]]
 
 local Utilities = {}
 function Utilities.findPlayer(inputName)
