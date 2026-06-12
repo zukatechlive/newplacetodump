@@ -16,6 +16,7 @@ local guns = {
 	"Raygun",
 	"Silenced Sniper",
 	"P90",
+	"Tactical Airstrike",
 }
 
 local overrides = {
