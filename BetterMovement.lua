@@ -267,7 +267,7 @@ function Strengthen:Toggle(args)
 		DoNotif("Strengthen ON at density " .. self.State.Density, 2)
 	end
 end
-local WALK_SPEED = 24
+local WALK_SPEED = 16
 local JUMP_POWER = 60
 local HIP_HEIGHT_BONUS = 0.15
 local function applyMovementStats(char)
