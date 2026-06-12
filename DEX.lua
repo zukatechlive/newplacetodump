@@ -12377,7 +12377,9 @@ return search]==]
 	end,
 	["Lib"] = function()
 		-- External Lib loaded via loadstring (replaced embedded Lib)
-		local libControl = loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/Lib.lua"))()
+		local libControl = loadstring(
+			game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/Lib.lua")
+		)()
 		return libControl
 	end,
 	["ModelViewer"] = function()
@@ -20002,6 +20004,8 @@ local RETURN_ELAPSED_TIME = false
 				window:Show()
 			end
 
+			-- (line ~20005 to 20117 in your build)
+
 			ScriptViewer.ViewScript = function(scr)
 				local oldtick = tick()
 
@@ -20042,6 +20046,7 @@ local RETURN_ELAPSED_TIME = false
 						end
 					end
 				end
+
 				if okBC and bytecode and bytecode ~= "" and ZukDecompile then
 					local opts = {
 						DecompilerMode = "disasm",
@@ -20072,12 +20077,13 @@ local RETURN_ELAPSED_TIME = false
 						local elapsed_s = elapsed and tostring(math.floor(elapsed * 100) / 100)
 							or tostring(math.floor((tick() - oldtick) * 100) / 100)
 						source = "-- Script Path: " .. getPath(scr) .. "\n"
-						source = source .. "-- Decompiled in " .. elapsed_s .. "s\n"
+						source = source .. "-- [zukv2] Decompiled in " .. elapsed_s .. "s\n"
 						source = source .. out
 						PreviousScr = scr
 						dumpbtn.TextColor3 = Color3.new(1, 1, 1)
 					end
 				end
+
 				if not source and okBC and bytecode and bytecode ~= "" then
 					local LuauReader = getgenv()._LUAUREADER
 					if LuauReader then
@@ -20087,7 +20093,7 @@ local RETURN_ELAPSED_TIME = false
 							if okR and lifted and lifted ~= "" then
 								source = "-- Script Path: " .. getPath(scr) .. "\n"
 								source = source
-									.. "-- Decompiled in "
+									.. "-- [zukv2] Decompiled in "
 									.. tostring(math.floor((tick() - oldtick) * 100) / 100)
 									.. "s\n\n"
 								source = source .. lifted
@@ -20110,6 +20116,156 @@ local RETURN_ELAPSED_TIME = false
 					source = source .. "-- Executor: " .. executorName .. " (" .. executorVersion .. ")"
 					PreviousScr = nil
 					dumpbtn.TextColor3 = Color3.new(0.5, 0.5, 0.5)
+				end
+
+				local _getconstants = getconstants or (debug and debug.getconstants)
+				local _getupvalues = getupvalues or (debug and debug.getupvalues)
+				local _getprotos = getprotos or (debug and debug.getprotos)
+				local _getgc = getgc or get_gc_objects
+
+				if _getconstants or _getupvalues or _getprotos then
+					local function walkProto(func, depth, visited, out)
+						if depth > 8 then
+							return out
+						end
+						if visited[func] then
+							return out
+						end
+						visited[func] = true
+
+						local entry = {
+							Depth = depth,
+							Constants = {},
+							Upvalues = {},
+							Children = {},
+						}
+
+						pcall(function()
+							local fn = _getconstants
+							if fn then
+								local ok, consts = pcall(fn, func)
+								if ok and consts then
+									for i, v in pairs(consts) do
+										table.insert(entry.Constants, {
+											i = i,
+											t = type(v),
+											v = tostring(v):sub(1, 80),
+										})
+									end
+								end
+							end
+						end)
+
+						pcall(function()
+							local fn = _getupvalues
+							if fn then
+								local ok, uvs = pcall(fn, func)
+								if ok and uvs then
+									for i, v in pairs(uvs) do
+										table.insert(entry.Upvalues, {
+											i = i,
+											t = type(v),
+											v = tostring(v):sub(1, 80),
+										})
+									end
+								end
+							end
+						end)
+
+						pcall(function()
+							local fn = _getprotos
+							if fn then
+								local ok, protos = pcall(fn, func)
+								if ok and protos then
+									for _, proto in pairs(protos) do
+										if type(proto) == "function" then
+											local child = walkProto(proto, depth + 1, visited, {})
+											if child and child[1] then
+												table.insert(entry.Children, child[1])
+											end
+										end
+									end
+								end
+							end
+						end)
+
+						table.insert(out, entry)
+						return out
+					end
+
+					local function entryToLines(entry, lines, pad)
+						local ind = string.rep("  ", entry.Depth)
+
+						if #entry.Constants > 0 then
+							table.insert(lines, ind .. pad .. "Constants (" .. #entry.Constants .. "):")
+							for _, c in ipairs(entry.Constants) do
+								table.insert(lines, ind .. "    [" .. tostring(c.i) .. "] " .. c.t .. " = " .. c.v)
+							end
+						end
+
+						if #entry.Upvalues > 0 then
+							table.insert(lines, ind .. pad .. "Upvalues (" .. #entry.Upvalues .. "):")
+							for _, u in ipairs(entry.Upvalues) do
+								table.insert(lines, ind .. "    [" .. tostring(u.i) .. "] " .. u.t .. " = " .. u.v)
+							end
+						end
+
+						if #entry.Children > 0 then
+							table.insert(lines, ind .. pad .. "Child protos (" .. #entry.Children .. "):")
+							for _, child in ipairs(entry.Children) do
+								entryToLines(child, lines, "  ")
+							end
+						end
+					end
+
+					local roots = {}
+					local visited = {}
+
+					if _getgc then
+						pcall(function()
+							local ok, gc = pcall(_getgc)
+							if ok and gc then
+								for _, fn in pairs(gc) do
+									if type(fn) == "function" then
+										local okE, env_ = pcall(getfenv, fn)
+										if okE and env_ and rawget(env_, "script") == scr then
+											if not visited[fn] then
+												table.insert(roots, fn)
+											end
+										end
+									end
+								end
+							end
+						end)
+					end
+
+					if #roots > 0 then
+						local lines = {
+							"",
+							"--[[  [zukv2 Proto Tree]  ",
+							"     Script : " .. getPath(scr),
+							"     Roots  : " .. #roots .. " closure(s) found in GC",
+							"",
+						}
+
+						for idx, root in ipairs(roots) do
+							table.insert(lines, "   Closure #" .. idx .. "  ")
+							local entries = walkProto(root, 0, {}, {})
+							if entries and entries[1] then
+								entryToLines(entries[1], lines, "")
+							else
+								table.insert(lines, "  (no data)")
+							end
+							table.insert(lines, "")
+						end
+
+						table.insert(
+							lines,
+							"────────────────────────────────────────────────────── ]]"
+						)
+
+						source = source .. table.concat(lines, "\n")
+					end
 				end
 
 				codeFrame:SetText(source)
