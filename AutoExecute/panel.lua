@@ -35450,6 +35450,37 @@ RegisterCommand({
 	end
 end)
 RegisterCommand({
+    Name        = "scriptscan",
+    Aliases     = {"scr"},
+    Description = "scans and logs scripts",
+}, function(args)
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local YIELD_THRESHOLD = 75
+    local processed_count = 0
+
+    local function perform_scan()
+    	print("Starting ModuleScript scan in ReplicatedStorage...")
+
+    	local assets = ReplicatedStorage:GetDescendants()
+    	for i, asset in ipairs(assets) do
+    		if asset:IsA("ModuleScript") then
+    			print("Module Script + : " .. asset:GetFullName())
+    		end
+
+    		processed_count = processed_count + 1
+
+    		if processed_count >= YIELD_THRESHOLD then
+    			processed_count = 0
+    			task.wait()
+    		end
+    	end
+
+    	warn("Scan complete. Total objects found: " .. #assets)
+    end
+
+    task.spawn(perform_scan)
+end)
+RegisterCommand({
     Name        = "mathsolver",
     Aliases     = {"math", "automath"},
     Description = "for +1 sp a second",
