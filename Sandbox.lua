@@ -1,3 +1,16 @@
+
+--[[
+                 
+__   ___ __ ___  
+\ \ / / '_ ` _ \ 
+ \ V /| | | | | |
+  \_/ |_| |_| |_|
+                 
+
+]]
+
+
+
 local _bWS = setmetatable({}, {
 	__index = function(_, k)
 		warn("[Security] WebSocket." .. k .. " blocked")
@@ -384,9 +397,6 @@ local function detectObfuscation(source)
     return found
 end
 
--- UPGRADE 5: sandbox-level timeout budget. Each sandbox session gets a shared deadline
--- table. Any sandboxed task or coroutine that tries to run after the deadline is killed.
--- Default: 8 seconds of wall time per audit session. Adjustable via _SHIELD_TIMEOUT_S.
 local _SHIELD_TIMEOUT_S = 8
 
 local function _makeTimeoutBudget()
@@ -402,14 +412,9 @@ local function _checkTimeout(budget, context)
     end
 end
 
--- UPGRADE 6: task re-entrancy fix — every spawned closure gets setfenv'd into the sandbox
--- env immediately, before task.spawn hands it to the scheduler. This prevents the thread
--- from inheriting the executor's real global env when the scheduler resumes it.
--- Also threads are timeout-guarded via the shared budget table.
+
 local function makeSandboxedTask(sandboxEnv, budget)
     local function wrap(fn, context)
-        -- setfenv the closure into the sandbox env right now, synchronously,
-        -- before the scheduler ever touches it.
         local guarded = setfenv(function(...)
             _checkTimeout(budget, context)
             return fn(...)
@@ -419,7 +424,6 @@ local function makeSandboxedTask(sandboxEnv, budget)
     return {
         wait = function(n)
             _checkTimeout(budget, "task.wait")
-            -- clamp wait to remaining budget so a script can't wait past its deadline
             local remaining = budget.deadline - tick()
             return task.wait(math.min(n or 0, math.max(remaining, 0)))
         end,
@@ -519,9 +523,6 @@ local function buildEnv(fakeGame, fakeWs)
     env.rawlen      = rawlen
     env.pcall       = pcall
     env.xpcall      = xpcall
-    -- UPGRADE 1: sandboxed getmetatable — blocks access to real Roblox instance metatables
-    -- and string metatable poisoning. Only allows reading metatables of plain Lua tables
-    -- that were created inside the sandbox (i.e. their mt is itself a plain table, not "locked").
     env.setmetatable = function(t, mt)
         if type(t) ~= "table" then
             error("[SHIELD] setmetatable: can only set metatable on plain tables inside sandbox", 2)
@@ -530,14 +531,11 @@ local function buildEnv(fakeGame, fakeWs)
     end
     env.getmetatable = function(v)
         if type(v) == "string" then
-            -- block string metatable access — prevents __index poisoning of string library
             _log("INTERCEPT", "getmetatable(string) blocked in sandbox")
             return nil
         end
         local mt = getmetatable(v)
-        -- if the mt is "locked" it's a decoy — return nil like a protected Roblox instance
         if mt == "locked" then return nil end
-        -- if it's a real Roblox metatable (not a plain Lua table), block it
         if type(mt) ~= "table" and mt ~= nil then
             _log("INTERCEPT", "getmetatable(<real instance>) blocked in sandbox")
             return nil
@@ -551,8 +549,6 @@ local function buildEnv(fakeGame, fakeWs)
     env.collectgarbage = function() end
     env.newproxy    = newproxy
 
-    -- UPGRADE 3: block debug library — prevents stack walking to escape sandbox env
-    -- Expose only a neutered stub so scripts that check debug~=nil don't crash.
     env.debug = {
         traceback   = function() return "[SHIELD] debug.traceback blocked" end,
         getinfo     = function() _log("INTERCEPT","debug.getinfo blocked in sandbox") return nil end,
@@ -586,9 +582,6 @@ local function buildEnv(fakeGame, fakeWs)
     env.RaycastParams  = RaycastParams
     env.OverlapParams  = OverlapParams
 
-    -- UPGRADE 4: decoy Instance factory — replaces real Instance.new so sandboxed scripts
-    -- cannot create real GUI objects, connect real events, or touch real services.
-    -- Instance.new returns a decoy; fromExisting, new with parent all return decoys.
     env.Instance = {
         new = function(className, parent)
             _log("INTERCEPT", string.format("Instance.new(%q) blocked — returning decoy", tostring(className)))
