@@ -137,29 +137,30 @@ local function makeDecoyInstance(className, name)
     mt.__newindex = function(_, k, v) props[k] = v end
     mt.__tostring = function() return className .. "(" .. name .. ")[DECOY]" end
     mt.__metatable = "locked"
-    return setmetatable({}, mt)
+    local proxy = setmetatable({}, mt)
+    -- return proxy + raw mt so callers can patch __index without
+    -- hitting the "locked" string that getmetatable() returns
+    return proxy, mt
 end
 
 local function makeDecoyGame()
     local realPlayers = game:GetService("Players")
     local realLp      = realPlayers.LocalPlayer
-    local fakeLp      = makeDecoyInstance("Player", realLp and realLp.Name or "LocalPlayer")
+    local fakeLp, lmt = makeDecoyInstance("Player", realLp and realLp.Name or "LocalPlayer")
     do
-        local lmt   = getmetatable(fakeLp)
         local lorig = lmt.__index
         lmt.__index = function(t, k)
-            if k == "UserId"       then return realLp and realLp.UserId or 0 end
-            if k == "Team"         then return nil end
-            if k == "Character"    then return makeDecoyInstance("Model",         "Character")    end
-            if k == "Backpack"     then return makeDecoyInstance("Backpack",       "Backpack")     end
-            if k == "PlayerGui"    then return makeDecoyInstance("PlayerGui",      "PlayerGui")    end
-            if k == "PlayerScripts" then return makeDecoyInstance("PlayerScripts", "PlayerScripts") end
+            if k == "UserId"        then return realLp and realLp.UserId or 0 end
+            if k == "Team"          then return nil end
+            if k == "Character"     then return (makeDecoyInstance("Model",          "Character"))    end
+            if k == "Backpack"      then return (makeDecoyInstance("Backpack",        "Backpack"))     end
+            if k == "PlayerGui"     then return (makeDecoyInstance("PlayerGui",       "PlayerGui"))    end
+            if k == "PlayerScripts" then return (makeDecoyInstance("PlayerScripts",   "PlayerScripts")) end
             return lorig(t, k)
         end
     end
-    local fakePlayers = makeDecoyInstance("Players", "Players")
+    local fakePlayers, pmt = makeDecoyInstance("Players", "Players")
     do
-        local pmt   = getmetatable(fakePlayers)
         local porig = pmt.__index
         pmt.__index = function(t, k)
             if k == "LocalPlayer" then return fakeLp end
@@ -170,9 +171,8 @@ local function makeDecoyGame()
             return porig(t, k)
         end
     end
-    local fakeRun = makeDecoyInstance("RunService", "RunService")
+    local fakeRun, rmt = makeDecoyInstance("RunService", "RunService")
     do
-        local rmt   = getmetatable(fakeRun)
         local rorig = rmt.__index
         local noop  = { Connect = function(_, _f) return { Disconnect = function() end } end }
         rmt.__index = function(t, k)
@@ -185,9 +185,8 @@ local function makeDecoyGame()
             return rorig(t, k)
         end
     end
-    local fakeHttp = makeDecoyInstance("HttpService", "HttpService")
+    local fakeHttp, hmt = makeDecoyInstance("HttpService", "HttpService")
     do
-        local hmt   = getmetatable(fakeHttp)
         local horig = hmt.__index
         hmt.__index = function(t, k)
             if k == "GetAsync" or k == "PostAsync" or k == "RequestAsync" then
@@ -229,9 +228,8 @@ local function makeDecoyGame()
         CollectionService    = makeDecoyInstance("CollectionService",    "CollectionService"),
     }
     rawset(svcMap.Workspace, "CurrentCamera", makeDecoyInstance("Camera", "Camera"))
-    local fakeGame = makeDecoyInstance("DataModel", "Game")
-    local fmt      = getmetatable(fakeGame)
-    local forig    = fmt.__index
+    local fakeGame, fmt = makeDecoyInstance("DataModel", "Game")
+    local forig         = fmt.__index
     fmt.__index = function(t, k)
         if k == "GetService" then
             return function(_, s)
@@ -254,71 +252,215 @@ local function makeDecoyGame()
 end
 
 local _OBFUSC_PATTERNS = {
-    { pattern = "getfenv%s*%(%s*0%s*%)",       label = "getfenv(0) env-steal"           },
-    { pattern = "string%.byte.+string%.char",   label = "byte/char loop (bytecode obfusc)" },
-    { pattern = "load%s*%(.-%)",                label = "raw load() call"                },
-    { pattern = "pcall%s*%(%s*load",            label = "pcall+load wrapper"             },
-    { pattern = "%_ENV%s*=%s*nil",              label = "_ENV=nil lockout"               },
-    { pattern = "syn%.request",                 label = "Synapse HTTP request"           },
-    { pattern = "fluxus%.request",              label = "Fluxus HTTP request"            },
-    { pattern = "getgenv%s*%(%s*%)",            label = "getgenv() access"               },
-    { pattern = "getrawmetatable%s*%(%s*game",  label = "getrawmetatable(game)"          },
-    { pattern = "hookmetamethod%s*%(%s*game",   label = "hookmetamethod(game)"           },
-    { pattern = "hookfunction",                 label = "hookfunction call"              },
-    { pattern = "firetouchinterest",            label = "fireTouchInterest exploit fn"   },
-    { pattern = "fireproximityprompt",          label = "fireProximityPrompt exploit fn" },
-    { pattern = "writefile",                    label = "writefile FS access"            },
-    { pattern = "readfile",                     label = "readfile FS access"             },
-    { pattern = "loadfile",                     label = "loadfile FS access"             },
-    { pattern = "require%s*%(%s*%-?%d+",        label = "require(id) module load"        },
+    -- env escape
+    { pattern = "getfenv%s*%(%s*0%s*%)",            label = "getfenv(0) env-steal"              },
+    { pattern = "_ENV%s*=%s*nil",                    label = "_ENV=nil lockout"                  },
+    { pattern = "getfenv%s*%(%s*%)",                 label = "bare getfenv() call"               },
+    -- loader abuse
+    { pattern = "load%s*%b()",                       label = "raw load() call"                   },
+    { pattern = "pcall%s*%(%s*load",                 label = "pcall+load wrapper"                },
+    { pattern = "loadstring%s*%b()",                 label = "bare loadstring() call"            },
+    -- executor APIs
+    { pattern = "getgenv%s*%(%s*%)",                 label = "getgenv() access"                  },
+    { pattern = "getrawmetatable%s*%(%s*game",       label = "getrawmetatable(game)"             },
+    { pattern = "hookmetamethod%s*%(%s*game",        label = "hookmetamethod(game)"              },
+    { pattern = "hookfunction",                      label = "hookfunction call"                 },
+    { pattern = "newcclosure",                       label = "newcclosure call"                  },
+    { pattern = "setreadonly",                       label = "setreadonly call"                  },
+    { pattern = "setrawmetatable",                   label = "setrawmetatable call"              },
+    -- exploit fire functions
+    { pattern = "firetouchinterest",                 label = "fireTouchInterest exploit fn"      },
+    { pattern = "fireproximityprompt",               label = "fireProximityPrompt exploit fn"    },
+    { pattern = "fireclickdetector",                 label = "fireClickDetector exploit fn"      },
+    { pattern = "firebutton",                        label = "fireButton exploit fn"             },
+    -- filesystem
+    { pattern = "writefile",                         label = "writefile FS access"               },
+    { pattern = "readfile",                          label = "readfile FS access"                },
+    { pattern = "loadfile",                          label = "loadfile FS access"                },
+    { pattern = "appendfile",                        label = "appendfile FS access"              },
+    { pattern = "makefolder",                        label = "makefolder FS access"              },
+    -- http
+    { pattern = "syn%.request",                      label = "Synapse HTTP request"              },
+    { pattern = "fluxus%.request",                   label = "Fluxus HTTP request"               },
+    { pattern = "http_request",                      label = "raw http_request call"             },
+    { pattern = "HttpGet%s*%b()",                    label = "game:HttpGet call"                 },
+    -- require abuse
+    { pattern = "require%s*%(%s*%-?%d+",             label = "require(id) module load"           },
+    -- bytecode / encoding tricks
+    { pattern = "string%.byte.+string%.char",        label = "byte/char decode loop"             },
+    { pattern = "string%.char%s*%(%s*string%.byte",  label = "char(byte()) encode"               },
+    -- identity / thread manipulation
+    { pattern = "setthreadidentity",                 label = "setthreadidentity call"            },
+    { pattern = "getthreadidentity",                 label = "getthreadidentity call"            },
+    -- decompile / bytecode dump
+    { pattern = "decompile",                         label = "decompile call"                    },
+    { pattern = "getscriptbytecode",                 label = "getscriptbytecode call"            },
 }
+
+-- Shannon entropy of a string (bits per byte). High = likely encrypted/compressed blob.
+local function _entropy(s)
+    if #s < 8 then return 0 end
+    local freq = {}
+    for i = 1, #s do
+        local b = s:byte(i)
+        freq[b] = (freq[b] or 0) + 1
+    end
+    local len   = #s
+    local bits  = 0
+    for _, c in pairs(freq) do
+        local p = c / len
+        bits = bits - p * math.log(p) / math.log(2)
+    end
+    return bits
+end
+
+-- Count suspicious string concat chains: ("xx" .. "yy" .. "zz" patterns of 4+ segments)
+local function _concatChainScore(source)
+    local segments = 0
+    for _ in source:gmatch('(["\']).-(%1)%s*%.%.') do
+        segments = segments + 1
+    end
+    return segments
+end
+
+-- Detect long base64-like string literals (40+ chars of [A-Za-z0-9+/=])
+local function _hasBase64Blob(source)
+    return source:match('["\'][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=]'] ~= nil
+end
+
+-- Count raw numeric char literals: {65,66,67,...} style tables fed to string.char
+local function _numericCharTableScore(source)
+    local hits = 0
+    for block in source:gmatch("%b{}") do
+        local nums = 0
+        for _ in block:gmatch("%d+") do nums = nums + 1 end
+        if nums > 12 then hits = hits + 1 end
+    end
+    return hits
+end
+
 local function detectObfuscation(source)
     local lower = source:lower()
     local found = {}
+
+    -- 1. static pattern rules
     for _, rule in ipairs(_OBFUSC_PATTERNS) do
         if lower:match(rule.pattern) then
             found[#found + 1] = rule.label
         end
     end
+
+    -- 2. entropy check on the whole source
+    local ent = _entropy(source)
+    if ent > 6.2 then
+        found[#found + 1] = string.format("high source entropy (%.2f bits) — likely encrypted/compressed", ent)
+    end
+
+    -- 3. suspicious concat chains (split keyword bypass)
+    local chains = _concatChainScore(source)
+    if chains >= 4 then
+        found[#found + 1] = string.format("string concat chain x%d — possible keyword splitting", chains)
+    end
+
+    -- 4. base64 blob detection
+    if _hasBase64Blob(source) then
+        found[#found + 1] = "long base64-like string literal detected"
+    end
+
+    -- 5. numeric char table decoder ({65,66,...} → string.char)
+    local charTables = _numericCharTableScore(source)
+    if charTables > 0 then
+        found[#found + 1] = string.format("numeric char table x%d — possible byte-array decoder", charTables)
+    end
+
+    -- 6. abnormally high identifier density (minified/generated code)
+    local identCount = 0
+    for _ in source:gmatch("[%a_][%w_]*") do identCount = identCount + 1 end
+    local lineCount  = math.max(1, select(2, source:gsub("\n", "\n")))
+    if lineCount < 10 and #source > 500 then
+        found[#found + 1] = "very few newlines for source size — likely minified/single-line obfusc"
+    end
+
     return found
 end
 
-local function makeSandboxedTask(sandboxEnv)
+-- UPGRADE 5: sandbox-level timeout budget. Each sandbox session gets a shared deadline
+-- table. Any sandboxed task or coroutine that tries to run after the deadline is killed.
+-- Default: 8 seconds of wall time per audit session. Adjustable via _SHIELD_TIMEOUT_S.
+local _SHIELD_TIMEOUT_S = 8
+
+local function _makeTimeoutBudget()
+    local budget = { deadline = tick() + _SHIELD_TIMEOUT_S, dead = false }
+    -- kill switch fired by a watchdog task spawned in execSandboxed
+    return budget
+end
+
+local function _checkTimeout(budget, context)
+    if budget.dead or tick() > budget.deadline then
+        budget.dead = true
+        error("[SHIELD] Sandbox timeout exceeded in " .. (context or "task") .. " — killed", 2)
+    end
+end
+
+-- UPGRADE 6: task re-entrancy fix — every spawned closure gets setfenv'd into the sandbox
+-- env immediately, before task.spawn hands it to the scheduler. This prevents the thread
+-- from inheriting the executor's real global env when the scheduler resumes it.
+-- Also threads are timeout-guarded via the shared budget table.
+local function makeSandboxedTask(sandboxEnv, budget)
+    local function wrap(fn, context)
+        -- setfenv the closure into the sandbox env right now, synchronously,
+        -- before the scheduler ever touches it.
+        local guarded = setfenv(function(...)
+            _checkTimeout(budget, context)
+            return fn(...)
+        end, sandboxEnv)
+        return guarded
+    end
     return {
-        wait = function(n) return task.wait(n) end,
-        delay = function(n, fn)
-            task.delay(n, function()
-                local ok, err = pcall(setfenv(fn, sandboxEnv))
-                if not ok then _log("SANDBOX_ERR", "task.delay fn error: " .. tostring(err)) end
-            end)
+        wait = function(n)
+            _checkTimeout(budget, "task.wait")
+            -- clamp wait to remaining budget so a script can't wait past its deadline
+            local remaining = budget.deadline - tick()
+            return task.wait(math.min(n or 0, math.max(remaining, 0)))
+        end,
+        delay = function(n, fn, ...)
+            _checkTimeout(budget, "task.delay")
+            local args    = { ... }
+            local wrapped = wrap(fn, "task.delay callback")
+            task.delay(n, function() pcall(wrapped, table.unpack(args)) end)
         end,
         spawn = function(fn, ...)
-            local args = { ... }
-            task.spawn(function()
-                local ok, err = pcall(function() return setfenv(fn, sandboxEnv)(table.unpack(args)) end)
-                if not ok then _log("SANDBOX_ERR", "task.spawn fn error: " .. tostring(err)) end
-            end)
+            _checkTimeout(budget, "task.spawn")
+            local args    = { ... }
+            local wrapped = wrap(fn, "task.spawn callback")
+            task.spawn(function() pcall(wrapped, table.unpack(args)) end)
         end,
         defer = function(fn, ...)
-            local args = { ... }
-            task.defer(function()
-                local ok, err = pcall(function() return setfenv(fn, sandboxEnv)(table.unpack(args)) end)
-                if not ok then _log("SANDBOX_ERR", "task.defer fn error: " .. tostring(err)) end
-            end)
+            _checkTimeout(budget, "task.defer")
+            local args    = { ... }
+            local wrapped = wrap(fn, "task.defer callback")
+            task.defer(function() pcall(wrapped, table.unpack(args)) end)
         end,
-        synchronize  = function() end,
+        synchronize   = function() end,
         desynchronize = function() end,
-        cancel       = function() end,
+        cancel        = function() end,
     }
 end
-local function makeSandboxedCoroutine(sandboxEnv)
+
+local function makeSandboxedCoroutine(sandboxEnv, budget)
+    local function guardedSetfenv(fn)
+        return setfenv(function(...)
+            _checkTimeout(budget, "coroutine")
+            return fn(...)
+        end, sandboxEnv)
+    end
     return {
-        create    = function(fn) return coroutine.create(setfenv(fn, sandboxEnv)) end,
-        wrap      = function(fn) return coroutine.wrap(setfenv(fn, sandboxEnv))   end,
-        resume    = coroutine.resume,
-        yield     = coroutine.yield,
-        status    = coroutine.status,
-        running   = coroutine.running,
+        create      = function(fn) return coroutine.create(guardedSetfenv(fn)) end,
+        wrap        = function(fn) return coroutine.wrap(guardedSetfenv(fn))   end,
+        resume      = coroutine.resume,
+        yield       = coroutine.yield,
+        status      = coroutine.status,
+        running     = coroutine.running,
         isyieldable = coroutine.isyieldable,
     }
 end
@@ -377,10 +519,53 @@ local function buildEnv(fakeGame, fakeWs)
     env.rawlen      = rawlen
     env.pcall       = pcall
     env.xpcall      = xpcall
-    env.setmetatable = setmetatable
-    env.getmetatable = getmetatable
+    -- UPGRADE 1: sandboxed getmetatable — blocks access to real Roblox instance metatables
+    -- and string metatable poisoning. Only allows reading metatables of plain Lua tables
+    -- that were created inside the sandbox (i.e. their mt is itself a plain table, not "locked").
+    env.setmetatable = function(t, mt)
+        if type(t) ~= "table" then
+            error("[SHIELD] setmetatable: can only set metatable on plain tables inside sandbox", 2)
+        end
+        return setmetatable(t, mt)
+    end
+    env.getmetatable = function(v)
+        if type(v) == "string" then
+            -- block string metatable access — prevents __index poisoning of string library
+            _log("INTERCEPT", "getmetatable(string) blocked in sandbox")
+            return nil
+        end
+        local mt = getmetatable(v)
+        -- if the mt is "locked" it's a decoy — return nil like a protected Roblox instance
+        if mt == "locked" then return nil end
+        -- if it's a real Roblox metatable (not a plain Lua table), block it
+        if type(mt) ~= "table" and mt ~= nil then
+            _log("INTERCEPT", "getmetatable(<real instance>) blocked in sandbox")
+            return nil
+        end
+        return mt
+    end
+    env.rawget      = rawget
+    env.rawset      = rawset
+    env.rawequal    = rawequal
+    env.rawlen      = rawlen
     env.collectgarbage = function() end
     env.newproxy    = newproxy
+
+    -- UPGRADE 3: block debug library — prevents stack walking to escape sandbox env
+    -- Expose only a neutered stub so scripts that check debug~=nil don't crash.
+    env.debug = {
+        traceback   = function() return "[SHIELD] debug.traceback blocked" end,
+        getinfo     = function() _log("INTERCEPT","debug.getinfo blocked in sandbox") return nil end,
+        getlocal    = function() _log("INTERCEPT","debug.getlocal blocked") return nil end,
+        setlocal    = function() _log("INTERCEPT","debug.setlocal blocked") end,
+        getupvalue  = function() _log("INTERCEPT","debug.getupvalue blocked") return nil end,
+        setupvalue  = function() _log("INTERCEPT","debug.setupvalue blocked") end,
+        sethook     = function() _log("INTERCEPT","debug.sethook blocked") end,
+        getmetatable = function() _log("INTERCEPT","debug.getmetatable blocked") return nil end,
+        setmetatable = function() _log("INTERCEPT","debug.setmetatable blocked") end,
+        getregistry = function() _log("INTERCEPT","debug.getregistry blocked") return {} end,
+    }
+
     env.math        = readonly(math)
     env.table       = readonly(table)
     env.string      = readonly(string)
@@ -394,23 +579,44 @@ local function buildEnv(fakeGame, fakeWs)
     env.CFrame      = CFrame;       env.Color3        = Color3
     env.UDim2       = UDim2;        env.UDim          = UDim
     env.Rect        = Rect;         env.Enum          = Enum
-    env.Instance    = Instance;     env.TweenInfo     = TweenInfo
+    env.TweenInfo   = TweenInfo
     env.NumberSequence = NumberSequence
     env.ColorSequence  = ColorSequence
     env.Ray         = Ray;          env.Region3       = Region3
     env.RaycastParams  = RaycastParams
     env.OverlapParams  = OverlapParams
+
+    -- UPGRADE 4: decoy Instance factory — replaces real Instance.new so sandboxed scripts
+    -- cannot create real GUI objects, connect real events, or touch real services.
+    -- Instance.new returns a decoy; fromExisting, new with parent all return decoys.
+    env.Instance = {
+        new = function(className, parent)
+            _log("INTERCEPT", string.format("Instance.new(%q) blocked — returning decoy", tostring(className)))
+            local decoy = makeDecoyInstance(className, className)
+            -- silently accept parent assignment without actually parenting
+            if parent ~= nil then
+                -- just log it, don't error — many scripts do Instance.new("X", parent)
+                _log("INTERCEPT", string.format("Instance.new parent=%s suppressed", tostring(parent)))
+            end
+            return decoy
+        end,
+        fromExisting = function(inst)
+            _log("INTERCEPT", "Instance.fromExisting blocked — returning decoy")
+            return makeDecoyInstance("Instance", "fromExisting_decoy")
+        end,
+    }
+
     env.game        = fakeGame
     env.workspace   = fakeWs
     env.Workspace   = fakeWs
-    env.script      = makeDecoyInstance("LocalScript", "SandboxedScript_" .. sandboxId)
+    env.script      = (makeDecoyInstance("LocalScript", "SandboxedScript_" .. sandboxId))
     env.shared      = {}
     env._G          = {}
     env.task        = makeSandboxedTask(env)
     env.coroutine   = makeSandboxedCoroutine(env)
     env.loadstring  = sandboxedLoadstring
     env.require     = sandboxedRequire
-    env.load        = function() error("[SHIELD] load() is blocked inside the sandbox") end
+    env.load        = function() error("[SHIELD] load() is blocked inside the sandbox", 2) end
 
     local _poisonedGlobals = {
         "getfenv","setfenv","getgenv","getrenv","getgc","getinstances","getsenv",
@@ -864,22 +1070,31 @@ local _existing = playerGui:FindFirstChild("Synapse X")
 if _existing then _existing:Destroy() end
 
 local T = {
-    BG_DEEP      = Color3.fromRGB(22,  22,  26),
-    BG_MID       = Color3.fromRGB(30,  30,  35),
-    BG_PANEL     = Color3.fromRGB(26,  26,  31),
-    BG_EDITOR    = Color3.fromRGB(18,  18,  22),
-    BG_BTN       = Color3.fromRGB(38,  38,  45),
-    BG_BTN_HOV   = Color3.fromRGB(52,  52,  62),
-    STROKE_OUTER = Color3.fromRGB(60,  60,  75),
-    STROKE_INNER = Color3.fromRGB(45,  45,  58),
-    STROKE_BTN   = Color3.fromRGB(55,  55,  68),
-    STROKE_ACCENT= Color3.fromRGB(80,  80, 180),
-    TEXT_MAIN    = Color3.fromRGB(220, 220, 230),
-    TEXT_DIM     = Color3.fromRGB(130, 130, 150),
-    TEXT_TAB     = Color3.fromRGB(200, 200, 215),
-    ICON_TINT    = Color3.fromRGB(180, 180, 200),
-    CLOSE_HOV    = Color3.fromRGB(180,  50,  50),
-    ATTACH_ON    = Color3.fromRGB(50,  180,  80),
+    -- backgrounds
+    BG_DEEP      = Color3.fromRGB(13,  13,  16),   -- main window body
+    BG_MID       = Color3.fromRGB(20,  20,  24),   -- titlebar / toolbar
+    BG_PANEL     = Color3.fromRGB(17,  17,  21),   -- tab bar / gutter
+    BG_EDITOR    = Color3.fromRGB(11,  11,  14),   -- code area
+    BG_BTN       = Color3.fromRGB(28,  28,  34),   -- normal button fill
+    BG_BTN_HOV   = Color3.fromRGB(42,  42,  52),   -- button hover
+    BG_BTN_EXEC  = Color3.fromRGB(22,  28,  58),   -- execute button tint
+    BG_BTN_EXEC_H= Color3.fromRGB(32,  42,  88),   -- execute button hover
+    -- borders
+    STROKE_OUTER = Color3.fromRGB(38,  38,  50),   -- window edge
+    STROKE_INNER = Color3.fromRGB(28,  28,  38),   -- internal dividers
+    STROKE_BTN   = Color3.fromRGB(44,  44,  58),   -- button borders
+    STROKE_ACCENT= Color3.fromRGB(72,  90, 210),   -- accent / execute highlight
+    STROKE_THIN  = Color3.fromRGB(22,  22,  30),   -- very subtle lines
+    -- text
+    TEXT_MAIN    = Color3.fromRGB(210, 212, 224),
+    TEXT_DIM     = Color3.fromRGB(100, 102, 120),
+    TEXT_TAB     = Color3.fromRGB(185, 187, 205),
+    TEXT_EXEC    = Color3.fromRGB(160, 180, 255),   -- execute label colour
+    ICON_TINT    = Color3.fromRGB(140, 145, 175),
+    -- states
+    CLOSE_HOV    = Color3.fromRGB(172,  38,  38),
+    ATTACH_ON    = Color3.fromRGB(42,  185,  80),
+    AUDIT_ON     = Color3.fromRGB(210, 160,  30),
 }
 
 local function stroke(parent, color, thickness, lineJoin)
@@ -913,17 +1128,20 @@ local function hoverEffect(btn, hoverCol, normalCol)
 end
 
 local function createGui()
+    -- ── ScreenGui ──────────────────────────────────────────────────────────
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name                  = "Synapse X"
     ScreenGui.ZIndexBehavior        = Enum.ZIndexBehavior.Sibling
     ScreenGui.ScreenInsets          = Enum.ScreenInsets.CoreUISafeInsets
     ScreenGui.SafeAreaCompatibility = Enum.SafeAreaCompatibility.FullscreenExtension
 
+    -- ── Toggle pill (bottom-right) ──────────────────────────────────────────
     local ToggleBtn = Instance.new("ImageButton")
     ToggleBtn.Parent                 = ScreenGui
     ToggleBtn.Name                   = "ToggleBtn"
-    ToggleBtn.Size                   = UDim2.fromOffset(46, 46)
-    ToggleBtn.Position               = UDim2.fromScale(0.965, 0.94)
+    ToggleBtn.Size                   = UDim2.fromOffset(38, 38)
+    ToggleBtn.Position               = UDim2.new(1, -48, 1, -48)
+    ToggleBtn.AnchorPoint            = Vector2.new(0, 0)
     ToggleBtn.BackgroundColor3       = T.BG_MID
     ToggleBtn.BackgroundTransparency = 0
     ToggleBtn.BorderSizePixel        = 0
@@ -933,69 +1151,108 @@ local function createGui()
     ToggleBtn.Style                  = Enum.ButtonStyle.Custom
     stroke(ToggleBtn, T.STROKE_OUTER, 1)
     hoverEffect(ToggleBtn, T.BG_BTN_HOV, T.BG_MID)
+    ToggleBtn.MouseEnter:Connect(function()
+        TweenService:Create(ToggleBtn, TweenInfo.new(0.1), { ImageColor3 = T.TEXT_MAIN }):Play()
+    end)
+    ToggleBtn.MouseLeave:Connect(function()
+        TweenService:Create(ToggleBtn, TweenInfo.new(0.1), { ImageColor3 = T.ICON_TINT }):Play()
+    end)
+
+    -- ── Main window ─────────────────────────────────────────────────────────
+    -- Layout: TitleBar(26) | AccentLine(2) | TabBar(22) | Editor+Gutter(fill) | Toolbar(32)
+    -- Total height = 26+2+22+editor+32; editor = 289-82 = 207
+    local TITLE_H   = 26
+    local ACCENT_H  = 2
+    local TAB_H     = 22
+    local TOOLBAR_H = 32
+    local WIN_W     = 720
+    local WIN_H     = 289
+    local EDITOR_Y  = TITLE_H + ACCENT_H + TAB_H   -- 50
+    local EDITOR_H  = WIN_H - EDITOR_Y - TOOLBAR_H  -- 207
+    local GUTTER_W  = 40
 
     local MainFrame = Instance.new("Frame")
     MainFrame.Parent           = ScreenGui
     MainFrame.Name             = "MainFrame"
-    MainFrame.Size             = UDim2.fromOffset(706, 289)
-    MainFrame.Position         = UDim2.fromScale(0.062, 0.096)
+    MainFrame.Size             = UDim2.fromOffset(WIN_W, WIN_H)
+    MainFrame.Position         = UDim2.fromScale(0.06, 0.09)
     MainFrame.Visible          = false
     MainFrame.BackgroundColor3 = T.BG_DEEP
     MainFrame.BorderSizePixel  = 0
     MainFrame.ClipsDescendants = true
     stroke(MainFrame, T.STROKE_OUTER, 1)
 
+    -- ── Title bar ───────────────────────────────────────────────────────────
     local TitleBar = Instance.new("Frame")
     TitleBar.Parent           = MainFrame
     TitleBar.Name             = "TitleBar"
-    TitleBar.Size             = UDim2.new(1, 0, 0, 28)
+    TitleBar.Size             = UDim2.new(1, 0, 0, TITLE_H)
     TitleBar.Position         = UDim2.fromOffset(0, 0)
     TitleBar.BackgroundColor3 = T.BG_MID
     TitleBar.BorderSizePixel  = 0
     TitleBar.ZIndex           = 2
 
+    -- left accent bar on title
+    local TitleAccentBar = Instance.new("Frame")
+    TitleAccentBar.Parent           = TitleBar
+    TitleAccentBar.Size             = UDim2.fromOffset(2, TITLE_H)
+    TitleAccentBar.Position         = UDim2.fromOffset(0, 0)
+    TitleAccentBar.BackgroundColor3 = T.STROKE_ACCENT
+    TitleAccentBar.BorderSizePixel  = 0
+    TitleAccentBar.ZIndex           = 3
+
     local TitleIcon = Instance.new("ImageLabel")
     TitleIcon.Parent                 = TitleBar
-    TitleIcon.Size                   = UDim2.fromOffset(18, 18)
-    TitleIcon.Position               = UDim2.fromOffset(8, 5)
+    TitleIcon.Size                   = UDim2.fromOffset(14, 14)
+    TitleIcon.Position               = UDim2.fromOffset(10, 6)
     TitleIcon.BackgroundTransparency = 1
     TitleIcon.Image                  = "rbxassetid://9524079125"
-    TitleIcon.ImageColor3            = T.ICON_TINT
+    TitleIcon.ImageColor3            = T.STROKE_ACCENT
     TitleIcon.ScaleType              = Enum.ScaleType.Fit
     TitleIcon.ZIndex                 = 3
 
     local TitleLabel = Instance.new("TextLabel")
     TitleLabel.Parent                 = TitleBar
-    TitleLabel.Size                   = UDim2.new(1, -110, 1, 0)
-    TitleLabel.Position               = UDim2.fromOffset(32, 0)
+    TitleLabel.Size                   = UDim2.new(1, -120, 1, 0)
+    TitleLabel.Position               = UDim2.fromOffset(28, 0)
     TitleLabel.BackgroundTransparency = 1
-    TitleLabel.Text                   = "Synapse X  [SHIELD+AUDIT]"
+    TitleLabel.Text                   = "SYNAPSE X"
     TitleLabel.Font                   = Enum.Font.GothamBold
-    TitleLabel.TextSize               = 13
+    TitleLabel.TextSize               = 11
     TitleLabel.TextColor3             = T.TEXT_MAIN
     TitleLabel.TextXAlignment         = Enum.TextXAlignment.Left
     TitleLabel.ZIndex                 = 3
 
-    local AccentLine = Instance.new("Frame")
-    AccentLine.Parent           = MainFrame
-    AccentLine.Size             = UDim2.new(1, 0, 0, 1)
-    AccentLine.Position         = UDim2.fromOffset(0, 28)
-    AccentLine.BackgroundColor3 = T.STROKE_ACCENT
-    AccentLine.BorderSizePixel  = 0
-    AccentLine.ZIndex           = 2
+    local TitleBadge = Instance.new("TextLabel")
+    TitleBadge.Parent                 = TitleBar
+    TitleBadge.Size                   = UDim2.fromOffset(88, 14)
+    TitleBadge.Position               = UDim2.fromOffset(28 + 80, 6)
+    TitleBadge.BackgroundTransparency = 1
+    TitleBadge.Text                   = "SHIELD + AUDIT"
+    TitleBadge.Font                   = Enum.Font.Gotham
+    TitleBadge.TextSize               = 9
+    TitleBadge.TextColor3             = T.TEXT_DIM
+    TitleBadge.TextXAlignment         = Enum.TextXAlignment.Left
+    TitleBadge.ZIndex                 = 3
 
-    local CloseBtn = Instance.new("TextButton")
-    CloseBtn.Parent           = TitleBar
-    CloseBtn.Name             = "CloseBtn"
-    CloseBtn.Size             = UDim2.fromOffset(28, 20)
-    CloseBtn.Position         = UDim2.new(1, -30, 0, 4)
-    CloseBtn.BackgroundColor3 = T.BG_MID
-    CloseBtn.BorderSizePixel  = 0
-    CloseBtn.Text             = "X"
-    CloseBtn.Font             = Enum.Font.GothamBold
-    CloseBtn.TextSize         = 12
-    CloseBtn.TextColor3       = T.TEXT_DIM
-    CloseBtn.ZIndex           = 4
+    -- window control buttons (right side of title bar) — flat, sharp
+    local function makeTitleBtn(name, label, xOffset)
+        local btn = Instance.new("TextButton")
+        btn.Parent           = TitleBar
+        btn.Name             = name
+        btn.Size             = UDim2.fromOffset(32, TITLE_H)
+        btn.Position         = UDim2.new(1, xOffset, 0, 0)
+        btn.BackgroundColor3 = T.BG_MID
+        btn.BorderSizePixel  = 0
+        btn.Text             = label
+        btn.Font             = Enum.Font.GothamBold
+        btn.TextSize         = 11
+        btn.TextColor3       = T.TEXT_DIM
+        btn.ZIndex           = 4
+        return btn
+    end
+
+    local CloseBtn = makeTitleBtn("CloseBtn", "✕", -32)
     hoverEffect(CloseBtn, T.CLOSE_HOV, T.BG_MID)
     CloseBtn.MouseEnter:Connect(function()
         TweenService:Create(CloseBtn, TweenInfo.new(0.08), { TextColor3 = Color3.fromRGB(255,255,255) }):Play()
@@ -1004,25 +1261,40 @@ local function createGui()
         TweenService:Create(CloseBtn, TweenInfo.new(0.08), { TextColor3 = T.TEXT_DIM }):Play()
     end)
 
-    local MinBtn = Instance.new("TextButton")
-    MinBtn.Parent           = TitleBar
-    MinBtn.Name             = "MinBtn"
-    MinBtn.Size             = UDim2.fromOffset(28, 20)
-    MinBtn.Position         = UDim2.new(1, -60, 0, 4)
-    MinBtn.BackgroundColor3 = T.BG_MID
-    MinBtn.BorderSizePixel  = 0
-    MinBtn.Text             = "─"
-    MinBtn.Font             = Enum.Font.GothamBold
-    MinBtn.TextSize         = 12
-    MinBtn.TextColor3       = T.TEXT_DIM
-    MinBtn.ZIndex           = 4
+    local MinBtn = makeTitleBtn("MinBtn", "─", -64)
     hoverEffect(MinBtn, T.BG_BTN_HOV, T.BG_MID)
+    MinBtn.MouseEnter:Connect(function()
+        TweenService:Create(MinBtn, TweenInfo.new(0.08), { TextColor3 = T.TEXT_MAIN }):Play()
+    end)
+    MinBtn.MouseLeave:Connect(function()
+        TweenService:Create(MinBtn, TweenInfo.new(0.08), { TextColor3 = T.TEXT_DIM }):Play()
+    end)
 
+    -- separator between min and close
+    local TitleBtnSep = Instance.new("Frame")
+    TitleBtnSep.Parent           = TitleBar
+    TitleBtnSep.Size             = UDim2.fromOffset(1, 12)
+    TitleBtnSep.Position         = UDim2.new(1, -65, 0.5, -6)
+    TitleBtnSep.BackgroundColor3 = T.STROKE_INNER
+    TitleBtnSep.BorderSizePixel  = 0
+    TitleBtnSep.ZIndex           = 4
+
+    -- ── Accent line under title bar ─────────────────────────────────────────
+    local AccentLine = Instance.new("Frame")
+    AccentLine.Parent           = MainFrame
+    AccentLine.Name             = "AccentLine"
+    AccentLine.Size             = UDim2.new(1, 0, 0, ACCENT_H)
+    AccentLine.Position         = UDim2.fromOffset(0, TITLE_H)
+    AccentLine.BackgroundColor3 = T.STROKE_ACCENT
+    AccentLine.BorderSizePixel  = 0
+    AccentLine.ZIndex           = 2
+
+    -- ── Tab bar ─────────────────────────────────────────────────────────────
     local TabBar = Instance.new("Frame")
     TabBar.Parent           = MainFrame
     TabBar.Name             = "TabBar"
-    TabBar.Size             = UDim2.new(1, 0, 0, 22)
-    TabBar.Position         = UDim2.fromOffset(0, 29)
+    TabBar.Size             = UDim2.new(1, 0, 0, TAB_H)
+    TabBar.Position         = UDim2.fromOffset(0, TITLE_H + ACCENT_H)
     TabBar.BackgroundColor3 = T.BG_PANEL
     TabBar.BorderSizePixel  = 0
 
@@ -1030,25 +1302,34 @@ local function createGui()
     TabBarLine.Parent           = TabBar
     TabBarLine.Size             = UDim2.new(1, 0, 0, 1)
     TabBarLine.Position         = UDim2.new(0, 0, 1, -1)
-    TabBarLine.BackgroundColor3 = T.STROKE_INNER
+    TabBarLine.BackgroundColor3 = T.STROKE_THIN
     TabBarLine.BorderSizePixel  = 0
 
+    -- Active tab (flush to left, slightly lighter than panel so it reads as "selected")
     local Tab1 = Instance.new("Frame")
     Tab1.Parent           = TabBar
     Tab1.Name             = "Tab1"
-    Tab1.Size             = UDim2.fromOffset(88, 22)
+    Tab1.Size             = UDim2.fromOffset(96, TAB_H)
     Tab1.Position         = UDim2.fromOffset(0, 0)
     Tab1.BackgroundColor3 = T.BG_DEEP
     Tab1.BorderSizePixel  = 0
 
+    -- top accent sliver on active tab
+    local Tab1Accent = Instance.new("Frame")
+    Tab1Accent.Parent           = Tab1
+    Tab1Accent.Size             = UDim2.new(1, 0, 0, 2)
+    Tab1Accent.Position         = UDim2.fromOffset(0, 0)
+    Tab1Accent.BackgroundColor3 = T.STROKE_ACCENT
+    Tab1Accent.BorderSizePixel  = 0
+
     local Tab1Label = Instance.new("TextLabel")
     Tab1Label.Parent                 = Tab1
     Tab1Label.Size                   = UDim2.new(1, -20, 1, 0)
-    Tab1Label.Position               = UDim2.fromOffset(6, 0)
+    Tab1Label.Position               = UDim2.fromOffset(7, 0)
     Tab1Label.BackgroundTransparency = 1
-    Tab1Label.Text                   = "Script 1"
+    Tab1Label.Text                   = "script_1.lua"
     Tab1Label.Font                   = Enum.Font.Gotham
-    Tab1Label.TextSize               = 11
+    Tab1Label.TextSize               = 10
     Tab1Label.TextColor3             = T.TEXT_TAB
     Tab1Label.TextXAlignment         = Enum.TextXAlignment.Left
 
@@ -1056,7 +1337,7 @@ local function createGui()
     Tab1Close.Parent           = Tab1
     Tab1Close.Name             = "TabClose"
     Tab1Close.Size             = UDim2.fromOffset(16, 16)
-    Tab1Close.Position         = UDim2.new(1, -18, 0, 3)
+    Tab1Close.Position         = UDim2.new(1, -18, 0.5, -8)
     Tab1Close.BackgroundColor3 = T.BG_DEEP
     Tab1Close.BorderSizePixel  = 0
     Tab1Close.Text             = "✕"
@@ -1064,26 +1345,46 @@ local function createGui()
     Tab1Close.TextSize         = 9
     Tab1Close.TextColor3       = T.TEXT_DIM
     hoverEffect(Tab1Close, T.CLOSE_HOV, T.BG_DEEP)
-    stroke(Tab1, T.STROKE_INNER, 1)
+    Tab1Close.MouseEnter:Connect(function()
+        TweenService:Create(Tab1Close, TweenInfo.new(0.08), { TextColor3 = Color3.fromRGB(255,255,255) }):Play()
+    end)
+    Tab1Close.MouseLeave:Connect(function()
+        TweenService:Create(Tab1Close, TweenInfo.new(0.08), { TextColor3 = T.TEXT_DIM }):Play()
+    end)
+
+    -- right border on Tab1 to separate from new tab button
+    local Tab1Sep = Instance.new("Frame")
+    Tab1Sep.Parent           = Tab1
+    Tab1Sep.Size             = UDim2.fromOffset(1, TAB_H)
+    Tab1Sep.Position         = UDim2.new(1, -1, 0, 0)
+    Tab1Sep.BackgroundColor3 = T.STROKE_INNER
+    Tab1Sep.BorderSizePixel  = 0
 
     local NewTabBtn = Instance.new("TextButton")
     NewTabBtn.Parent           = TabBar
     NewTabBtn.Name             = "NewTab"
-    NewTabBtn.Size             = UDim2.fromOffset(22, 22)
-    NewTabBtn.Position         = UDim2.fromOffset(88, 0)
+    NewTabBtn.Size             = UDim2.fromOffset(24, TAB_H)
+    NewTabBtn.Position         = UDim2.fromOffset(96, 0)
     NewTabBtn.BackgroundColor3 = T.BG_PANEL
     NewTabBtn.BorderSizePixel  = 0
     NewTabBtn.Text             = "+"
     NewTabBtn.Font             = Enum.Font.GothamBold
-    NewTabBtn.TextSize         = 14
+    NewTabBtn.TextSize         = 13
     NewTabBtn.TextColor3       = T.TEXT_DIM
     hoverEffect(NewTabBtn, T.BG_BTN_HOV, T.BG_PANEL)
+    NewTabBtn.MouseEnter:Connect(function()
+        TweenService:Create(NewTabBtn, TweenInfo.new(0.08), { TextColor3 = T.TEXT_MAIN }):Play()
+    end)
+    NewTabBtn.MouseLeave:Connect(function()
+        TweenService:Create(NewTabBtn, TweenInfo.new(0.08), { TextColor3 = T.TEXT_DIM }):Play()
+    end)
 
+    -- ── Line number gutter ───────────────────────────────────────────────────
     local Gutter = Instance.new("Frame")
     Gutter.Parent           = MainFrame
     Gutter.Name             = "Gutter"
-    Gutter.Size             = UDim2.fromOffset(38, 222)
-    Gutter.Position         = UDim2.fromOffset(0, 51)
+    Gutter.Size             = UDim2.fromOffset(GUTTER_W, EDITOR_H)
+    Gutter.Position         = UDim2.fromOffset(0, EDITOR_Y)
     Gutter.BackgroundColor3 = T.BG_PANEL
     Gutter.BorderSizePixel  = 0
     Gutter.ClipsDescendants = true
@@ -1091,37 +1392,38 @@ local function createGui()
 
     local GutterLine = Instance.new("Frame")
     GutterLine.Parent           = Gutter
-    GutterLine.Size             = UDim2.new(0, 1, 1, 0)
+    GutterLine.Size             = UDim2.fromOffset(1, EDITOR_H)
     GutterLine.Position         = UDim2.new(1, -1, 0, 0)
-    GutterLine.BackgroundColor3 = T.STROKE_INNER
+    GutterLine.BackgroundColor3 = T.STROKE_THIN
     GutterLine.BorderSizePixel  = 0
     GutterLine.ZIndex           = 3
 
     local LineNumbers = Instance.new("TextLabel")
     LineNumbers.Parent                 = Gutter
     LineNumbers.Name                   = "LineNumbers"
-    LineNumbers.Size                   = UDim2.new(1, -4, 10, 0)
-    LineNumbers.Position               = UDim2.fromOffset(0, 4)
+    LineNumbers.Size                   = UDim2.new(1, -5, 10, 0)
+    LineNumbers.Position               = UDim2.fromOffset(0, 5)
     LineNumbers.BackgroundTransparency = 1
     LineNumbers.Text                   = "1"
     LineNumbers.Font                   = Enum.Font.Code
-    LineNumbers.TextSize               = 14
+    LineNumbers.TextSize               = 13
     LineNumbers.TextColor3             = T.TEXT_DIM
     LineNumbers.TextXAlignment         = Enum.TextXAlignment.Right
     LineNumbers.TextYAlignment         = Enum.TextYAlignment.Top
     LineNumbers.ZIndex                 = 3
 
+    -- ── Editor scroll area ───────────────────────────────────────────────────
     local EditorFrame = Instance.new("ScrollingFrame")
     EditorFrame.Parent                     = MainFrame
     EditorFrame.Name                       = "EditorScroll"
-    EditorFrame.Size                       = UDim2.fromOffset(668, 222)
-    EditorFrame.Position                   = UDim2.fromOffset(38, 51)
+    EditorFrame.Size                       = UDim2.fromOffset(WIN_W - GUTTER_W, EDITOR_H)
+    EditorFrame.Position                   = UDim2.fromOffset(GUTTER_W, EDITOR_Y)
     EditorFrame.BackgroundColor3           = T.BG_EDITOR
     EditorFrame.BorderSizePixel            = 0
     EditorFrame.ClipsDescendants           = true
-    EditorFrame.ScrollBarThickness         = 5
+    EditorFrame.ScrollBarThickness         = 4
     EditorFrame.ScrollBarImageColor3       = T.STROKE_BTN
-    EditorFrame.ScrollBarImageTransparency = 0
+    EditorFrame.ScrollBarImageTransparency = 0.2
     EditorFrame.ScrollingDirection         = Enum.ScrollingDirection.XY
     EditorFrame.ElasticBehavior            = Enum.ElasticBehavior.WhenScrollable
     EditorFrame.CanvasSize                 = UDim2.new(2, 0, 4, 0)
@@ -1129,17 +1431,16 @@ local function createGui()
     EditorFrame.BottomImage = ""
     EditorFrame.MidImage    = ""
     EditorFrame.TopImage    = ""
-    stroke(EditorFrame, T.STROKE_INNER, 1)
 
     local HighlightLabel = Instance.new("TextLabel")
     HighlightLabel.Parent                 = EditorFrame
     HighlightLabel.Name                   = "HighlightLabel"
-    HighlightLabel.Size                   = UDim2.new(1, -8, 1, 0)
-    HighlightLabel.Position               = UDim2.fromOffset(6, 4)
+    HighlightLabel.Size                   = UDim2.new(1, -10, 1, 0)
+    HighlightLabel.Position               = UDim2.fromOffset(8, 5)
     HighlightLabel.BackgroundTransparency = 1
     HighlightLabel.Text                   = ""
     HighlightLabel.Font                   = Enum.Font.Code
-    HighlightLabel.TextSize               = 14
+    HighlightLabel.TextSize               = 13
     HighlightLabel.TextColor3             = T.TEXT_MAIN
     HighlightLabel.TextXAlignment         = Enum.TextXAlignment.Left
     HighlightLabel.TextYAlignment         = Enum.TextYAlignment.Top
@@ -1150,12 +1451,12 @@ local function createGui()
     local CodeBox = Instance.new("TextBox")
     CodeBox.Parent                 = EditorFrame
     CodeBox.Name                   = "CodeBox"
-    CodeBox.Size                   = UDim2.new(1, -8, 1, 0)
-    CodeBox.Position               = UDim2.fromOffset(6, 4)
+    CodeBox.Size                   = UDim2.new(1, -10, 1, 0)
+    CodeBox.Position               = UDim2.fromOffset(8, 5)
     CodeBox.BackgroundTransparency = 1
     CodeBox.Text                   = ""
     CodeBox.Font                   = Enum.Font.Code
-    CodeBox.TextSize               = 14
+    CodeBox.TextSize               = 13
     CodeBox.TextColor3             = Color3.fromRGB(0, 0, 0)
     CodeBox.TextTransparency       = 1
     CodeBox.TextXAlignment         = Enum.TextXAlignment.Left
@@ -1168,53 +1469,294 @@ local function createGui()
     CodeBox.MultiLine              = true
     CodeBox.ZIndex                 = 2
 
+    -- ── Toolbar ─────────────────────────────────────────────────────────────
+    -- 9 buttons total. WIN_W=720, we use full width.
+    -- Layout: [Execute(wider)] [divider] [Clear|OpenFile|ExecuteFile|SaveFile] [divider] [Options|Attach|Hub] [divider] [AuditToggle]
+    -- Execute gets extra width to stand out. All others share remaining space evenly.
+    -- Padding: 4px each side, 3px gaps between buttons, 1px dividers
+
     local Toolbar = Instance.new("Frame")
     Toolbar.Parent           = MainFrame
     Toolbar.Name             = "Toolbar"
-    Toolbar.Size             = UDim2.new(1, 0, 0, 34)
-    Toolbar.Position         = UDim2.new(0, 0, 1, -34)
+    Toolbar.Size             = UDim2.new(1, 0, 0, TOOLBAR_H)
+    Toolbar.Position         = UDim2.new(0, 0, 1, -TOOLBAR_H)
     Toolbar.BackgroundColor3 = T.BG_MID
     Toolbar.BorderSizePixel  = 0
 
-    local ToolbarLine = Instance.new("Frame")
-    ToolbarLine.Parent           = Toolbar
-    ToolbarLine.Size             = UDim2.new(1, 0, 0, 1)
-    ToolbarLine.Position         = UDim2.fromOffset(0, 0)
-    ToolbarLine.BackgroundColor3 = T.STROKE_INNER
-    ToolbarLine.BorderSizePixel  = 0
+    local ToolbarTopLine = Instance.new("Frame")
+    ToolbarTopLine.Parent           = Toolbar
+    ToolbarTopLine.Size             = UDim2.new(1, 0, 0, 1)
+    ToolbarTopLine.Position         = UDim2.fromOffset(0, 0)
+    ToolbarTopLine.BackgroundColor3 = T.STROKE_INNER
+    ToolbarTopLine.BorderSizePixel  = 0
 
-    local btnDefs = {
-        { name = "Execute",     label = "Execute",      x = 6   },
-        { name = "Clear",       label = "Clear",        x = 98  },
-        { name = "OpenFile",    label = "Open File",    x = 190 },
-        { name = "ExecuteFile", label = "Execute File", x = 282 },
-        { name = "SaveFile",    label = "Save File",    x = 374 },
-        { name = "Options",     label = "Options",      x = 466 },
-        { name = "Attach",      label = "Attach",       x = 558 },
-        { name = "Hub",         label = "Script Hub",   x = 620 },
-        { name = "AuditToggle", label = "AUDIT: OFF",   x = 706 },
-    }
-    local buttons = {}
-    for _, def in ipairs(btnDefs) do
+    -- Button geometry constants
+    local BTN_H        = 22
+    local BTN_Y        = (TOOLBAR_H - BTN_H) / 2   -- vertically centred (5px)
+    local PAD          = 5                          -- left/right toolbar padding
+    local GAP          = 3                          -- gap between buttons
+    local EXEC_W       = 80                         -- execute is wider
+    local DIV_W        = 1                          -- divider width
+    local DIV_PAD      = 5                          -- extra space around dividers
+    -- Remaining width after Execute, its gap, and toolbar padding:
+    -- WIN_W - PAD*2 - EXEC_W - GAP - DIV_W - DIV_PAD*2 = remaining for 8 btns + their gaps
+    -- 720 - 10 - 80 - 3 - 1 - 10 = 616 for 8 btns + 7 gaps (3px each = 21)
+    -- btn_w = (616 - 21) / 8 = 595 / 8 ≈ 74px each
+    local STD_W        = 74
+
+    local function makeBtn(parent, name, label, x, w, isCTA)
         local btn = Instance.new("TextButton")
-        btn.Parent           = Toolbar
-        btn.Name             = def.name
-        btn.Size             = UDim2.fromOffset(86, 22)
-        btn.Position         = UDim2.fromOffset(def.x, 6)
-        btn.BackgroundColor3 = T.BG_BTN
+        btn.Parent           = parent
+        btn.Name             = name
+        btn.Size             = UDim2.fromOffset(w, BTN_H)
+        btn.Position         = UDim2.fromOffset(x, BTN_Y)
+        btn.BackgroundColor3 = isCTA and T.BG_BTN_EXEC or T.BG_BTN
         btn.BorderSizePixel  = 0
-        btn.Text             = def.label
-        btn.Font             = Enum.Font.Gotham
-        btn.TextSize         = 11
-        btn.TextColor3       = T.TEXT_MAIN
+        btn.Text             = label
+        btn.Font             = isCTA and Enum.Font.GothamBold or Enum.Font.Gotham
+        btn.TextSize         = isCTA and 12 or 10
+        btn.TextColor3       = isCTA and T.TEXT_EXEC or T.TEXT_MAIN
         btn.ZIndex           = 2
-        stroke(btn, T.STROKE_BTN, 1)
-        hoverEffect(btn, T.BG_BTN_HOV, T.BG_BTN)
-        buttons[def.name] = btn
+        stroke(btn, isCTA and T.STROKE_ACCENT or T.STROKE_BTN, 1)
+        local hovCol = isCTA and T.BG_BTN_EXEC_H or T.BG_BTN_HOV
+        local normCol = isCTA and T.BG_BTN_EXEC or T.BG_BTN
+        hoverEffect(btn, hovCol, normCol)
+        if isCTA then
+            btn.MouseEnter:Connect(function()
+                TweenService:Create(btn, TweenInfo.new(0.08), { TextColor3 = Color3.fromRGB(200,215,255) }):Play()
+            end)
+            btn.MouseLeave:Connect(function()
+                TweenService:Create(btn, TweenInfo.new(0.08), { TextColor3 = T.TEXT_EXEC }):Play()
+            end)
+        end
+        return btn
     end
-    local execStroke = buttons["Execute"]:FindFirstChildOfClass("UIStroke")
-    if execStroke then execStroke.Color = T.STROKE_ACCENT end
 
+    local function makeDivider(parent, x)
+        local d = Instance.new("Frame")
+        d.Parent           = parent
+        d.Size             = UDim2.fromOffset(DIV_W, BTN_H - 4)
+        d.Position         = UDim2.fromOffset(x, BTN_Y + 2)
+        d.BackgroundColor3 = T.STROKE_INNER
+        d.BorderSizePixel  = 0
+        d.ZIndex           = 2
+        return d
+    end
+
+    -- Calculate x positions
+    local buttons = {}
+    local cx = PAD
+
+    -- Execute (CTA)
+    buttons["Execute"] = makeBtn(Toolbar, "Execute", "EXECUTE", cx, EXEC_W, true)
+    cx = cx + EXEC_W + GAP + DIV_PAD
+    makeDivider(Toolbar, cx)
+    cx = cx + DIV_W + DIV_PAD
+
+    -- Group 1: Clear, Open File, Execute File, Save File
+    local group1 = {
+        { "Clear",       "Clear"    },
+        { "OpenFile",    "Open"     },
+        { "ExecuteFile", "Exec File"},
+        { "SaveFile",    "Save"     },
+    }
+    for i, def in ipairs(group1) do
+        buttons[def[1]] = makeBtn(Toolbar, def[1], def[2], cx, STD_W, false)
+        cx = cx + STD_W + GAP
+    end
+    cx = cx - GAP + DIV_PAD
+    makeDivider(Toolbar, cx)
+    cx = cx + DIV_W + DIV_PAD
+
+    -- Group 2: Options, Attach, Hub
+    local group2 = {
+        { "Options", "Options"    },
+        { "Attach",  "Attach"     },
+        { "Hub",     "Script Hub" },
+    }
+    for i, def in ipairs(group2) do
+        buttons[def[1]] = makeBtn(Toolbar, def[1], def[2], cx, STD_W, false)
+        cx = cx + STD_W + GAP
+    end
+    cx = cx - GAP + DIV_PAD
+    makeDivider(Toolbar, cx)
+    cx = cx + DIV_W + DIV_PAD
+
+    -- Audit toggle (right-aligned, accent-aware at runtime)
+    buttons["AuditToggle"] = makeBtn(Toolbar, "AuditToggle", "AUDIT: OFF", cx, STD_W + 4, false)
+
+    -- ── Script Hub panel ────────────────────────────────────────────────────
+    -- Sits directly below the main window, same left edge.
+    -- 720 wide, 280 tall. Hidden by default, slides down on open.
+    local HUB_H = 280
+    local HUB_GAP = 2   -- px gap between MainFrame bottom and HubFrame top
+
+    local HubFrame = Instance.new("Frame")
+    HubFrame.Parent           = ScreenGui
+    HubFrame.Name             = "HubFrame"
+    HubFrame.Size             = UDim2.fromOffset(WIN_W, HUB_H)
+    -- position will be set at runtime relative to MainFrame
+    HubFrame.Position         = UDim2.fromScale(0.06, 0.09)
+    HubFrame.Visible          = false
+    HubFrame.BackgroundColor3 = T.BG_DEEP
+    HubFrame.BorderSizePixel  = 0
+    HubFrame.ClipsDescendants = true
+    stroke(HubFrame, T.STROKE_OUTER, 1)
+
+    -- Hub title bar
+    local HubTitleBar = Instance.new("Frame")
+    HubTitleBar.Parent           = HubFrame
+    HubTitleBar.Size             = UDim2.new(1, 0, 0, 26)
+    HubTitleBar.BackgroundColor3 = T.BG_MID
+    HubTitleBar.BorderSizePixel  = 0
+
+    local HubTitleAccent = Instance.new("Frame")
+    HubTitleAccent.Parent           = HubTitleBar
+    HubTitleAccent.Size             = UDim2.fromOffset(2, 26)
+    HubTitleAccent.BackgroundColor3 = T.STROKE_ACCENT
+    HubTitleAccent.BorderSizePixel  = 0
+
+    local HubTitleLabel = Instance.new("TextLabel")
+    HubTitleLabel.Parent                 = HubTitleBar
+    HubTitleLabel.Size                   = UDim2.new(1, -80, 1, 0)
+    HubTitleLabel.Position               = UDim2.fromOffset(10, 0)
+    HubTitleLabel.BackgroundTransparency = 1
+    HubTitleLabel.Text                   = "SCRIPT HUB  —  ScriptBlox"
+    HubTitleLabel.Font                   = Enum.Font.GothamBold
+    HubTitleLabel.TextSize               = 11
+    HubTitleLabel.TextColor3             = T.TEXT_MAIN
+    HubTitleLabel.TextXAlignment         = Enum.TextXAlignment.Left
+
+    local HubCloseBtn = Instance.new("TextButton")
+    HubCloseBtn.Parent           = HubTitleBar
+    HubCloseBtn.Name             = "HubCloseBtn"
+    HubCloseBtn.Size             = UDim2.fromOffset(32, 26)
+    HubCloseBtn.Position         = UDim2.new(1, -32, 0, 0)
+    HubCloseBtn.BackgroundColor3 = T.BG_MID
+    HubCloseBtn.BorderSizePixel  = 0
+    HubCloseBtn.Text             = "✕"
+    HubCloseBtn.Font             = Enum.Font.GothamBold
+    HubCloseBtn.TextSize         = 11
+    HubCloseBtn.TextColor3       = T.TEXT_DIM
+    HubCloseBtn.ZIndex           = 4
+    hoverEffect(HubCloseBtn, T.CLOSE_HOV, T.BG_MID)
+    HubCloseBtn.MouseEnter:Connect(function()
+        TweenService:Create(HubCloseBtn, TweenInfo.new(0.08), { TextColor3 = Color3.fromRGB(255,255,255) }):Play()
+    end)
+    HubCloseBtn.MouseLeave:Connect(function()
+        TweenService:Create(HubCloseBtn, TweenInfo.new(0.08), { TextColor3 = T.TEXT_DIM }):Play()
+    end)
+
+    -- Accent line under hub title
+    local HubAccentLine = Instance.new("Frame")
+    HubAccentLine.Parent           = HubFrame
+    HubAccentLine.Size             = UDim2.new(1, 0, 0, 2)
+    HubAccentLine.Position         = UDim2.fromOffset(0, 26)
+    HubAccentLine.BackgroundColor3 = T.STROKE_ACCENT
+    HubAccentLine.BorderSizePixel  = 0
+
+    -- Search bar row
+    local HubSearchBar = Instance.new("Frame")
+    HubSearchBar.Parent           = HubFrame
+    HubSearchBar.Size             = UDim2.new(1, 0, 0, 32)
+    HubSearchBar.Position         = UDim2.fromOffset(0, 28)
+    HubSearchBar.BackgroundColor3 = T.BG_MID
+    HubSearchBar.BorderSizePixel  = 0
+
+    local HubSearchBox = Instance.new("TextBox")
+    HubSearchBox.Parent                 = HubSearchBar
+    HubSearchBox.Name                   = "HubSearchBox"
+    HubSearchBox.Size                   = UDim2.new(1, -88, 1, -8)
+    HubSearchBox.Position               = UDim2.fromOffset(6, 4)
+    HubSearchBox.BackgroundColor3       = T.BG_EDITOR
+    HubSearchBox.BorderSizePixel        = 0
+    HubSearchBox.Text                   = ""
+    HubSearchBox.Font                   = Enum.Font.Gotham
+    HubSearchBox.TextSize               = 11
+    HubSearchBox.TextColor3             = T.TEXT_MAIN
+    HubSearchBox.PlaceholderText        = "search scripts on ScriptBlox..."
+    HubSearchBox.PlaceholderColor3      = T.TEXT_DIM
+    HubSearchBox.ClearTextOnFocus       = false
+    HubSearchBox.ZIndex                 = 2
+    stroke(HubSearchBox, T.STROKE_BTN, 1)
+
+    -- small left label inside search box
+    local HubSearchPrefix = Instance.new("TextLabel")
+    HubSearchPrefix.Parent                 = HubSearchBox
+    HubSearchPrefix.Size                   = UDim2.fromOffset(14, 20)
+    HubSearchPrefix.Position               = UDim2.fromOffset(4, 0)
+    HubSearchPrefix.AnchorPoint           = Vector2.new(0, 0.5)
+    HubSearchPrefix.BackgroundTransparency = 1
+    HubSearchPrefix.Text                   = "⌕"
+    HubSearchPrefix.Font                   = Enum.Font.GothamBold
+    HubSearchPrefix.TextSize               = 13
+    HubSearchPrefix.TextColor3             = T.TEXT_DIM
+    HubSearchPrefix.ZIndex                 = 3
+    -- nudge text to not overlap icon — done via padding below
+    HubSearchBox.TextXAlignment = Enum.TextXAlignment.Left
+
+    local HubSearchBtn = Instance.new("TextButton")
+    HubSearchBtn.Parent           = HubSearchBar
+    HubSearchBtn.Name             = "HubSearchBtn"
+    HubSearchBtn.Size             = UDim2.fromOffset(78, 24)
+    HubSearchBtn.Position         = UDim2.new(1, -84, 0.5, -12)
+    HubSearchBtn.BackgroundColor3 = T.BG_BTN_EXEC
+    HubSearchBtn.BorderSizePixel  = 0
+    HubSearchBtn.Text             = "SEARCH"
+    HubSearchBtn.Font             = Enum.Font.GothamBold
+    HubSearchBtn.TextSize         = 10
+    HubSearchBtn.TextColor3       = T.TEXT_EXEC
+    HubSearchBtn.ZIndex           = 2
+    stroke(HubSearchBtn, T.STROKE_ACCENT, 1)
+    hoverEffect(HubSearchBtn, T.BG_BTN_EXEC_H, T.BG_BTN_EXEC)
+
+    -- divider under search bar
+    local HubSearchLine = Instance.new("Frame")
+    HubSearchLine.Parent           = HubFrame
+    HubSearchLine.Size             = UDim2.new(1, 0, 0, 1)
+    HubSearchLine.Position         = UDim2.fromOffset(0, 60)
+    HubSearchLine.BackgroundColor3 = T.STROKE_INNER
+    HubSearchLine.BorderSizePixel  = 0
+
+    -- Status label (shows "Searching...", result count, errors)
+    local HubStatus = Instance.new("TextLabel")
+    HubStatus.Parent                 = HubFrame
+    HubStatus.Name                   = "HubStatus"
+    HubStatus.Size                   = UDim2.new(1, -10, 0, 16)
+    HubStatus.Position               = UDim2.fromOffset(6, 63)
+    HubStatus.BackgroundTransparency = 1
+    HubStatus.Text                   = "enter a search term to find scripts"
+    HubStatus.Font                   = Enum.Font.Gotham
+    HubStatus.TextSize               = 10
+    HubStatus.TextColor3             = T.TEXT_DIM
+    HubStatus.TextXAlignment         = Enum.TextXAlignment.Left
+    HubStatus.ZIndex                 = 2
+
+    -- Results scroll list
+    local HubScroll = Instance.new("ScrollingFrame")
+    HubScroll.Parent                     = HubFrame
+    HubScroll.Name                       = "HubScroll"
+    HubScroll.Size                       = UDim2.new(1, 0, 1, -82)
+    HubScroll.Position                   = UDim2.fromOffset(0, 82)
+    HubScroll.BackgroundColor3           = T.BG_DEEP
+    HubScroll.BorderSizePixel            = 0
+    HubScroll.ClipsDescendants           = true
+    HubScroll.ScrollBarThickness         = 4
+    HubScroll.ScrollBarImageColor3       = T.STROKE_BTN
+    HubScroll.ScrollBarImageTransparency = 0.2
+    HubScroll.ScrollingDirection         = Enum.ScrollingDirection.Y
+    HubScroll.CanvasSize                 = UDim2.fromOffset(0, 0)
+    HubScroll.AutomaticCanvasSize        = Enum.AutomaticSize.Y
+    HubScroll.BottomImage = ""
+    HubScroll.MidImage    = ""
+    HubScroll.TopImage    = ""
+
+    local HubList = Instance.new("UIListLayout")
+    HubList.Parent          = HubScroll
+    HubList.SortOrder       = Enum.SortOrder.LayoutOrder
+    HubList.Padding         = UDim.new(0, 1)  -- 1px gap = subtle row separator via bg
+
+    -- ── Parent and return ────────────────────────────────────────────────────
     ScreenGui.Parent = playerGui
     return {
         ScreenGui      = ScreenGui,
@@ -1238,6 +1780,14 @@ local function createGui()
         Attach         = buttons["Attach"],
         Hub            = buttons["Hub"],
         AuditToggle    = buttons["AuditToggle"],
+        -- hub panel
+        HubFrame       = HubFrame,
+        HubSearchBox   = HubSearchBox,
+        HubSearchBtn   = HubSearchBtn,
+        HubStatus      = HubStatus,
+        HubScroll      = HubScroll,
+        HubCloseBtn    = HubCloseBtn,
+        HubGap         = HUB_GAP,
     }
 end
 
@@ -1385,14 +1935,14 @@ ui.ToggleBtn.MouseButton1Click:Connect(function()
         }):Play()
         task.delay(0.18, function()
             f.Visible  = false
-            f.Size     = UDim2.fromOffset(706, 289)
-            f.Position = UDim2.fromScale(0.062, 0.096)
+            f.Size     = UDim2.fromOffset(720, 289)
+            f.Position = UDim2.fromScale(0.06, 0.09)
         end)
     else
-        f.Size    = UDim2.new(0, 706, 0, 0)
+        f.Size    = UDim2.new(0, 720, 0, 0)
         f.Visible = true
         TweenService:Create(f, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            Size = UDim2.fromOffset(706, 289)
+            Size = UDim2.fromOffset(720, 289)
         }):Play()
     end
 end)
@@ -1401,12 +1951,12 @@ ui.CloseBtn.MouseButton1Click:Connect(function()
     TweenService:Create(f, TweenInfo.new(0.15), { Size = UDim2.new(0, f.AbsoluteSize.X, 0, 0) }):Play()
     task.delay(0.15, function()
         f.Visible = false
-        f.Size    = UDim2.fromOffset(706, 289)
+        f.Size    = UDim2.fromOffset(720, 289)
     end)
 end)
 local minimized = false
-local FULL_SIZE = UDim2.fromOffset(706, 289)
-local MINI_SIZE = UDim2.fromOffset(706, 28)
+local FULL_SIZE = UDim2.fromOffset(720, 289)
+local MINI_SIZE = UDim2.fromOffset(720, 26)
 ui.MinBtn.MouseButton1Click:Connect(function()
     minimized = not minimized
     TweenService:Create(ui.MainFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {
@@ -1521,9 +2071,285 @@ ui.Attach.MouseButton1Click:Connect(function()
     if s then s.Color = T.ATTACH_ON end
     print("[SynapseUI] Attach")
 end)
+-- ── Script Hub ──────────────────────────────────────────────────────────────
+
+local _hubOpen       = false
+local _hubSearching  = false
+local _hubResults    = {}
+
+local SCRIPTBLOX_API = "https://scriptblox.com/api/script/search?q=%s&page=1&max=20"
+local SCRIPTBLOX_RAW = "https://rawscripts.net/raw/%s"
+
+-- Reposition HubFrame flush under MainFrame
+local function _hubReposition()
+    local mPos  = ui.MainFrame.Position
+    local mSize = ui.MainFrame.Size
+    ui.HubFrame.Position = UDim2.new(
+        mPos.X.Scale, mPos.X.Offset,
+        mPos.Y.Scale, mPos.Y.Offset + mSize.Y.Offset + ui.HubGap
+    )
+end
+
+-- Build one result row inside HubScroll
+local function _makeHubRow(entry, index)
+    -- entry: { title, game, slug, verified }
+    local ROW_H  = 36
+    local ROW_BG = (index % 2 == 0) and T.BG_PANEL or T.BG_DEEP
+
+    local row = Instance.new("Frame")
+    row.Name             = "Row_" .. index
+    row.Size             = UDim2.new(1, 0, 0, ROW_H)
+    row.BackgroundColor3 = ROW_BG
+    row.BorderSizePixel  = 0
+    row.LayoutOrder      = index
+
+    -- verified badge strip (left edge, 2px)
+    if entry.verified then
+        local badge = Instance.new("Frame")
+        badge.Size             = UDim2.fromOffset(2, ROW_H)
+        badge.BackgroundColor3 = T.ATTACH_ON
+        badge.BorderSizePixel  = 0
+        badge.Parent           = row
+    end
+
+    -- script title
+    local titleLbl = Instance.new("TextLabel")
+    titleLbl.Parent                 = row
+    titleLbl.Size                   = UDim2.new(1, -210, 0, 18)
+    titleLbl.Position               = UDim2.fromOffset(8, 4)
+    titleLbl.BackgroundTransparency = 1
+    titleLbl.Text                   = entry.title or "Untitled"
+    titleLbl.Font                   = Enum.Font.GothamBold
+    titleLbl.TextSize               = 11
+    titleLbl.TextColor3             = T.TEXT_MAIN
+    titleLbl.TextXAlignment         = Enum.TextXAlignment.Left
+    titleLbl.TextTruncate           = Enum.TextTruncate.AtEnd
+    titleLbl.ZIndex                 = 2
+
+    -- game name
+    local gameLbl = Instance.new("TextLabel")
+    gameLbl.Parent                 = row
+    gameLbl.Size                   = UDim2.new(1, -210, 0, 14)
+    gameLbl.Position               = UDim2.fromOffset(8, 20)
+    gameLbl.BackgroundTransparency = 1
+    gameLbl.Text                   = entry.game or ""
+    gameLbl.Font                   = Enum.Font.Gotham
+    gameLbl.TextSize               = 10
+    gameLbl.TextColor3             = T.TEXT_DIM
+    gameLbl.TextXAlignment         = Enum.TextXAlignment.Left
+    gameLbl.TextTruncate           = Enum.TextTruncate.AtEnd
+    gameLbl.ZIndex                 = 2
+
+    -- AUDIT button
+    local auditBtn = Instance.new("TextButton")
+    auditBtn.Parent           = row
+    auditBtn.Size             = UDim2.fromOffset(66, 22)
+    auditBtn.Position         = UDim2.new(1, -148, 0.5, -11)
+    auditBtn.BackgroundColor3 = T.BG_BTN_EXEC
+    auditBtn.BorderSizePixel  = 0
+    auditBtn.Text             = "AUDIT"
+    auditBtn.Font             = Enum.Font.GothamBold
+    auditBtn.TextSize         = 10
+    auditBtn.TextColor3       = T.TEXT_EXEC
+    auditBtn.ZIndex           = 3
+    stroke(auditBtn, T.STROKE_ACCENT, 1)
+    hoverEffect(auditBtn, T.BG_BTN_EXEC_H, T.BG_BTN_EXEC)
+
+    -- LOAD button
+    local loadBtn = Instance.new("TextButton")
+    loadBtn.Parent           = row
+    loadBtn.Size             = UDim2.fromOffset(66, 22)
+    loadBtn.Position         = UDim2.new(1, -76, 0.5, -11)
+    loadBtn.BackgroundColor3 = T.BG_BTN
+    loadBtn.BorderSizePixel  = 0
+    loadBtn.Text             = "LOAD"
+    loadBtn.Font             = Enum.Font.GothamBold
+    loadBtn.TextSize         = 10
+    loadBtn.TextColor3       = T.TEXT_MAIN
+    loadBtn.ZIndex           = 3
+    stroke(loadBtn, T.STROKE_BTN, 1)
+    hoverEffect(loadBtn, T.BG_BTN_HOV, T.BG_BTN)
+
+    -- fetch raw source for a given slug, return src string or nil + err
+    local function _fetchRaw(slug)
+        local url = string.format(SCRIPTBLOX_RAW, slug)
+        local ok, result = pcall(function()
+            return game:HttpGet(url, true)
+        end)
+        if ok and type(result) == "string" and #result > 0 then
+            return result, nil
+        end
+        return nil, tostring(result)
+    end
+
+    -- AUDIT click: fetch raw → pipe through AUDITOR.runUrl (or fallback AUDITOR.run)
+    auditBtn.MouseButton1Click:Connect(function()
+        flash(auditBtn)
+        auditBtn.Text      = "..."
+        auditBtn.TextColor3 = T.TEXT_DIM
+        ui.HubStatus.Text  = "[Hub] Fetching: " .. (entry.title or entry.slug)
+        task.spawn(function()
+            local rawUrl = string.format(SCRIPTBLOX_RAW, entry.slug)
+            local auditor = getgenv().__AUDITOR
+            if not auditor then
+                warn("[Hub] AUDITOR not loaded — cannot audit")
+                ui.HubStatus.Text = "[Hub] ERROR: AUDITOR not loaded"
+                auditBtn.Text = "AUDIT"
+                auditBtn.TextColor3 = T.TEXT_EXEC
+                return
+            end
+            -- try runUrl first; fallback to fetch + run
+            local ok = auditor.runUrl(rawUrl)
+            if ok then
+                ui.HubStatus.Text = "[Hub] Audit clean: " .. (entry.title or entry.slug)
+                auditBtn.Text       = "CLEAN"
+                auditBtn.TextColor3 = T.ATTACH_ON
+                local auditStroke = auditBtn:FindFirstChildOfClass("UIStroke")
+                if auditStroke then auditStroke.Color = T.ATTACH_ON end
+            else
+                ui.HubStatus.Text = "[Hub] Audit flagged: " .. (entry.title or entry.slug)
+                auditBtn.Text       = "FLAGGED"
+                auditBtn.TextColor3 = T.CLOSE_HOV
+                local auditStroke = auditBtn:FindFirstChildOfClass("UIStroke")
+                if auditStroke then auditStroke.Color = T.CLOSE_HOV end
+            end
+        end)
+    end)
+
+    -- LOAD click: fetch raw → dump into CodeBox (editor)
+    loadBtn.MouseButton1Click:Connect(function()
+        flash(loadBtn)
+        loadBtn.Text       = "..."
+        loadBtn.TextColor3 = T.TEXT_DIM
+        ui.HubStatus.Text  = "[Hub] Loading: " .. (entry.title or entry.slug)
+        task.spawn(function()
+            local src, err = _fetchRaw(entry.slug)
+            if src then
+                ui.CodeBox.Text   = src
+                ui.HubStatus.Text = "[Hub] Loaded into editor: " .. (entry.title or entry.slug)
+                loadBtn.Text       = "LOADED"
+                loadBtn.TextColor3 = T.ATTACH_ON
+                local ls = loadBtn:FindFirstChildOfClass("UIStroke")
+                if ls then ls.Color = T.ATTACH_ON end
+            else
+                warn("[Hub] Load failed: " .. tostring(err))
+                ui.HubStatus.Text  = "[Hub] Load failed — " .. tostring(err):sub(1, 60)
+                loadBtn.Text       = "LOAD"
+                loadBtn.TextColor3 = T.TEXT_MAIN
+            end
+        end)
+    end)
+
+    row.Parent = ui.HubScroll
+    return row
+end
+
+-- Clear results list
+local function _hubClearResults()
+    for _, child in ipairs(ui.HubScroll:GetChildren()) do
+        if child:IsA("Frame") then
+            child:Destroy()
+        end
+    end
+    _hubResults = {}
+end
+
+-- Run a ScriptBlox search
+local function _hubSearch(query)
+    if _hubSearching then return end
+    query = query:match("^%s*(.-)%s*$")  -- trim
+    if query == "" then
+        ui.HubStatus.Text = "enter a search term to find scripts"
+        return
+    end
+    _hubSearching = true
+    _hubClearResults()
+    ui.HubStatus.Text = "[Hub] Searching ScriptBlox for: " .. query .. " ..."
+    task.spawn(function()
+        local url = string.format(SCRIPTBLOX_API, game:GetService("HttpService"):UrlEncode(query))
+        local ok, raw = pcall(function() return game:HttpGet(url, true) end)
+        if not ok or type(raw) ~= "string" or #raw == 0 then
+            ui.HubStatus.Text = "[Hub] Request failed — check HTTP permissions"
+            _hubSearching = false
+            return
+        end
+        local decoded
+        local jok, jerr = pcall(function()
+            decoded = game:GetService("HttpService"):JSONDecode(raw)
+        end)
+        if not jok or type(decoded) ~= "table" then
+            ui.HubStatus.Text = "[Hub] Failed to parse response"
+            _hubSearching = false
+            return
+        end
+        -- ScriptBlox response: { result: { scripts: [ {title, game:{name}, slug, verified} ] } }
+        local scripts = decoded.result and decoded.result.scripts
+        if not scripts or #scripts == 0 then
+            ui.HubStatus.Text = "[Hub] No results for: " .. query
+            _hubSearching = false
+            return
+        end
+        ui.HubStatus.Text = string.format("[Hub] %d results for \"%s\"  —  AUDIT = safe-run through SHIELD+AUDITOR", #scripts, query)
+        for i, s in ipairs(scripts) do
+            local entry = {
+                title    = s.title or "Untitled",
+                game     = (s.game and s.game.name) or "Unknown Game",
+                slug     = s.slug or "",
+                verified = s.verified == true,
+            }
+            _hubResults[i] = entry
+            _makeHubRow(entry, i)
+        end
+        _hubSearching = false
+    end)
+end
+
+-- Toggle Hub panel open/close with a slide-down animation
+local function _hubToggle()
+    _hubOpen = not _hubOpen
+    if _hubOpen then
+        _hubReposition()
+        ui.HubFrame.Size    = UDim2.fromOffset(720, 0)
+        ui.HubFrame.Visible = true
+        TweenService:Create(ui.HubFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Size = UDim2.fromOffset(720, 280)
+        }):Play()
+    else
+        TweenService:Create(ui.HubFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Size = UDim2.fromOffset(720, 0)
+        }):Play()
+        task.delay(0.15, function()
+            ui.HubFrame.Visible = false
+            ui.HubFrame.Size    = UDim2.fromOffset(720, 280)
+        end)
+    end
+end
+
+-- Keep HubFrame positioned correctly when MainFrame is dragged
+ui.MainFrame:GetPropertyChangedSignal("Position"):Connect(function()
+    if _hubOpen then _hubReposition() end
+end)
+
+-- Wire up buttons
 ui.Hub.MouseButton1Click:Connect(function()
     flash(ui.Hub)
-    print("[SynapseUI] Script Hub")
+    _hubToggle()
+end)
+
+ui.HubCloseBtn.MouseButton1Click:Connect(function()
+    if _hubOpen then _hubToggle() end
+end)
+
+ui.HubSearchBtn.MouseButton1Click:Connect(function()
+    flash(ui.HubSearchBtn)
+    _hubSearch(ui.HubSearchBox.Text)
+end)
+
+-- also trigger search on Enter key in the search box
+ui.HubSearchBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        _hubSearch(ui.HubSearchBox.Text)
+    end
 end)
 ui.TabClose.MouseButton1Click:Connect(function()
     ui.CodeBox.Text = ""
@@ -1552,20 +2378,17 @@ ui.AuditToggle.MouseButton1Click:Connect(function()
     end
     _lastAuditClick = now
         _auditMode = not _auditMode
-    local execStroke = ui.Execute:FindFirstChildOfClass("UIStroke")
     if _auditMode then
         ui.AuditToggle.Text       = "AUDIT: ON"
-        ui.AuditToggle.TextColor3 = T.ATTACH_ON
-        if _auditStroke then _auditStroke.Color = T.ATTACH_ON    end
-        if execStroke   then execStroke.Color   = T.ATTACH_ON    end
+        ui.AuditToggle.TextColor3 = T.AUDIT_ON
+        if _auditStroke then _auditStroke.Color = T.AUDIT_ON end
         print("[SynapseUI] Audit mode ON — Execute routes through AUDITOR + SHIELD")
     else
         ui.AuditToggle.Text       = "AUDIT: OFF"
         ui.AuditToggle.TextColor3 = T.TEXT_MAIN
-        if _auditStroke then _auditStroke.Color = T.STROKE_BTN   end
-        if execStroke   then execStroke.Color   = T.STROKE_ACCENT end
+        if _auditStroke then _auditStroke.Color = T.STROKE_BTN end
         print("[SynapseUI] Audit mode OFF — Execute runs through SHIELD hook (sandboxed by default)")
     end
 end)
 
-print("[SynapseUI] Ready — SHIELD + AUDITOR embedded and active.")
+print(" vm .")
