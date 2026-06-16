@@ -28785,57 +28785,61 @@ local RETURN_ELAPSED_TIME = false
 								local hasLineInfo = toBoolean(reader:nextByte())
 								proto.hasLineInfo = hasLineInfo
 								if hasLineInfo and proto.sizeInstructions > 0 then
-									local lgap = reader:nextByte()
-									local baselineSize = bit32.rshift(proto.sizeInstructions - 1, lgap) + 1
-									local smallLineInfo, absLineInfo = {}, {}
-									local lastOffset, lastLine = 0, 0
-									for j = 1, proto.sizeInstructions do
-										local b = reader:nextSignedByte()
-										lastOffset += b
-										smallLineInfo[j] = lastOffset
-									end
-									for j = 1, baselineSize do
-										local lc = lastLine + reader:nextInt32()
-										absLineInfo[j - 1] = lc
-										lastLine = lc
-									end
-									local resultLineInfo = {}
-									for j, line in ipairs(smallLineInfo) do
-										local absIdx = bit32.rshift(j - 1, lgap)
-										local absLine = absLineInfo[absIdx]
-										local rl = line + absLine
-										if lgap <= 1 and (-line == absLine) then
-											rl += absLineInfo[absIdx + 1] or 0
+									pcall(function()
+										local lgap = reader:nextByte()
+										local baselineSize = bit32.rshift(proto.sizeInstructions - 1, lgap) + 1
+										local smallLineInfo, absLineInfo = {}, {}
+										local lastOffset, lastLine = 0, 0
+										for j = 1, proto.sizeInstructions do
+											local b = reader:nextSignedByte()
+											lastOffset += b
+											smallLineInfo[j] = lastOffset
 										end
-										if rl <= 0 then
-											rl += 0x100
+										for j = 1, baselineSize do
+											local lc = lastLine + reader:nextInt32()
+											absLineInfo[j - 1] = lc
+											lastLine = lc
 										end
-										resultLineInfo[j] = rl
-									end
-									proto.lineInfoSize = lgap
-									proto.instructionLineInfo = resultLineInfo
+										local resultLineInfo = {}
+										for j, line in ipairs(smallLineInfo) do
+											local absIdx = bit32.rshift(j - 1, lgap)
+											local absLine = absLineInfo[absIdx]
+											local rl = line + absLine
+											if lgap <= 1 and (-line == absLine) then
+												rl += absLineInfo[absIdx + 1] or 0
+											end
+											if rl <= 0 then
+												rl += 0x100
+											end
+											resultLineInfo[j] = rl
+										end
+										proto.lineInfoSize = lgap
+										proto.instructionLineInfo = resultLineInfo
+									end)
 								end
-								local hasDebugInfo = toBoolean(reader:nextByte())
-								proto.hasDebugInfo = hasDebugInfo
-								if hasDebugInfo then
-									local totalLocals = reader:nextVarInt()
-									local debugLocals = {}
-									for j = 1, totalLocals do
-										debugLocals[j] = {
-											name = stringTable[reader:nextVarInt()],
-											startPC = reader:nextVarInt(),
-											endPC = reader:nextVarInt(),
-											register = reader:nextByte(),
-										}
+								pcall(function()
+									local hasDebugInfo = toBoolean(reader:nextByte())
+									proto.hasDebugInfo = hasDebugInfo
+									if hasDebugInfo then
+										local totalLocals = reader:nextVarInt()
+										local debugLocals = {}
+										for j = 1, totalLocals do
+											debugLocals[j] = {
+												name = stringTable[reader:nextVarInt()],
+												startPC = reader:nextVarInt(),
+												endPC = reader:nextVarInt(),
+												register = reader:nextByte(),
+											}
+										end
+										proto.debugLocals = debugLocals
+										local totalUpvals = reader:nextVarInt()
+										local debugUpvalues = {}
+										for j = 1, totalUpvals do
+											debugUpvalues[j] = { name = stringTable[reader:nextVarInt()] }
+										end
+										proto.debugUpvalues = debugUpvalues
 									end
-									proto.debugLocals = debugLocals
-									local totalUpvals = reader:nextVarInt()
-									local debugUpvalues = {}
-									for j = 1, totalUpvals do
-										debugUpvalues[j] = { name = stringTable[reader:nextVarInt()] }
-									end
-									proto.debugUpvalues = debugUpvalues
-								end
+								end)
 							end
 						end
 						readStringTable()
