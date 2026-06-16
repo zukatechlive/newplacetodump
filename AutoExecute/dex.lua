@@ -2817,6 +2817,10 @@ local EmbeddedModules = {
 							or env.writefile == nil
 					)
 					context:AddRegistered("RE_CLOSURE_INSPECTOR")
+					context:AddRegistered(
+						"SSPY_DECOMPILE",
+						not presentClasses.isViableDecompileScript or env.decompile == nil
+					)
 				end
 
 				if presentClasses["ModuleScript"] then
@@ -5978,6 +5982,182 @@ local EmbeddedModules = {
 						if scr then
 							ScriptViewer.ViewScript(scr)
 						end
+					end,
+				})
+				context:Register("SSPY_DECOMPILE", {
+					Name = "zukv2 Decompile",
+					IconMap = Explorer.MiscIcons,
+					Icon = "ViewScript",
+					DisabledIcon = "Empty",
+					OnClick = function()
+						local scr = selection.List[1] and selection.List[1].Obj
+						if not scr then return end
+
+						-- Build SimpleSpy-style script path
+						local function getScriptPath(obj)
+							if not obj then return "nil" end
+							local parts = {}
+							local cur = obj
+							while cur and cur ~= game do
+								table.insert(parts, 1, ('["%s"]'):format(cur.Name))
+								cur = cur.Parent
+							end
+							return "game" .. table.concat(parts)
+						end
+
+						ScriptViewer.ViewRaw(('-- [SimpleSpy Decompiler]\n-- Script: %s\n-- Decompiling, please wait...'):format(getScriptPath(scr)))
+
+						task.spawn(function()
+							local source = nil
+
+							-- Try executor's native decompile() first
+							if env.decompile then
+								local ok, raw = pcall(env.decompile, scr)
+								if ok and type(raw) == "string" and raw ~= "" then
+									raw = raw:gsub("^%-%- Decompiled with the Synapse X Luau decompiler%.%s*\n?", "")
+									source = ('local script = %s\n%s'):format(getScriptPath(scr), raw)
+								end
+							end
+
+							-- Fallback to ZukDecompile via getBytecode
+							if not source then
+								local zuk = env.ZukDecompile or getgenv()._ZUK_DECOMPILE
+								local bytecode = env.getBytecode and env.getBytecode(scr)
+								if zuk and bytecode and bytecode ~= "" then
+									local opts = {
+										DecompilerMode = "disasm",
+										DecompilerTimeout = 20,
+										CleanMode = true,
+										ReaderFloatPrecision = 10,
+										ShowDebugInformation = false,
+										ShowTrivialOperations = false,
+										ShowInstructionLines = true,
+										ShowOperationIndex = false,
+										ShowOperationNames = true,
+										ListUsedGlobals = false,
+										UseTypeInfo = true,
+										EnabledRemarks = { ColdRemark = false, InlineRemark = false },
+										ReturnElapsedTime = false,
+									}
+									local okD, result = pcall(zuk, bytecode, opts)
+									local zukFailed = not okD
+										or not result
+										or result == ""
+										or result:find("PASSED BYTECODE IS TOO OLD", 1, true)
+										or result:find("SCRIPT FAILED TO COMPILE", 1, true)
+										or result:find("DECOMPILER TIMEOUT", 1, true)
+									if not zukFailed then
+										local pp = getgenv()._ZUK_PRETTYPRINT
+										local co = getgenv()._ZUK_CLEANOUTPUT
+										local out = (pp and co) and co(pp(result)) or (pp and pp(result) or result)
+										source = ('local script = %s\n%s'):format(getScriptPath(scr), out)
+									end
+								end
+							end
+
+							if not source then
+								source = ('-- [SimpleSpy Decompiler] Failed to decompile:\n-- %s\n-- No decompiler available or bytecode could not be read.'):format(getScriptPath(scr))
+							end
+
+							-- Append closure info: upvalues, constants, nested protos
+							local _getscriptclosure = env.getscriptclosure or getscriptclosure
+							local _getupvalues     = env.getupvalues or (debug and debug.getupvalues)
+							local _getconstants    = env.getconstants or (debug and debug.getconstants)
+							local _getprotos       = getprotos or (debug and debug.getprotos)
+							local _islclosure      = env.islclosure or islclosure
+
+							if _getscriptclosure and (_getupvalues or _getconstants or _getprotos) then
+								local okFn, closure = pcall(_getscriptclosure, scr)
+								if okFn and closure then
+									local lines = { "\n\n--[[ ============ CLOSURE INFO ============" }
+
+									-- Upvalues
+									if _getupvalues then
+										local okUV, uvs = pcall(_getupvalues, closure)
+										if okUV and uvs then
+											table.insert(lines, "\nUpvalues:")
+											for i, v in pairs(uvs) do
+												local t = typeof(v)
+												local display
+												if t == "string" then
+													display = '"' .. tostring(v):sub(1, 80) .. '"'
+												elseif t == "function" then
+													display = (_islclosure and _islclosure(v)) and "[LuaClosure]" or "[CClosure]"
+												elseif t == "table" then
+													display = "[table]"
+												elseif t == "Instance" then
+													local okP, path = pcall(function() return v:GetFullName() end)
+													display = okP and path or "[Instance]"
+												else
+													display = tostring(v)
+												end
+												table.insert(lines, ("  [%d] (%s) = %s"):format(i, t, display))
+											end
+										end
+									end
+
+									-- Constants
+									if _getconstants then
+										local okC, consts = pcall(_getconstants, closure)
+										if okC and consts then
+											table.insert(lines, "\nConstants:")
+											for i, v in pairs(consts) do
+												local t = type(v)
+												local display
+												if t == "string" then
+													display = '"' .. tostring(v):sub(1, 80) .. '"'
+												else
+													display = tostring(v)
+												end
+												table.insert(lines, ("  [%d] (%s) = %s"):format(i, t, display))
+											end
+										end
+									end
+
+									-- Nested proto closures
+									if _getprotos then
+										local okP, protos = pcall(_getprotos, closure)
+										if okP and protos and #protos > 0 then
+											table.insert(lines, "\nProtos (nested closures): " .. #protos)
+											for i, proto in ipairs(protos) do
+												local isL = _islclosure and _islclosure(proto)
+												local uvCount, cCount = 0, 0
+												if _getupvalues then
+													local ok2, uvs2 = pcall(_getupvalues, proto)
+													if ok2 and uvs2 then uvCount = #uvs2 end
+												end
+												if _getconstants then
+													local ok3, c3 = pcall(_getconstants, proto)
+													if ok3 and c3 then cCount = #c3 end
+												end
+												table.insert(lines, ("  [%d] %s | upvalues: %d | constants: %d"):format(
+													i,
+													isL and "LuaClosure" or "CClosure",
+													uvCount,
+													cCount
+												))
+												-- String constants of each proto
+												if _getconstants then
+													local ok3, c3 = pcall(_getconstants, proto)
+													if ok3 and c3 then
+														for j, cv in pairs(c3) do
+															if type(cv) == "string" and #cv > 0 then
+																table.insert(lines, ('    const[%d] = "%s"'):format(j, cv:sub(1, 80)))
+															end
+														end
+													end
+												end
+											end
+										end
+									end
+
+									table.insert(lines, "\n============================================ ]]")
+									source = source .. table.concat(lines, "\n")
+								end
+							end
+
+							ScriptViewer.ViewRaw(source)
+						end)
 					end,
 				})
 				context:Register("DUMP_FUNCTIONS", {
@@ -35438,9 +35618,3 @@ Main = (function()
 	return Main
 end)()
 Main.Init()
-
---      /  /\         /  /\         |  |\
---    /  /:/\:\     /  /:/\:\       |  |:|
---  /__/:/ \__\:| /__/:/\:\ \:\ ____/__/::::\
---   \  \:\  /:/   \  \:\ \:\      |~~|:|
---     \__\::/       \  \:\        |__|:|
