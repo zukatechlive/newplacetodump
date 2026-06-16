@@ -28694,8 +28694,9 @@ local RETURN_ELAPSED_TIME = false
 											end
 										else
 											local blob = reader:nextBytes(allTypeInfoSize)
-											table.remove(blob, 1)
-											table.remove(blob, 1)
+											-- guard: only strip the 2-byte header if the blob is large enough
+											if #blob >= 1 then table.remove(blob, 1) end
+											if #blob >= 1 then table.remove(blob, 1) end
 											resultTypedParams = blob
 										end
 									end
@@ -28783,7 +28784,7 @@ local RETURN_ELAPSED_TIME = false
 								proto.name = stringTable[nameId]
 								local hasLineInfo = toBoolean(reader:nextByte())
 								proto.hasLineInfo = hasLineInfo
-								if hasLineInfo then
+								if hasLineInfo and proto.sizeInstructions > 0 then
 									local lgap = reader:nextByte()
 									local baselineSize = bit32.rshift(proto.sizeInstructions - 1, lgap) + 1
 									local smallLineInfo, absLineInfo = {}, {}
