@@ -6045,28 +6045,25 @@ local EmbeddedModules = {
 
 							local encoder = (typeof(base64_encode) == "function") and base64_encode or base64Encode
 
-							local res
-							local reqOk, reqErr = pcall(function()
-								res = request({
-									Url = "https://api.lua.expert/decompile",
-									Method = "POST",
-									Headers = { ["content-type"] = "application/json" },
-									Body = httpservice:JSONEncode({ script = encoder(bytecode) }),
-								})
+							local reqOk, result = pcall(function()
+								return httpservice:PostAsync(
+									"https://api.lua.expert/decompile",
+									httpservice:JSONEncode({ script = encoder(bytecode) }),
+									Enum.HttpContentType.ApplicationJson
+								)
 							end)
 
-							if not reqOk or not res or res.StatusCode ~= 200 then
+							if not reqOk or not result then
 								ScriptViewer.ViewRaw(
 									("-- [lua.expert Decompiler] API request failed\n-- Script: %s\n--[[\n%s\n--]]"):format(
-										getScriptPath(scr),
-										reqOk and (res and res.Body or "no response") or tostring(reqErr)
+										getScriptPath(scr), tostring(result)
 									)
 								)
 								return
 							end
 
 							local source = ("-- [lua.expert Decompiler]\n-- Script: %s\n\n%s"):format(
-								getScriptPath(scr), res.Body
+								getScriptPath(scr), result
 							)
 
 							ScriptViewer.ViewRaw(source)
