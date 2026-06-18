@@ -4,6 +4,7 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
+
 local CONFIG = {
 	RINGS = {
 		{ radius = 5, height = 1.5, speed = 1.0 },
@@ -19,12 +20,15 @@ local CONFIG = {
 	SIM_INTERVAL = 1,
 	CLEANUP_INTERVAL = 0.5,
 }
+
 local State = {
 	Active = false,
 	Angle = 0,
 	ManagedParts = {},
 	Connections = {},
+	TargetPlayer = nil,
 }
+
 local function safeDestroy(instance)
 	if instance and instance.Parent then
 		pcall(function()
@@ -32,11 +36,13 @@ local function safeDestroy(instance)
 		end)
 	end
 end
+
 local function safeSetOwner(part)
 	pcall(function()
 		part:SetNetworkOwner(LocalPlayer)
 	end)
 end
+
 local function setSimRadius(value)
 	pcall(function()
 		if sethiddenproperty then
@@ -44,16 +50,28 @@ local function setSimRadius(value)
 		end
 	end)
 end
+
 local function getHRP()
 	local char = LocalPlayer.Character
 	return char and char:FindFirstChild("HumanoidRootPart")
 end
+
+local function getTargetHRP()
+	local target = State.TargetPlayer
+	if target and target ~= LocalPlayer and target.Parent then
+		local char = target.Character
+		return char and char:FindFirstChild("HumanoidRootPart")
+	end
+	return getHRP()
+end
+
 local function getHUI()
 	local ok, result = pcall(function()
 		return (gethui and gethui()) or CoreGui
 	end)
 	return ok and result or CoreGui
 end
+
 local function setCharacterCollision(enabled)
 	local char = LocalPlayer.Character
 	if not char then
@@ -65,8 +83,9 @@ local function setCharacterCollision(enabled)
 		end
 	end
 end
+
 local function collectParts()
-	local hrp = getHRP()
+	local hrp = getTargetHRP()
 	if not hrp then
 		return {}
 	end
@@ -80,6 +99,7 @@ local function collectParts()
 			v:IsA("BasePart")
 			and not v.Anchored
 			and not v:IsDescendantOf(LocalPlayer.Character)
+			and (not State.TargetPlayer or not v:IsDescendantOf(State.TargetPlayer.Character or Instance.new("Folder")))
 			and not v.Parent:FindFirstChildOfClass("Humanoid")
 		then
 			local dist = (v.Position - hrpPos).Magnitude
@@ -97,11 +117,13 @@ local function collectParts()
 	end
 	return result
 end
+
 local function attachPart(part, ringIndex, seed)
 	local bv = Instance.new("BodyVelocity")
 	bv.MaxForce = Vector3.new(1, 1, 1) * math.huge
 	bv.Velocity = Vector3.zero
 	bv.Parent = part
+
 	local bav = Instance.new("BodyAngularVelocity")
 	bav.MaxTorque = Vector3.new(1, 1, 1) * math.huge
 	local spinAxes = {
@@ -111,6 +133,7 @@ local function attachPart(part, ringIndex, seed)
 	}
 	bav.AngularVelocity = spinAxes[ringIndex] or spinAxes[1]
 	bav.Parent = part
+
 	State.ManagedParts[part] = {
 		Vel = bv,
 		Spin = bav,
@@ -118,6 +141,7 @@ local function attachPart(part, ringIndex, seed)
 		Seed = seed,
 	}
 end
+
 local function detachPart(part)
 	local data = State.ManagedParts[part]
 	if not data then
@@ -127,11 +151,13 @@ local function detachPart(part)
 	safeDestroy(data.Spin)
 	State.ManagedParts[part] = nil
 end
+
 local function detachAll()
 	for part in pairs(State.ManagedParts) do
 		detachPart(part)
 	end
 end
+
 local function orbitTarget(hrpPos, angle, seed, ring)
 	local a = angle * ring.speed + seed
 	return hrpPos
@@ -141,17 +167,20 @@ local function orbitTarget(hrpPos, angle, seed, ring)
 			math.sin(a) * ring.radius
 		)
 end
+
 local function startPhysicsLoop()
 	local conn = RunService.Heartbeat:Connect(function(dt)
 		if not State.Active then
 			return
 		end
-		local hrp = getHRP()
+		local hrp = getTargetHRP()
 		if not hrp then
 			return
 		end
+
 		State.Angle = State.Angle + dt * CONFIG.BASE_SPEED
 		setCharacterCollision(false)
+
 		for part, data in pairs(State.ManagedParts) do
 			if not part.Parent or part.Anchored then
 				detachPart(part)
@@ -165,6 +194,7 @@ local function startPhysicsLoop()
 	end)
 	table.insert(State.Connections, conn)
 end
+
 local function disconnectAll()
 	for _, conn in ipairs(State.Connections) do
 		pcall(function()
@@ -173,6 +203,7 @@ local function disconnectAll()
 	end
 	State.Connections = {}
 end
+
 local function activate()
 	State.Active = true
 	State.Angle = 0
@@ -191,11 +222,10 @@ local function activate()
 		end
 	end
 	startPhysicsLoop()
-	local cleanConn
-	cleanConn = task.spawn(function()
+	task.spawn(function()
 		while State.Active do
 			task.wait(CONFIG.CLEANUP_INTERVAL)
-			for part, data in pairs(State.ManagedParts) do
+			for part in pairs(State.ManagedParts) do
 				if not part.Parent or part.Anchored then
 					detachPart(part)
 				end
@@ -203,12 +233,14 @@ local function activate()
 		end
 	end)
 end
+
 local function deactivate()
 	State.Active = false
 	disconnectAll()
 	detachAll()
 	setCharacterCollision(true)
 end
+
 local function toggle()
 	if State.Active then
 		deactivate()
@@ -217,38 +249,45 @@ local function toggle()
 	end
 	return State.Active
 end
+
 task.spawn(function()
 	while true do
 		setSimRadius(CONFIG.SIM_RADIUS)
 		task.wait(CONFIG.SIM_INTERVAL)
 	end
 end)
+
 local function buildUI()
 	local parent = getHUI()
 	if not parent then
 		return
 	end
+
 	local existing = parent:FindFirstChild("OrbitShield_UI")
 	if existing then
 		existing:Destroy()
 	end
+
 	local Screen = Instance.new("ScreenGui")
 	Screen.Name = "OrbitShield_UI"
 	Screen.ResetOnSpawn = false
 	Screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	Screen.Parent = parent
+
 	local Frame = Instance.new("Frame")
 	Frame.Name = "MainFrame"
-	Frame.Size = UDim2.fromOffset(220, 90)
+	Frame.Size = UDim2.fromOffset(220, 160)
 	Frame.Position = UDim2.new(0.5, -110, 0.08, 0)
 	Frame.BackgroundColor3 = Color3.fromRGB(10, 10, 14)
 	Frame.BorderSizePixel = 0
 	Frame.Parent = Screen
 	Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 6)
+
 	local stroke = Instance.new("UIStroke", Frame)
 	stroke.Color = Color3.fromRGB(0, 210, 140)
 	stroke.Thickness = 1.2
 	stroke.Transparency = 0.3
+
 	local Header = Instance.new("TextLabel")
 	Header.Size = UDim2.new(1, 0, 0, 22)
 	Header.Position = UDim2.new(0, 0, 0, 6)
@@ -259,6 +298,7 @@ local function buildUI()
 	Header.TextSize = 11
 	Header.TextXAlignment = Enum.TextXAlignment.Center
 	Header.Parent = Frame
+
 	local Dot = Instance.new("Frame")
 	Dot.Size = UDim2.fromOffset(6, 6)
 	Dot.Position = UDim2.new(0, 10, 0, 10)
@@ -266,9 +306,129 @@ local function buildUI()
 	Dot.BorderSizePixel = 0
 	Dot.Parent = Frame
 	Instance.new("UICorner", Dot).CornerRadius = UDim.new(1, 0)
+
+	local TargetLabel = Instance.new("TextLabel")
+	TargetLabel.Size = UDim2.new(0.88, 0, 0, 14)
+	TargetLabel.Position = UDim2.new(0.06, 0, 0, 34)
+	TargetLabel.BackgroundTransparency = 1
+	TargetLabel.Text = "SHIELD TARGET"
+	TargetLabel.TextColor3 = Color3.fromRGB(0, 160, 110)
+	TargetLabel.Font = Enum.Font.Code
+	TargetLabel.TextSize = 9
+	TargetLabel.TextXAlignment = Enum.TextXAlignment.Left
+	TargetLabel.Parent = Frame
+
+	local ScrollFrame = Instance.new("ScrollingFrame")
+	ScrollFrame.Size = UDim2.new(0.88, 0, 0, 52)
+	ScrollFrame.Position = UDim2.new(0.06, 0, 0, 50)
+	ScrollFrame.BackgroundColor3 = Color3.fromRGB(14, 14, 20)
+	ScrollFrame.BorderSizePixel = 0
+	ScrollFrame.ScrollBarThickness = 3
+	ScrollFrame.ScrollBarImageColor3 = Color3.fromRGB(0, 210, 140)
+	ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+	ScrollFrame.ClipsDescendants = true
+	ScrollFrame.Parent = Frame
+	Instance.new("UICorner", ScrollFrame).CornerRadius = UDim.new(0, 4)
+
+	local ScrollStroke = Instance.new("UIStroke", ScrollFrame)
+	ScrollStroke.Color = Color3.fromRGB(40, 40, 55)
+	ScrollStroke.Thickness = 1
+	ScrollStroke.Transparency = 0.3
+
+	local ListLayout = Instance.new("UIListLayout", ScrollFrame)
+	ListLayout.SortOrder = Enum.SortOrder.Name
+	ListLayout.Padding = UDim.new(0, 1)
+
+	local selectedBtn = nil
+	local playerButtons = {}
+
+	local function selectTarget(player, btn)
+		if selectedBtn then
+			selectedBtn.BackgroundColor3 = Color3.fromRGB(14, 14, 20)
+			selectedBtn.TextColor3 = Color3.fromRGB(160, 160, 170)
+		end
+		State.TargetPlayer = player
+		selectedBtn = btn
+		btn.BackgroundColor3 = Color3.fromRGB(0, 45, 32)
+		btn.TextColor3 = Color3.fromRGB(0, 210, 140)
+
+		if State.Active then
+			deactivate()
+			activate()
+		end
+	end
+
+	local function makePlayerBtn(displayName, player, sortKey)
+		local existing = playerButtons[sortKey]
+		if existing then
+			return
+		end
+
+		local btn = Instance.new("TextButton")
+		btn.Name = sortKey
+		btn.Size = UDim2.new(1, 0, 0, 18)
+		btn.BackgroundColor3 = Color3.fromRGB(14, 14, 20)
+		btn.BorderSizePixel = 0
+		btn.Text = "  " .. displayName
+		btn.TextColor3 = Color3.fromRGB(160, 160, 170)
+		btn.Font = Enum.Font.Code
+		btn.TextSize = 10
+		btn.TextXAlignment = Enum.TextXAlignment.Left
+		btn.Parent = ScrollFrame
+
+		if player == nil and selectedBtn == nil then
+			selectedBtn = btn
+			btn.BackgroundColor3 = Color3.fromRGB(0, 45, 32)
+			btn.TextColor3 = Color3.fromRGB(0, 210, 140)
+		end
+
+		btn.MouseButton1Click:Connect(function()
+			selectTarget(player, btn)
+		end)
+
+		playerButtons[sortKey] = btn
+	end
+
+	local function refreshPlayerList()
+		makePlayerBtn("★ Self", nil, "00_Self")
+
+		local currentKeys = { ["00_Self"] = true }
+		for _, p in ipairs(Players:GetPlayers()) do
+			if p ~= LocalPlayer then
+				local key = "01_" .. p.Name
+				currentKeys[key] = true
+				makePlayerBtn(p.DisplayName .. " (@" .. p.Name .. ")", p, key)
+			end
+		end
+
+		for key, btn in pairs(playerButtons) do
+			if not currentKeys[key] then
+				btn:Destroy()
+				playerButtons[key] = nil
+				if State.TargetPlayer and State.TargetPlayer.Name == key:sub(4) then
+					selectTarget(nil, playerButtons["00_Self"])
+				end
+			end
+		end
+
+		local count = 0
+		for _ in pairs(playerButtons) do
+			count += 1
+		end
+		ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, count * 19)
+	end
+
+	refreshPlayerList()
+	task.spawn(function()
+		while Screen.Parent do
+			task.wait(2)
+			refreshPlayerList()
+		end
+	end)
+
 	local Btn = Instance.new("TextButton")
 	Btn.Size = UDim2.new(0.88, 0, 0, 34)
-	Btn.Position = UDim2.new(0.06, 0, 0, 36)
+	Btn.Position = UDim2.new(0.06, 0, 0, 110)
 	Btn.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
 	Btn.Text = "ACTIVATE"
 	Btn.TextColor3 = Color3.fromRGB(180, 180, 180)
@@ -277,13 +437,15 @@ local function buildUI()
 	Btn.BorderSizePixel = 0
 	Btn.Parent = Frame
 	Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 4)
+
 	local btnStroke = Instance.new("UIStroke", Btn)
 	btnStroke.Color = Color3.fromRGB(50, 50, 60)
 	btnStroke.Thickness = 1
 	btnStroke.Transparency = 0.5
+
 	local Counter = Instance.new("TextLabel")
 	Counter.Size = UDim2.new(1, 0, 0, 14)
-	Counter.Position = UDim2.new(0, 0, 1, -18)
+	Counter.Position = UDim2.new(0, 0, 1, -16)
 	Counter.BackgroundTransparency = 1
 	Counter.Text = "0 parts"
 	Counter.TextColor3 = Color3.fromRGB(80, 80, 90)
@@ -291,6 +453,7 @@ local function buildUI()
 	Counter.TextSize = 10
 	Counter.TextXAlignment = Enum.TextXAlignment.Center
 	Counter.Parent = Frame
+
 	local dragging, dragStart, frameStart
 	Frame.InputBegan:Connect(function(input)
 		if
@@ -327,6 +490,7 @@ local function buildUI()
 			)
 		end
 	end)
+
 	local function syncUI(active)
 		if active then
 			Btn.Text = "DEACTIVATE"
@@ -347,10 +511,12 @@ local function buildUI()
 			Counter.Text = "0 parts"
 		end
 	end
+
 	Btn.MouseButton1Click:Connect(function()
 		local isNowActive = toggle()
 		syncUI(isNowActive)
 	end)
+
 	task.spawn(function()
 		while Screen.Parent do
 			if State.Active then
@@ -364,4 +530,5 @@ local function buildUI()
 		end
 	end)
 end
+
 buildUI()
