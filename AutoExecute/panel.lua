@@ -50,41 +50,7 @@ end
 genv.getexecutorversion = function()
 	return SPOOF_VER
 end
-local _bWS = setmetatable({}, {
-	__index = function(_, k)
-		warn("WebSocket." .. k .. " blocked")
-		return function() end
-	end,
-	__newindex = function() end,
-	__call = function()
-		warn("WebSocket() blocked")
-		return nil
-	end,
-})
-if rawget(_G, "WebSocket") ~= nil then
-	rawset(_G, "WebSocket", _bWS)
-end
-if rawget(_G, "websocket") ~= nil then
-	rawset(_G, "websocket", _bWS)
-end
-local _origReq = http_request or request
-local function safeRequest(opts)
-	local url = (opts and opts.Url) or ""
-	for _, d in ipairs({ "roblox.com", "robloxlabs.com" }) do
-		if url:find(d, 1, true) then
-			return _origReq(opts)
-		end
-	end
-	warn("Blocked:", url)
-	return { StatusCode = 403, Body = "" }
-end
-http_request = safeRequest
-request = safeRequest
-local mt = getrawmetatable(game)
-local origNC = rawget(mt, "__namecall")
-if origNC and iscclosure and not iscclosure(origNC) then
-	warn("Hook detected -- possible remote spy")
-end
+
 
 local function detectEnvironment()
 	local env = {
