@@ -17,6 +17,10 @@ local guns = {
 	"Silenced Sniper",
 	"P90",
 	"Tactical Airstrike",
+	"Incendiary Shotgun",
+	"Spider",
+	"Radioactive MP5",
+	"RPG",
 }
 
 local overrides = {
@@ -37,6 +41,7 @@ local overrides = {
 	DelayBeforeFiring = 0,
 	AmmoPerMag = 999999,
 	Range = 90000,
+	BulletsPerShot = 2,
 	TacticalReloadTime = 0,
 	SwitchTime = 0,
 	BounceDelay = 0,
