@@ -5907,8 +5907,7 @@ local EmbeddedModules = {
 							{
 								parts = {
 									{
-										text = "IDENTITY: Callum, Black-Hat Architect. Objective: High-precision Luau analysis. Format: Concise, technical, no filler.\n\n"
-											.. prompt,
+										text = "IDENTITY: \n\n" .. prompt,
 									},
 								},
 							},
@@ -5985,7 +5984,7 @@ local EmbeddedModules = {
 					end,
 				})
 				context:Register("SSPY_DECOMPILE", {
-					Name = "Decompile (lua.expert)",
+					Name = "(lua.expert)",
 					IconMap = Explorer.MiscIcons,
 					Icon = "ViewScript",
 					DisabledIcon = "Empty",
@@ -5995,10 +5994,13 @@ local EmbeddedModules = {
 							return
 						end
 
-						local httpservice = cloneref and cloneref(game:GetService("HttpService")) or game:GetService("HttpService")
+						local httpservice = cloneref and cloneref(game:GetService("HttpService"))
+							or game:GetService("HttpService")
 
 						local function getScriptPath(obj)
-							if not obj then return "nil" end
+							if not obj then
+								return "nil"
+							end
 							local parts = {}
 							local cur = obj
 							while cur and cur ~= game do
@@ -6010,20 +6012,24 @@ local EmbeddedModules = {
 
 						local function base64Encode(data)
 							local b = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-							return ((data:gsub(".", function(x)
-								local r, byte = "", x:byte()
-								for i = 8, 1, -1 do
-									r = r .. (byte % 2^i - byte % 2^(i-1) > 0 and "1" or "0")
-								end
-								return r
-							end) .. "0000"):gsub("%d%d%d?%d?%d?%d?", function(x)
-								if #x < 6 then return "" end
-								local c = 0
-								for i = 1, 6 do
-									c = c + (x:sub(i,i) == "1" and 2^(6-i) or 0)
-								end
-								return b:sub(c+1, c+1)
-							end) .. ({ "", "==", "=" })[#data % 3 + 1])
+							return (
+								(data:gsub(".", function(x)
+									local r, byte = "", x:byte()
+									for i = 8, 1, -1 do
+										r = r .. (byte % 2 ^ i - byte % 2 ^ (i - 1) > 0 and "1" or "0")
+									end
+									return r
+								end) .. "0000"):gsub("%d%d%d?%d?%d?%d?", function(x)
+									if #x < 6 then
+										return ""
+									end
+									local c = 0
+									for i = 1, 6 do
+										c = c + (x:sub(i, i) == "1" and 2 ^ (6 - i) or 0)
+									end
+									return b:sub(c + 1, c + 1)
+								end) .. ({ "", "==", "=" })[#data % 3 + 1]
+							)
 						end
 
 						ScriptViewer.ViewRaw(
@@ -6037,7 +6043,8 @@ local EmbeddedModules = {
 							if not ok or not bytecode or bytecode == "" then
 								ScriptViewer.ViewRaw(
 									("-- [lua.expert Decompiler] Failed to read bytecode\n-- Script: %s\n--[[\n%s\n--]]"):format(
-										getScriptPath(scr), tostring(bytecode)
+										getScriptPath(scr),
+										tostring(bytecode)
 									)
 								)
 								return
@@ -6045,41 +6052,27 @@ local EmbeddedModules = {
 
 							local encoder = (typeof(base64_encode) == "function") and base64_encode or base64Encode
 
-							local httpRequest = env.request
-								or (syn and syn.request)
-								or (http and http.request)
-								or http_request
-								or request
-
-							if not httpRequest then
-								ScriptViewer.ViewRaw(
-									("-- [lua.expert Decompiler] API request failed\n-- Script: %s\n--[[\nno http request function available\n--]]"):format(
-										getScriptPath(scr)
-									)
+							local reqOk, result = pcall(function()
+								return httpservice:PostAsync(
+									"https://api.lua.expert/decompile",
+									httpservice:JSONEncode({ script = encoder(bytecode) }),
+									Enum.HttpContentType.ApplicationJson
 								)
-								return
-							end
-
-							local reqOk, res = pcall(httpRequest, {
-								Url = "https://api.lua.expert/decompile",
-								Method = "POST",
-								Headers = { ["Content-Type"] = "application/json" },
-								Body = httpservice:JSONEncode({ script = encoder(bytecode) }),
-							})
-
-							local result = reqOk and res and res.Body
+							end)
 
 							if not reqOk or not result then
 								ScriptViewer.ViewRaw(
 									("-- [lua.expert Decompiler] API request failed\n-- Script: %s\n--[[\n%s\n--]]"):format(
-										getScriptPath(scr), reqOk and (res and res.Body or "no response") or tostring(res)
+										getScriptPath(scr),
+										tostring(result)
 									)
 								)
 								return
 							end
 
 							local source = ("-- [lua.expert Decompiler]\n-- Script: %s\n\n%s"):format(
-								getScriptPath(scr), result
+								getScriptPath(scr),
+								result
 							)
 
 							ScriptViewer.ViewRaw(source)
@@ -7854,23 +7847,13 @@ local EmbeddedModules = {
 							elseif n == "Recoil" then
 								return 0
 							elseif n == "BulletPerShot" then
-								return 5
+								return 2
 							elseif n == "FriendlyFire" then
 								return true
 							elseif n == "Lifesteal" then
 								return 99999
-							elseif n == "ShotgunEnabled" then
-								return true
-							elseif n == "Knockback" then
-								return 9999999
-							elseif n == "IcifyChance" then
-								return 9999
-							elseif n == "FlamingBullet" then
-								return true
-							elseif n == "IgniteChance" then
-								return 9999
-							elseif n == "FreezingBullet" then
-								return true
+							--	elseif n == "ShotgunEnabled" then
+							--		return true
 							elseif n == "ChargedShotEnabled" then
 								return false
 							elseif n == "ChargingTime" then
@@ -7879,12 +7862,10 @@ local EmbeddedModules = {
 								return false
 							elseif n == "DelayBeforeFiring" then
 								return 0
-							elseif n == "Auto" then
-								return false
+							--elseif n == "Auto" then
+							--	return false
 							elseif n == "CriticalDamageEnabled" then
 								return 999999
-							elseif n == "SilenceEffect" then
-								return false
 							elseif n == "HoldDownEnabled" then
 								return false
 							elseif n == "RicochetAmount" then
@@ -28246,11 +28227,14 @@ local RETURN_ELAPSED_TIME = false
 						{ name = "GETUDATAKS", type = "ABC", aux = true },
 						{ name = "SETUDATAKS", type = "ABC", aux = true },
 						{ name = "NAMECALLUDATA", type = "ABC", aux = true },
+						{ name = "NEWCLASSMEMBER", type = "ABC", aux = true },
+						{ name = "CALLFB", type = "ABC", aux = true },
+						{ name = "CMPPROTO", type = "AsD", aux = true },
 						{ name = "_COUNT", type = "none" },
 					},
 					BytecodeTag = {
 						LBC_VERSION_MIN = 1,
-						LBC_VERSION_MAX = 9,
+						LBC_VERSION_MAX = 11,
 						LBC_TYPE_VERSION_MIN = 1,
 						LBC_TYPE_VERSION_MAX = 3,
 						LBC_CONSTANT_NIL = 0,
@@ -28275,6 +28259,7 @@ local RETURN_ELAPSED_TIME = false
 						LBC_TYPE_USERDATA = 7,
 						LBC_TYPE_VECTOR = 8,
 						LBC_TYPE_BUFFER = 9,
+						LBC_TYPE_INTEGER = 10,
 						LBC_TYPE_ANY = 15,
 						LBC_TYPE_TAGGED_USERDATA_BASE = 64,
 						LBC_TYPE_TAGGED_USERDATA_END = 64 + 32,
@@ -28372,6 +28357,50 @@ local RETURN_ELAPSED_TIME = false
 						LBF_VECTOR_CLAMP = 86,
 						LBF_VECTOR_MIN = 87,
 						LBF_VECTOR_MAX = 88,
+						LBF_MATH_LERP = 89,
+						LBF_VECTOR_LERP = 90,
+						LBF_MATH_ISNAN = 91,
+						LBF_MATH_ISINF = 92,
+						LBF_MATH_ISFINITE = 93,
+						LBF_INTEGER_CREATE = 94,
+						LBF_INTEGER_TONUMBER = 95,
+						LBF_INTEGER_NEG = 96,
+						LBF_INTEGER_ADD = 97,
+						LBF_INTEGER_SUB = 98,
+						LBF_INTEGER_MUL = 99,
+						LBF_INTEGER_DIV = 100,
+						LBF_INTEGER_MIN = 101,
+						LBF_INTEGER_MAX = 102,
+						LBF_INTEGER_REM = 103,
+						LBF_INTEGER_IDIV = 104,
+						LBF_INTEGER_UDIV = 105,
+						LBF_INTEGER_UREM = 106,
+						LBF_INTEGER_MOD = 107,
+						LBF_INTEGER_CLAMP = 108,
+						LBF_INTEGER_BAND = 109,
+						LBF_INTEGER_BOR = 110,
+						LBF_INTEGER_BNOT = 111,
+						LBF_INTEGER_BXOR = 112,
+						LBF_INTEGER_LT = 113,
+						LBF_INTEGER_LE = 114,
+						LBF_INTEGER_ULT = 115,
+						LBF_INTEGER_ULE = 116,
+						LBF_INTEGER_GT = 117,
+						LBF_INTEGER_GE = 118,
+						LBF_INTEGER_UGT = 119,
+						LBF_INTEGER_UGE = 120,
+						LBF_INTEGER_LSHIFT = 121,
+						LBF_INTEGER_RSHIFT = 122,
+						LBF_INTEGER_ARSHIFT = 123,
+						LBF_INTEGER_LROTATE = 124,
+						LBF_INTEGER_RROTATE = 125,
+						LBF_INTEGER_EXTRACT = 126,
+						LBF_INTEGER_BTEST = 127,
+						LBF_INTEGER_COUNTRZ = 128,
+						LBF_INTEGER_COUNTLZ = 129,
+						LBF_INTEGER_BSWAP = 130,
+						LBF_BUFFER_READINTEGER = 131,
+						LBF_BUFFER_WRITEINTEGER = 132,
 					},
 					ProtoFlag = {
 						LPF_NATIVE_MODULE = bit32.lshift(1, 0),
@@ -28515,6 +28544,50 @@ local RETURN_ELAPSED_TIME = false
 						[BF.LBF_VECTOR_CLAMP] = "vector.clamp",
 						[BF.LBF_VECTOR_MIN] = "vector.min",
 						[BF.LBF_VECTOR_MAX] = "vector.max",
+						[BF.LBF_MATH_LERP] = "math.lerp",
+						[BF.LBF_VECTOR_LERP] = "vector.lerp",
+						[BF.LBF_MATH_ISNAN] = "math.isnan",
+						[BF.LBF_MATH_ISINF] = "math.isinf",
+						[BF.LBF_MATH_ISFINITE] = "math.isfinite",
+						[BF.LBF_INTEGER_CREATE] = "integer.create",
+						[BF.LBF_INTEGER_TONUMBER] = "integer.tonumber",
+						[BF.LBF_INTEGER_NEG] = "integer.neg",
+						[BF.LBF_INTEGER_ADD] = "integer.add",
+						[BF.LBF_INTEGER_SUB] = "integer.sub",
+						[BF.LBF_INTEGER_MUL] = "integer.mul",
+						[BF.LBF_INTEGER_DIV] = "integer.div",
+						[BF.LBF_INTEGER_MIN] = "integer.min",
+						[BF.LBF_INTEGER_MAX] = "integer.max",
+						[BF.LBF_INTEGER_REM] = "integer.rem",
+						[BF.LBF_INTEGER_IDIV] = "integer.idiv",
+						[BF.LBF_INTEGER_UDIV] = "integer.udiv",
+						[BF.LBF_INTEGER_UREM] = "integer.urem",
+						[BF.LBF_INTEGER_MOD] = "integer.mod",
+						[BF.LBF_INTEGER_CLAMP] = "integer.clamp",
+						[BF.LBF_INTEGER_BAND] = "integer.band",
+						[BF.LBF_INTEGER_BOR] = "integer.bor",
+						[BF.LBF_INTEGER_BNOT] = "integer.bnot",
+						[BF.LBF_INTEGER_BXOR] = "integer.bxor",
+						[BF.LBF_INTEGER_LT] = "integer.lt",
+						[BF.LBF_INTEGER_LE] = "integer.le",
+						[BF.LBF_INTEGER_ULT] = "integer.ult",
+						[BF.LBF_INTEGER_ULE] = "integer.ule",
+						[BF.LBF_INTEGER_GT] = "integer.gt",
+						[BF.LBF_INTEGER_GE] = "integer.ge",
+						[BF.LBF_INTEGER_UGT] = "integer.ugt",
+						[BF.LBF_INTEGER_UGE] = "integer.uge",
+						[BF.LBF_INTEGER_LSHIFT] = "integer.lshift",
+						[BF.LBF_INTEGER_RSHIFT] = "integer.rshift",
+						[BF.LBF_INTEGER_ARSHIFT] = "integer.arshift",
+						[BF.LBF_INTEGER_LROTATE] = "integer.lrotate",
+						[BF.LBF_INTEGER_RROTATE] = "integer.rrotate",
+						[BF.LBF_INTEGER_EXTRACT] = "integer.extract",
+						[BF.LBF_INTEGER_BTEST] = "integer.btest",
+						[BF.LBF_INTEGER_COUNTRZ] = "integer.countrz",
+						[BF.LBF_INTEGER_COUNTLZ] = "integer.countlz",
+						[BF.LBF_INTEGER_BSWAP] = "integer.bswap",
+						[BF.LBF_BUFFER_READINTEGER] = "buffer.readinteger",
+						[BF.LBF_BUFFER_WRITEINTEGER] = "buffer.writeinteger",
 					}
 					return map[bfid] or ("builtin#" .. tostring(bfid))
 				end
@@ -28710,9 +28783,8 @@ local RETURN_ELAPSED_TIME = false
 											end
 										else
 											local blob = reader:nextBytes(allTypeInfoSize)
-											-- guard: only strip the 2-byte header if the blob is large enough
-											if #blob >= 1 then table.remove(blob, 1) end
-											if #blob >= 1 then table.remove(blob, 1) end
+											table.remove(blob, 1)
+											table.remove(blob, 1)
 											resultTypedParams = blob
 										end
 									end
@@ -28800,62 +28872,58 @@ local RETURN_ELAPSED_TIME = false
 								proto.name = stringTable[nameId]
 								local hasLineInfo = toBoolean(reader:nextByte())
 								proto.hasLineInfo = hasLineInfo
-								if hasLineInfo and proto.sizeInstructions > 0 then
-									pcall(function()
-										local lgap = reader:nextByte()
-										local baselineSize = bit32.rshift(proto.sizeInstructions - 1, lgap) + 1
-										local smallLineInfo, absLineInfo = {}, {}
-										local lastOffset, lastLine = 0, 0
-										for j = 1, proto.sizeInstructions do
-											local b = reader:nextSignedByte()
-											lastOffset += b
-											smallLineInfo[j] = lastOffset
-										end
-										for j = 1, baselineSize do
-											local lc = lastLine + reader:nextInt32()
-											absLineInfo[j - 1] = lc
-											lastLine = lc
-										end
-										local resultLineInfo = {}
-										for j, line in ipairs(smallLineInfo) do
-											local absIdx = bit32.rshift(j - 1, lgap)
-											local absLine = absLineInfo[absIdx]
-											local rl = line + absLine
-											if lgap <= 1 and (-line == absLine) then
-												rl += absLineInfo[absIdx + 1] or 0
-											end
-											if rl <= 0 then
-												rl += 0x100
-											end
-											resultLineInfo[j] = rl
-										end
-										proto.lineInfoSize = lgap
-										proto.instructionLineInfo = resultLineInfo
-									end)
-								end
-								pcall(function()
-									local hasDebugInfo = toBoolean(reader:nextByte())
-									proto.hasDebugInfo = hasDebugInfo
-									if hasDebugInfo then
-										local totalLocals = reader:nextVarInt()
-										local debugLocals = {}
-										for j = 1, totalLocals do
-											debugLocals[j] = {
-												name = stringTable[reader:nextVarInt()],
-												startPC = reader:nextVarInt(),
-												endPC = reader:nextVarInt(),
-												register = reader:nextByte(),
-											}
-										end
-										proto.debugLocals = debugLocals
-										local totalUpvals = reader:nextVarInt()
-										local debugUpvalues = {}
-										for j = 1, totalUpvals do
-											debugUpvalues[j] = { name = stringTable[reader:nextVarInt()] }
-										end
-										proto.debugUpvalues = debugUpvalues
+								if hasLineInfo then
+									local lgap = reader:nextByte()
+									local baselineSize = bit32.rshift(proto.sizeInstructions - 1, lgap) + 1
+									local smallLineInfo, absLineInfo = {}, {}
+									local lastOffset, lastLine = 0, 0
+									for j = 1, proto.sizeInstructions do
+										local b = reader:nextSignedByte()
+										lastOffset += b
+										smallLineInfo[j] = lastOffset
 									end
-								end)
+									for j = 1, baselineSize do
+										local lc = lastLine + reader:nextInt32()
+										absLineInfo[j - 1] = lc
+										lastLine = lc
+									end
+									local resultLineInfo = {}
+									for j, line in ipairs(smallLineInfo) do
+										local absIdx = bit32.rshift(j - 1, lgap)
+										local absLine = absLineInfo[absIdx]
+										local rl = line + absLine
+										if lgap <= 1 and (-line == absLine) then
+											rl += absLineInfo[absIdx + 1] or 0
+										end
+										if rl <= 0 then
+											rl += 0x100
+										end
+										resultLineInfo[j] = rl
+									end
+									proto.lineInfoSize = lgap
+									proto.instructionLineInfo = resultLineInfo
+								end
+								local hasDebugInfo = toBoolean(reader:nextByte())
+								proto.hasDebugInfo = hasDebugInfo
+								if hasDebugInfo then
+									local totalLocals = reader:nextVarInt()
+									local debugLocals = {}
+									for j = 1, totalLocals do
+										debugLocals[j] = {
+											name = stringTable[reader:nextVarInt()],
+											startPC = reader:nextVarInt(),
+											endPC = reader:nextVarInt(),
+											register = reader:nextByte(),
+										}
+									end
+									proto.debugLocals = debugLocals
+									local totalUpvals = reader:nextVarInt()
+									local debugUpvalues = {}
+									for j = 1, totalUpvals do
+										debugUpvalues[j] = { name = stringTable[reader:nextVarInt()] }
+									end
+									proto.debugUpvalues = debugUpvalues
+								end
 							end
 						end
 						readStringTable()
@@ -29122,6 +29190,12 @@ local RETURN_ELAPSED_TIME = false
 										reg(oci, { A, B }, { C, aux })
 									elseif opn == "NAMECALLUDATA" then
 										reg(oci, { A, B }, { C, aux }, st)
+									elseif opn == "NEWCLASSMEMBER" then
+										reg(oci, { A, C }, { aux })
+									elseif opn == "CALLFB" then
+										reg(oci, { A }, { B, C, aux })
+									elseif opn == "CMPPROTO" then
+										reg(oci, { A }, { sD, aux })
 									elseif opn == "FASTCALL" then
 										reg(oci, {}, { A, C }, st)
 									elseif opn == "FASTCALL1" then
@@ -29819,6 +29893,53 @@ local RETURN_ELAPSED_TIME = false
 									elseif opn == "NAMECALLUDATA" then
 										local method = tostring(consts[ed[2] + 1] and consts[ed[2] + 1].value or "")
 										emit(ind() .. "-- :" .. method .. " (udata)")
+									elseif opn == "NEWCLASSMEMBER" then
+										local name = consts[(ed[1] or 0) + 1] and consts[(ed[1] or 0) + 1].value or "?"
+										emit(ind() .. R(ur[1]) .. "." .. tostring(name) .. " = " .. R(ur[2]))
+									elseif opn == "CALLFB" then
+										-- CALLFB is like CALL but with a feedback slot; render identically to CALL
+										local baseR = ur[1]
+										local nArgs = (ed[1] or 1) - 1
+										local nRes = (ed[2] or 1) - 1
+										local callBody = ""
+										if nRes == -1 then
+											callBody = "... = "
+										elseif nRes > 0 then
+											local rb = ""
+											for k = 1, nRes do
+												rb ..= R(baseR + k - 1)
+												if k ~= nRes then
+													rb ..= ", "
+												end
+											end
+											callBody = rb .. " = "
+										end
+										callBody ..= R(baseR) .. "("
+										if nArgs == -1 then
+											callBody ..= "..."
+										elseif nArgs > 0 then
+											local ab = ""
+											for k = 1, nArgs do
+												ab ..= R(baseR + k)
+												if k ~= nArgs then
+													ab ..= ", "
+												end
+											end
+											callBody ..= ab
+										end
+										callBody ..= ")"
+										emit(ind() .. callBody)
+									elseif opn == "CMPPROTO" then
+										local ei = i + (ed[1] or 0)
+										makeJump(ei)
+										emit(
+											"if not proto_match("
+												.. R(ur[1])
+												.. ", proto#"
+												.. tostring(ed[2] or "?")
+												.. ") then -- goto #"
+												.. ei
+										)
 									elseif opn == "FASTCALL" then
 										emit("-- FASTCALL; " .. Luau:GetBuiltinInfo(ed[1]) .. "()")
 									elseif opn == "FASTCALL1" then
@@ -29912,8 +30033,10 @@ local RETURN_ELAPSED_TIME = false
 					[4] = "import",
 					[5] = "table",
 					[6] = "closure",
-					[7] = "number(f32)",
-					[8] = "number(i16)",
+					[7] = "vector",
+					[8] = "table_with_constants",
+					[9] = "integer",
+					[10] = "class_shape",
 				}
 				local function parseProto(p, stringTable, depth, bytecodeVer)
 					local result = {
@@ -30664,7 +30787,6 @@ local RETURN_ELAPSED_TIME = false
 				getgenv()._ZUK_PRETTYPRINT = _ppImpl
 				getgenv()._ZUK_CLEANOUTPUT = _coImpl
 			end)
-
 			local ScriptViewer = {}
 			local window, codeFrame
 
@@ -36653,8 +36775,7 @@ local RETURN_ELAPSED_TIME = false
 						end
 
 						newRemote(
-							(data.remote:IsA("RemoteFunction") or data.remote:IsA("BindableFunction"))
-									and "function"
+							(data.remote:IsA("RemoteFunction") or data.remote:IsA("BindableFunction")) and "function"
 								or "event",
 							data
 						)
