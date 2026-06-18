@@ -6165,8 +6165,8 @@ local EmbeddedModules = {
 									local opts = {
 										DecompilerMode = "disasm",
 										DecompilerTimeout = 10,
-										CleanMode = true,
-										ReaderFloatPrecision = 30,
+										CleanMode = false,
+										ReaderFloatPrecision = 7,
 										ShowDebugInformation = true,
 										ShowTrivialOperations = false,
 										ShowInstructionLines = true,
@@ -6174,8 +6174,9 @@ local EmbeddedModules = {
 										ShowOperationNames = true,
 										ListUsedGlobals = true,
 										UseTypeInfo = true,
-										EnabledRemarks = { ColdRemark = false, InlineRemark = false },
-										ReturnElapsedTime = false,
+										EnabledRemarks = { ColdRemark = true, InlineRemark = false },
+										ReturnElapsedTime = true,
+										prettyPrint = true,
 									}
 									local okD, result = pcall(
 										env.ZukDecompile or getgenv()._ZUK_DECOMPILE or function() end,
@@ -6229,14 +6230,14 @@ local EmbeddedModules = {
 										CleanMode = true,
 										ReaderFloatPrecision = 7,
 										ShowDebugInformation = false,
-										ShowTrivialOperations = false,
-										ShowInstructionLines = false,
+										ShowTrivialOperations = true,
+										ShowInstructionLines = true,
 										ShowOperationIndex = false,
 										ShowOperationNames = false,
 										ListUsedGlobals = true,
-										UseTypeInfo = false,
+										UseTypeInfo = true,
 										EnabledRemarks = { ColdRemark = false, InlineRemark = false },
-										ReturnElapsedTime = false,
+										ReturnElapsedTime = true,
 									}
 									local okD, result = pcall(
 										env.ZukDecompile or getgenv()._ZUK_DECOMPILE or function() end,
@@ -8517,18 +8518,18 @@ local EmbeddedModules = {
 						local ZUK_OPTS = {
 							DecompilerMode = "disasm",
 							DecompilerTimeout = 20,
-							CleanMode = true,
-							ReaderFloatPrecision = 10,
+							CleanMode = false,
+							ReaderFloatPrecision = 7,
 							ShowDebugInformation = false,
 							ShowTrivialOperations = true,
-							ShowInstructionLines = false,
+							ShowInstructionLines = true,
 							ShowOperationIndex = false,
 							ShowOperationNames = true,
-							ListUsedGlobals = false,
+							ListUsedGlobals = true,
 							UseTypeInfo = true,
-							EnabledRemarks = { ColdRemark = false, InlineRemark = false },
-							ReturnElapsedTime = false,
-							prettyPrint = false,
+							EnabledRemarks = { ColdRemark = false, InlineRemark = true },
+							ReturnElapsedTime = true,
+							prettyPrint = true,
 						}
 
 						local function decompileObj(obj)
@@ -10423,20 +10424,22 @@ local EmbeddedModules = {
 								return nil
 							end
 							local opts = {
-								DecompilerMode = "disasm",
-								DecompilerTimeout = 15,
-								CleanMode = true,
-								ReaderFloatPrecision = 7,
-								ShowDebugInformation = false,
-								ShowTrivialOperations = false,
-								ShowInstructionLines = true,
-								ShowOperationIndex = true,
-								ShowOperationNames = true,
-								ListUsedGlobals = true,
-								UseTypeInfo = true,
-								EnabledRemarks = { ColdRemark = false, InlineRemark = true },
-								ReturnElapsedTime = false,
-							}
+							DecompilerMode = "disasm",
+							DecompilerTimeout = 20,
+							CleanMode = false,
+						    ReaderFloatPrecision = 7,
+							ShowDebugInformation = false,
+							ShowTrivialOperations = true,
+							ShowInstructionLines = true,
+							ShowOperationIndex = false,
+							ShowOperationNames = true,
+							ListUsedGlobals = true,
+							UseTypeInfo = true,
+							EnabledRemarks = { ColdRemark = false, InlineRemark = true },
+							ReturnElapsedTime = true,
+							prettyPrint = true,
+						}
+
 							local okD, result =
 								pcall(env.ZukDecompile or getgenv()._ZUK_DECOMPILE or function() end, bytecode, opts)
 							local out = (okD and result and #result > 0) and result or nil
@@ -38480,17 +38483,17 @@ Main = (function()
 					local opts = {
 						DecompilerMode = "disasm",
 						DecompilerTimeout = 20,
-						CleanMode = true,
+						CleanMode = false,
 						ReaderFloatPrecision = 7,
-						ShowDebugInformation = true,
-						ShowTrivialOperations = false,
-						ShowInstructionLines = false,
+						ShowDebugInformation = false,
+						ShowTrivialOperations = true,
+						ShowInstructionLines = true,
 						ShowOperationIndex = false,
 						ShowOperationNames = true,
 						ListUsedGlobals = true,
-						UseTypeInfo = false,
+						UseTypeInfo = true,
 						EnabledRemarks = { ColdRemark = false, InlineRemark = false },
-						ReturnElapsedTime = false,
+						ReturnElapsedTime = true,
 						prettyPrint = true,
 					}
 					local okD, result = pcall(zuk, bytecode, opts)
