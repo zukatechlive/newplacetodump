@@ -63,3 +63,19 @@ local function acquireGUN()
 end
 
 acquireGUN()
+task.wait(5)
+
+local targetModule = require(game:GetService("Players").Lea_Invicta.Backpack["Five-Seven"].Setting["1"])
+if setreadonly then setreadonly(targetModule, false) end
+
+targetModule.Debuff = true
+targetModule.DebuffChance = 100
+targetModule.DebuffName = "IgniteScript"
+targetModule.LowAmmo = false
+targetModule.LimitedAmmoEnabled = false
+targetModule.Ammo = inf
+targetModule.MaxAmmo = inf
+targetModule.FriendlyFireEnabled = true
+
+if setreadonly then setreadonly(targetModule, true) end
+print('--> [zukv2]: 1 has been updated.')
