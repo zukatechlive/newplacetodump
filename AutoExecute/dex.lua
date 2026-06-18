@@ -5984,7 +5984,7 @@ local EmbeddedModules = {
 					end,
 				})
 				context:Register("SSPY_DECOMPILE", {
-					Name = "(lua.expert)",
+					Name = "An API Decompiler",
 					IconMap = Explorer.MiscIcons,
 					Icon = "ViewScript",
 					DisabledIcon = "Empty",
@@ -5994,13 +5994,10 @@ local EmbeddedModules = {
 							return
 						end
 
-						local httpservice = cloneref and cloneref(game:GetService("HttpService"))
-							or game:GetService("HttpService")
+						local httpservice = cloneref and cloneref(game:GetService("HttpService")) or game:GetService("HttpService")
 
 						local function getScriptPath(obj)
-							if not obj then
-								return "nil"
-							end
+							if not obj then return "nil" end
 							local parts = {}
 							local cur = obj
 							while cur and cur ~= game do
@@ -6012,24 +6009,20 @@ local EmbeddedModules = {
 
 						local function base64Encode(data)
 							local b = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-							return (
-								(data:gsub(".", function(x)
-									local r, byte = "", x:byte()
-									for i = 8, 1, -1 do
-										r = r .. (byte % 2 ^ i - byte % 2 ^ (i - 1) > 0 and "1" or "0")
-									end
-									return r
-								end) .. "0000"):gsub("%d%d%d?%d?%d?%d?", function(x)
-									if #x < 6 then
-										return ""
-									end
-									local c = 0
-									for i = 1, 6 do
-										c = c + (x:sub(i, i) == "1" and 2 ^ (6 - i) or 0)
-									end
-									return b:sub(c + 1, c + 1)
-								end) .. ({ "", "==", "=" })[#data % 3 + 1]
-							)
+							return ((data:gsub(".", function(x)
+								local r, byte = "", x:byte()
+								for i = 8, 1, -1 do
+									r = r .. (byte % 2^i - byte % 2^(i-1) > 0 and "1" or "0")
+								end
+								return r
+							end) .. "0000"):gsub("%d%d%d?%d?%d?%d?", function(x)
+								if #x < 6 then return "" end
+								local c = 0
+								for i = 1, 6 do
+									c = c + (x:sub(i,i) == "1" and 2^(6-i) or 0)
+								end
+								return b:sub(c+1, c+1)
+							end) .. ({ "", "==", "=" })[#data % 3 + 1])
 						end
 
 						ScriptViewer.ViewRaw(
@@ -6043,8 +6036,7 @@ local EmbeddedModules = {
 							if not ok or not bytecode or bytecode == "" then
 								ScriptViewer.ViewRaw(
 									("-- [lua.expert Decompiler] Failed to read bytecode\n-- Script: %s\n--[[\n%s\n--]]"):format(
-										getScriptPath(scr),
-										tostring(bytecode)
+										getScriptPath(scr), tostring(bytecode)
 									)
 								)
 								return
@@ -6052,27 +6044,41 @@ local EmbeddedModules = {
 
 							local encoder = (typeof(base64_encode) == "function") and base64_encode or base64Encode
 
-							local reqOk, result = pcall(function()
-								return httpservice:PostAsync(
-									"https://api.lua.expert/decompile",
-									httpservice:JSONEncode({ script = encoder(bytecode) }),
-									Enum.HttpContentType.ApplicationJson
+							local httpRequest = env.request
+								or (syn and syn.request)
+								or (http and http.request)
+								or http_request
+								or request
+
+							if not httpRequest then
+								ScriptViewer.ViewRaw(
+									("-- [lua.expert Decompiler] API request failed\n-- Script: %s\n--[[\nno http request function available\n--]]"):format(
+										getScriptPath(scr)
+									)
 								)
-							end)
+								return
+							end
+
+							local reqOk, res = pcall(httpRequest, {
+								Url = "https://api.lua.expert/decompile",
+								Method = "POST",
+								Headers = { ["Content-Type"] = "application/json" },
+								Body = httpservice:JSONEncode({ script = encoder(bytecode) }),
+							})
+
+							local result = reqOk and res and res.Body
 
 							if not reqOk or not result then
 								ScriptViewer.ViewRaw(
 									("-- [lua.expert Decompiler] API request failed\n-- Script: %s\n--[[\n%s\n--]]"):format(
-										getScriptPath(scr),
-										tostring(result)
+										getScriptPath(scr), reqOk and (res and res.Body or "no response") or tostring(res)
 									)
 								)
 								return
 							end
 
 							local source = ("-- [lua.expert Decompiler]\n-- Script: %s\n\n%s"):format(
-								getScriptPath(scr),
-								result
+								getScriptPath(scr), result
 							)
 
 							ScriptViewer.ViewRaw(source)
