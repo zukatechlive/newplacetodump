@@ -1,70 +1,72 @@
---[[
-	GUI Creator v3 — ZukaTech
-	Sharp HUD-style visual GUI builder + live-instance editor.
-	Maker mode: drag/resize/build a ScreenGui from scratch, export to code.
-	Live mode: walk and edit any existing ScreenGui (yours or another script's) in-place.
-]]
-
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 
--- ============================================================
--- CONSTANTS
--- ============================================================
-
 local FONTS = {
-	"Code", "RobotoMono", "Inconsolata",
-	"Gotham", "GothamBold", "GothamBlack", "GothamMedium",
-	"Arial", "ArialBold",
-	"SourceSans", "SourceSansBold", "SourceSansItalic", "SourceSansSemibold",
-	"Ubuntu", "UbuntuBold", "UbuntuItalic",
-	"Merriweather", "MerriweatherBold", "MerriweatherItalic",
-	"FredokaOne", "Cartoon", "Fantasy", "TitilliumWeb", "Oswald", "Nunito",
+	"Code",
+	"RobotoMono",
+	"Inconsolata",
+	"Gotham",
+	"GothamBold",
+	"GothamBlack",
+	"GothamMedium",
+	"Arial",
+	"ArialBold",
+	"SourceSans",
+	"SourceSansBold",
+	"SourceSansItalic",
+	"SourceSansSemibold",
+	"Ubuntu",
+	"UbuntuBold",
+	"UbuntuItalic",
+	"Merriweather",
+	"MerriweatherBold",
+	"MerriweatherItalic",
+	"FredokaOne",
+	"Cartoon",
+	"Fantasy",
+	"TitilliumWeb",
+	"Oswald",
+	"Nunito",
 }
 local HALIGN = { "Left", "Center", "Right" }
 local VALIGN = { "Top", "Center", "Bottom" }
 local SCALETYPES = { "Fit", "Crop", "Stretch", "Tile", "Slice" }
 
 local ELEM_TYPES = {
-	{ Name = "Frame",          Tag = "FRM" },
-	{ Name = "TextLabel",      Tag = "LBL" },
-	{ Name = "TextButton",     Tag = "BTN" },
-	{ Name = "TextBox",        Tag = "BOX" },
-	{ Name = "ImageLabel",     Tag = "IMG" },
-	{ Name = "ImageButton",    Tag = "IMB" },
+	{ Name = "Frame", Tag = "FRM" },
+	{ Name = "TextLabel", Tag = "LBL" },
+	{ Name = "TextButton", Tag = "BTN" },
+	{ Name = "TextBox", Tag = "BOX" },
+	{ Name = "ImageLabel", Tag = "IMG" },
+	{ Name = "ImageButton", Tag = "IMB" },
 	{ Name = "ScrollingFrame", Tag = "SCR" },
-	{ Name = "UIListLayout",   Tag = "LST" },
-	{ Name = "UIPadding",      Tag = "PAD" },
+	{ Name = "UIListLayout", Tag = "LST" },
+	{ Name = "UIPadding", Tag = "PAD" },
 }
 
--- Sharp HUD palette. Single accent: hot pink. No rounding, no glow strokes.
 local C = {
-	BG        = Color3.fromRGB(8, 8, 11),
-	PANEL     = Color3.fromRGB(13, 13, 17),
-	PANEL2    = Color3.fromRGB(17, 17, 22),
-	ROW       = Color3.fromRGB(20, 20, 26),
+	BG = Color3.fromRGB(8, 8, 11),
+	PANEL = Color3.fromRGB(13, 13, 17),
+	PANEL2 = Color3.fromRGB(17, 17, 22),
+	ROW = Color3.fromRGB(20, 20, 26),
 	ROW_HOVER = Color3.fromRGB(26, 26, 33),
-	ROW_SEL   = Color3.fromRGB(40, 15, 28),
-	INPUT     = Color3.fromRGB(11, 11, 14),
-	BORDER    = Color3.fromRGB(38, 38, 46),
-	ACCENT     = Color3.fromRGB(255, 80, 160), -- #FF50A0
+	ROW_SEL = Color3.fromRGB(40, 15, 28),
+	INPUT = Color3.fromRGB(11, 11, 14),
+	BORDER = Color3.fromRGB(38, 38, 46),
+	ACCENT = Color3.fromRGB(255, 80, 160),
 	ACCENT_DIM = Color3.fromRGB(140, 50, 92),
-	OK        = Color3.fromRGB(80, 220, 140),
-	LIVE      = Color3.fromRGB(255, 80, 160),
-	DANGER    = Color3.fromRGB(255, 70, 90),
-	TEXT      = Color3.fromRGB(214, 214, 222),
-	MUTED     = Color3.fromRGB(120, 120, 132),
-	WHITE     = Color3.new(1, 1, 1),
+	OK = Color3.fromRGB(80, 220, 140),
+	LIVE = Color3.fromRGB(255, 80, 160),
+	DANGER = Color3.fromRGB(255, 70, 90),
+	TEXT = Color3.fromRGB(214, 214, 222),
+	MUTED = Color3.fromRGB(120, 120, 132),
+	WHITE = Color3.new(1, 1, 1),
 	CANVAS_BG = Color3.fromRGB(11, 11, 15),
-	WS_BG     = Color3.fromRGB(15, 15, 19),
+	WS_BG = Color3.fromRGB(15, 15, 19),
 }
-
--- ============================================================
--- HELPERS
--- ============================================================
 
 local function hexToColor(h)
 	h = h:gsub("^#", "")
@@ -90,7 +92,6 @@ local function colorToHex(c)
 	return string.format("#%02X%02X%02X", math.round(c.R * 255), math.round(c.G * 255), math.round(c.B * 255))
 end
 
--- Flat 1px border. No UICorner, no UIStroke glow/thickness games.
 local function border(obj, color, thick)
 	local s = Instance.new("UIStroke")
 	s.Color = color or C.BORDER
@@ -112,7 +113,6 @@ local function label(parent, text, size, color, font)
 	return l
 end
 
--- Instant state snap. No tweens, no easing — sharp on/off feel.
 local function snapState(obj, props)
 	for k, v in pairs(props) do
 		obj[k] = v
@@ -135,10 +135,6 @@ local function isStructural(inst)
 		or inst:IsA("UIGradient")
 end
 
--- ============================================================
--- CORE STATE
--- ============================================================
-
 local GC = {
 	State = {
 		Mode = "maker",
@@ -156,7 +152,7 @@ local GC = {
 		LiveTarget = nil,
 		LiveNodes = {},
 		LiveSelected = nil,
-		LiveSelectedWatch = nil, -- AncestryChanged connection guarding current live selection
+		LiveSelectedWatch = nil,
 		CodePreviewOpen = false,
 	},
 	Config = {
@@ -212,7 +208,6 @@ function GC:GetData(element)
 	end
 end
 
--- Flat HUD button: square corners, 1px border, instant hover snap (no tween).
 function GC:MakeBtn(text, color, parent, w, h)
 	local btn = Instance.new("TextButton")
 	btn.Size = UDim2.fromOffset(w or 110, h or 26)
@@ -319,10 +314,6 @@ function GC:_bindKeyboard()
 	table.insert(self.State.Connections, conn)
 end
 
--- ============================================================
--- MAKER MODE — TOOLBOX / ELEMENT CREATION
--- ============================================================
-
 function GC:PopulateToolbox(parent)
 	for _, et in ipairs(ELEM_TYPES) do
 		local btn = Instance.new("TextButton")
@@ -398,7 +389,6 @@ function GC:CreateElement(etype, snapshot)
 		element.PaddingLeft = UDim.new(0, 8)
 		element.PaddingRight = UDim.new(0, 8)
 	end
-	-- No UICorner injected: sharp-corner aesthetic by default for built elements.
 	if not isStruct then
 		border(element, C.BORDER, 1)
 	end
@@ -469,10 +459,6 @@ function GC:DuplicateElement(element)
 	self:CreateElement(data.Type, snap)
 end
 
--- ============================================================
--- MAKER MODE — DRAG / RESIZE / SELECT / DELETE
--- ============================================================
-
 function GC:MakeElementInteractive(element, data)
 	local canvasPanel = self.UI.Canvas
 	local selBox = Instance.new("Frame")
@@ -498,14 +484,14 @@ function GC:MakeElementInteractive(element, data)
 	end
 
 	local HANDLES = {
-		{ n = "NW", ax = 0,   ay = 0,   cx = true,  cy = true  },
-		{ n = "N",  ax = 0.5, ay = 0,   cx = false, cy = true  },
-		{ n = "NE", ax = 1,   ay = 0,   cx = true,  cy = true  },
-		{ n = "W",  ax = 0,   ay = 0.5, cx = true,  cy = false },
-		{ n = "E",  ax = 1,   ay = 0.5, cx = true,  cy = false },
-		{ n = "SW", ax = 0,   ay = 1,   cx = true,  cy = true  },
-		{ n = "S",  ax = 0.5, ay = 1,   cx = false, cy = true  },
-		{ n = "SE", ax = 1,   ay = 1,   cx = true,  cy = true  },
+		{ n = "NW", ax = 0, ay = 0, cx = true, cy = true },
+		{ n = "N", ax = 0.5, ay = 0, cx = false, cy = true },
+		{ n = "NE", ax = 1, ay = 0, cx = true, cy = true },
+		{ n = "W", ax = 0, ay = 0.5, cx = true, cy = false },
+		{ n = "E", ax = 1, ay = 0.5, cx = true, cy = false },
+		{ n = "SW", ax = 0, ay = 1, cx = true, cy = true },
+		{ n = "S", ax = 0.5, ay = 1, cx = false, cy = true },
+		{ n = "SE", ax = 1, ay = 1, cx = true, cy = true },
 	}
 	local hInst = {}
 	for _, hd in ipairs(HANDLES) do
@@ -798,10 +784,6 @@ function GC:RefreshHierarchy()
 	end
 end
 
--- ============================================================
--- MAKER MODE — PROPERTIES PANEL
--- ============================================================
-
 function GC:UpdatePropertiesPanel(element)
 	local panel = self.State.PropertyPanel
 	if not panel then
@@ -848,7 +830,9 @@ function GC:UpdatePropertiesPanel(element)
 		end)
 		inp.FocusLost:Connect(function()
 			for _, s in ipairs(inp:GetChildren()) do
-				if s:IsA("UIStroke") then s:Destroy() end
+				if s:IsA("UIStroke") then
+					s:Destroy()
+				end
 			end
 			border(inp, C.BORDER, 1)
 			onChange(inp.Text)
@@ -953,8 +937,12 @@ function GC:UpdatePropertiesPanel(element)
 		local old = element.Name
 		element.Name = v
 		self:PushUndo({
-			Do = function() element.Name = v end,
-			Undo = function() element.Name = old end,
+			Do = function()
+				element.Name = v
+			end,
+			Undo = function()
+				element.Name = old
+			end,
 		})
 		self:RefreshHierarchy()
 	end)
@@ -963,27 +951,39 @@ function GC:UpdatePropertiesPanel(element)
 	if not isStruct then
 		prop("Size X", element.Size.X.Offset, function(v)
 			element.Size = UDim2.fromOffset(tonumber(v) or 200, element.Size.Y.Offset)
-			if data then data.SyncSelBox() end
+			if data then
+				data.SyncSelBox()
+			end
 		end)
 		prop("Size Y", element.Size.Y.Offset, function(v)
 			element.Size = UDim2.fromOffset(element.Size.X.Offset, tonumber(v) or 100)
-			if data then data.SyncSelBox() end
+			if data then
+				data.SyncSelBox()
+			end
 		end)
 		prop("Pos X", element.Position.X.Offset, function(v)
 			element.Position = UDim2.fromOffset(tonumber(v) or 0, element.Position.Y.Offset)
-			if data then data.SyncSelBox() end
+			if data then
+				data.SyncSelBox()
+			end
 		end)
 		prop("Pos Y", element.Position.Y.Offset, function(v)
 			element.Position = UDim2.fromOffset(element.Position.X.Offset, tonumber(v) or 0)
-			if data then data.SyncSelBox() end
+			if data then
+				data.SyncSelBox()
+			end
 		end)
 		prop("ZIndex", element.ZIndex, function(v)
 			local old = element.ZIndex
 			local nz = math.max(1, tonumber(v) or 1)
 			element.ZIndex = nz
 			self:PushUndo({
-				Do = function() element.ZIndex = nz end,
-				Undo = function() element.ZIndex = old end,
+				Do = function()
+					element.ZIndex = nz
+				end,
+				Undo = function()
+					element.ZIndex = old
+				end,
 			})
 			self:RefreshHierarchy()
 		end)
@@ -995,11 +995,15 @@ function GC:UpdatePropertiesPanel(element)
 		end)
 		prop("AnchorPoint X", element.AnchorPoint.X, function(v)
 			element.AnchorPoint = Vector2.new(math.clamp(tonumber(v) or 0, 0, 1), element.AnchorPoint.Y)
-			if data then data.SyncSelBox() end
+			if data then
+				data.SyncSelBox()
+			end
 		end)
 		prop("AnchorPoint Y", element.AnchorPoint.Y, function(v)
 			element.AnchorPoint = Vector2.new(element.AnchorPoint.X, math.clamp(tonumber(v) or 0, 0, 1))
-			if data then data.SyncSelBox() end
+			if data then
+				data.SyncSelBox()
+			end
 		end)
 		colorProp("BG Color", element.BackgroundColor3, function(c)
 			element.BackgroundColor3 = c
@@ -1013,37 +1017,61 @@ function GC:UpdatePropertiesPanel(element)
 	end
 
 	if element:IsA("TextLabel") or element:IsA("TextButton") or element:IsA("TextBox") then
-		prop("Text", element.Text, function(v) element.Text = v end)
-		prop("Text Size", element.TextSize, function(v) element.TextSize = tonumber(v) or 14 end)
-		colorProp("Text Color", element.TextColor3, function(c) element.TextColor3 = c end)
+		prop("Text", element.Text, function(v)
+			element.Text = v
+		end)
+		prop("Text Size", element.TextSize, function(v)
+			element.TextSize = tonumber(v) or 14
+		end)
+		colorProp("Text Color", element.TextColor3, function(c)
+			element.TextColor3 = c
+		end)
 		prop("Text Transparency", element.TextTransparency, function(v)
 			element.TextTransparency = math.clamp(tonumber(v) or 0, 0, 1)
 		end)
-		toggleProp("Text Wrapped", element.TextWrapped, function(v) element.TextWrapped = v end)
-		toggleProp("Text Scaled", element.TextScaled, function(v) element.TextScaled = v end)
+		toggleProp("Text Wrapped", element.TextWrapped, function(v)
+			element.TextWrapped = v
+		end)
+		toggleProp("Text Scaled", element.TextScaled, function(v)
+			element.TextScaled = v
+		end)
 		local fontName = tostring(element.Font):gsub("Enum%.Font%.", "")
 		dropProp("Font", FONTS, fontName, function(v)
-			pcall(function() element.Font = Enum.Font[v] end)
+			pcall(function()
+				element.Font = Enum.Font[v]
+			end)
 		end)
 		dropProp("H Align", HALIGN, tostring(element.TextXAlignment):gsub("Enum%.TextXAlignment%.", ""), function(v)
-			pcall(function() element.TextXAlignment = Enum.TextXAlignment[v] end)
+			pcall(function()
+				element.TextXAlignment = Enum.TextXAlignment[v]
+			end)
 		end)
 		dropProp("V Align", VALIGN, tostring(element.TextYAlignment):gsub("Enum%.TextYAlignment%.", ""), function(v)
-			pcall(function() element.TextYAlignment = Enum.TextYAlignment[v] end)
+			pcall(function()
+				element.TextYAlignment = Enum.TextYAlignment[v]
+			end)
 		end)
 		if element:IsA("TextBox") then
-			prop("Placeholder", element.PlaceholderText, function(v) element.PlaceholderText = v end)
-			toggleProp("Clear On Focus", element.ClearTextOnFocus, function(v) element.ClearTextOnFocus = v end)
+			prop("Placeholder", element.PlaceholderText, function(v)
+				element.PlaceholderText = v
+			end)
+			toggleProp("Clear On Focus", element.ClearTextOnFocus, function(v)
+				element.ClearTextOnFocus = v
+			end)
 		end
 	end
 
 	if element:IsA("ImageLabel") or element:IsA("ImageButton") then
-		prop("Image ID", element.Image, function(v) element.Image = v end)
+		prop("Image ID", element.Image, function(v)
+			element.Image = v
+		end)
 		prop("Image Transparency", element.ImageTransparency, function(v)
 			element.ImageTransparency = math.clamp(tonumber(v) or 0, 0, 1)
 		end)
 		dropProp("Scale Type", SCALETYPES, tostring(element.ScaleType):gsub("Enum%.ScaleType%.", ""), function(v)
-			pcall(function() element.ScaleType = Enum.ScaleType[v] end)
+			pcall(function()
+				element.ScaleType = Enum.ScaleType[v]
+			end)
 		end)
 	end
 
@@ -1057,51 +1085,81 @@ function GC:UpdatePropertiesPanel(element)
 		prop("Scrollbar Thickness", element.ScrollBarThickness, function(v)
 			element.ScrollBarThickness = tonumber(v) or 6
 		end)
-		toggleProp("Scrolling Enabled", element.ScrollingEnabled, function(v) element.ScrollingEnabled = v end)
+		toggleProp("Scrolling Enabled", element.ScrollingEnabled, function(v)
+			element.ScrollingEnabled = v
+		end)
 	end
 
 	if element:IsA("UIListLayout") then
 		prop("Padding", element.Padding.Offset, function(v)
 			element.Padding = UDim.new(0, tonumber(v) or 4)
 		end)
-		dropProp("Fill Direction", { "Vertical", "Horizontal" },
-			tostring(element.FillDirection):gsub("Enum%.FillDirection%.", ""), function(v)
-				pcall(function() element.FillDirection = Enum.FillDirection[v] end)
-			end)
-		dropProp("H Align", { "Left", "Center", "Right" },
-			tostring(element.HorizontalAlignment):gsub("Enum%.HorizontalAlignment%.", ""), function(v)
-				pcall(function() element.HorizontalAlignment = Enum.HorizontalAlignment[v] end)
-			end)
-		dropProp("V Align", { "Top", "Center", "Bottom" },
-			tostring(element.VerticalAlignment):gsub("Enum%.VerticalAlignment%.", ""), function(v)
-				pcall(function() element.VerticalAlignment = Enum.VerticalAlignment[v] end)
-			end)
+		dropProp(
+			"Fill Direction",
+			{ "Vertical", "Horizontal" },
+			tostring(element.FillDirection):gsub("Enum%.FillDirection%.", ""),
+			function(v)
+				pcall(function()
+					element.FillDirection = Enum.FillDirection[v]
+				end)
+			end
+		)
+		dropProp(
+			"H Align",
+			{ "Left", "Center", "Right" },
+			tostring(element.HorizontalAlignment):gsub("Enum%.HorizontalAlignment%.", ""),
+			function(v)
+				pcall(function()
+					element.HorizontalAlignment = Enum.HorizontalAlignment[v]
+				end)
+			end
+		)
+		dropProp(
+			"V Align",
+			{ "Top", "Center", "Bottom" },
+			tostring(element.VerticalAlignment):gsub("Enum%.VerticalAlignment%.", ""),
+			function(v)
+				pcall(function()
+					element.VerticalAlignment = Enum.VerticalAlignment[v]
+				end)
+			end
+		)
 	end
 
 	if element:IsA("UIPadding") then
-		prop("Pad Top", element.PaddingTop.Offset, function(v) element.PaddingTop = UDim.new(0, tonumber(v) or 0) end)
-		prop("Pad Bottom", element.PaddingBottom.Offset, function(v) element.PaddingBottom = UDim.new(0, tonumber(v) or 0) end)
-		prop("Pad Left", element.PaddingLeft.Offset, function(v) element.PaddingLeft = UDim.new(0, tonumber(v) or 0) end)
-		prop("Pad Right", element.PaddingRight.Offset, function(v) element.PaddingRight = UDim.new(0, tonumber(v) or 0) end)
+		prop("Pad Top", element.PaddingTop.Offset, function(v)
+			element.PaddingTop = UDim.new(0, tonumber(v) or 0)
+		end)
+		prop("Pad Bottom", element.PaddingBottom.Offset, function(v)
+			element.PaddingBottom = UDim.new(0, tonumber(v) or 0)
+		end)
+		prop("Pad Left", element.PaddingLeft.Offset, function(v)
+			element.PaddingLeft = UDim.new(0, tonumber(v) or 0)
+		end)
+		prop("Pad Right", element.PaddingRight.Offset, function(v)
+			element.PaddingRight = UDim.new(0, tonumber(v) or 0)
+		end)
 	end
 
 	if not isStruct then
 		local dupBtn = self:MakeBtn("DUPLICATE  [CTRL+D]", C.ACCENT, panel, 0, 28)
 		dupBtn.Size = UDim2.new(1, -6, 0, 28)
-		dupBtn.MouseButton1Click:Connect(function() self:DuplicateElement(element) end)
+		dupBtn.MouseButton1Click:Connect(function()
+			self:DuplicateElement(element)
+		end)
 	end
 	local delBtn = self:MakeBtn("DELETE ELEMENT", C.DANGER, panel, 0, 28)
 	delBtn.Size = UDim2.new(1, -6, 0, 28)
-	delBtn.MouseButton1Click:Connect(function() self:DeleteElement(element) end)
+	delBtn.MouseButton1Click:Connect(function()
+		self:DeleteElement(element)
+	end)
 end
-
--- ============================================================
--- CODE EXPORT
--- ============================================================
 
 function GC:ExportCode()
 	local lines = {}
-	local w = function(s) table.insert(lines, s) end
+	local w = function(s)
+		table.insert(lines, s)
+	end
 	w("-- ============================================")
 	w("-- Generated by GUI Creator v3 (ZukaTech)")
 	w("-- Project: " .. self.State.CurrentProject.Name)
@@ -1130,13 +1188,15 @@ function GC:ExportCode()
 			w(string.format("%s.AnchorPoint = Vector2.new(%g, %g)", n, e.AnchorPoint.X, e.AnchorPoint.Y))
 			w(string.format("%s.Rotation = %g", n, e.Rotation))
 			w(string.format("%s.LayoutOrder = %d", n, e.LayoutOrder))
-			w(string.format(
-				"%s.BackgroundColor3 = Color3.fromRGB(%d, %d, %d)",
-				n,
-				math.round(e.BackgroundColor3.R * 255),
-				math.round(e.BackgroundColor3.G * 255),
-				math.round(e.BackgroundColor3.B * 255)
-			))
+			w(
+				string.format(
+					"%s.BackgroundColor3 = Color3.fromRGB(%d, %d, %d)",
+					n,
+					math.round(e.BackgroundColor3.R * 255),
+					math.round(e.BackgroundColor3.G * 255),
+					math.round(e.BackgroundColor3.B * 255)
+				)
+			)
 			w(string.format("%s.BackgroundTransparency = %g", n, e.BackgroundTransparency))
 			w(string.format("%s.BorderSizePixel = 0", n))
 			w(string.format("%s.ZIndex = %d", n, e.ZIndex))
@@ -1144,19 +1204,31 @@ function GC:ExportCode()
 		end
 		if e:IsA("TextLabel") or e:IsA("TextButton") or e:IsA("TextBox") then
 			w(string.format("%s.Text = '%s'", n, e.Text:gsub("'", "\\'")))
-			w(string.format(
-				"%s.TextColor3 = Color3.fromRGB(%d, %d, %d)",
-				n,
-				math.round(e.TextColor3.R * 255),
-				math.round(e.TextColor3.G * 255),
-				math.round(e.TextColor3.B * 255)
-			))
+			w(
+				string.format(
+					"%s.TextColor3 = Color3.fromRGB(%d, %d, %d)",
+					n,
+					math.round(e.TextColor3.R * 255),
+					math.round(e.TextColor3.G * 255),
+					math.round(e.TextColor3.B * 255)
+				)
+			)
 			w(string.format("%s.TextSize = %d", n, e.TextSize))
 			w(string.format("%s.Font = Enum.Font.%s", n, tostring(e.Font):gsub("Enum%.Font%.", "")))
-			w(string.format("%s.TextXAlignment = Enum.TextXAlignment.%s", n,
-				tostring(e.TextXAlignment):gsub("Enum%.TextXAlignment%.", "")))
-			w(string.format("%s.TextYAlignment = Enum.TextYAlignment.%s", n,
-				tostring(e.TextYAlignment):gsub("Enum%.TextYAlignment%.", "")))
+			w(
+				string.format(
+					"%s.TextXAlignment = Enum.TextXAlignment.%s",
+					n,
+					tostring(e.TextXAlignment):gsub("Enum%.TextXAlignment%.", "")
+				)
+			)
+			w(
+				string.format(
+					"%s.TextYAlignment = Enum.TextYAlignment.%s",
+					n,
+					tostring(e.TextYAlignment):gsub("Enum%.TextYAlignment%.", "")
+				)
+			)
 			w(string.format("%s.TextWrapped = %s", n, tostring(e.TextWrapped)))
 		end
 		if e:IsA("ImageLabel") or e:IsA("ImageButton") then
@@ -1165,13 +1237,25 @@ function GC:ExportCode()
 		end
 		if e:IsA("ScrollingFrame") then
 			w(string.format("%s.ScrollBarThickness = %d", n, e.ScrollBarThickness))
-			w(string.format("%s.CanvasSize = UDim2.fromOffset(%d, %d)", n, e.CanvasSize.X.Offset, e.CanvasSize.Y.Offset))
+			w(
+				string.format(
+					"%s.CanvasSize = UDim2.fromOffset(%d, %d)",
+					n,
+					e.CanvasSize.X.Offset,
+					e.CanvasSize.Y.Offset
+				)
+			)
 			w(string.format("%s.ScrollingEnabled = %s", n, tostring(e.ScrollingEnabled)))
 		end
 		if e:IsA("UIListLayout") then
 			w(string.format("%s.Padding = UDim.new(0, %d)", n, e.Padding.Offset))
-			w(string.format("%s.FillDirection = Enum.FillDirection.%s", n,
-				tostring(e.FillDirection):gsub("Enum%.FillDirection%.", "")))
+			w(
+				string.format(
+					"%s.FillDirection = Enum.FillDirection.%s",
+					n,
+					tostring(e.FillDirection):gsub("Enum%.FillDirection%.", "")
+				)
+			)
 			w(string.format("%s.SortOrder = Enum.SortOrder.LayoutOrder", n))
 		end
 		if e:IsA("UIPadding") then
@@ -1181,7 +1265,12 @@ function GC:ExportCode()
 			w(string.format("%s.PaddingRight  = UDim.new(0, %d)", n, e.PaddingRight.Offset))
 		end
 		if not data.IsStruct then
-			w(string.format("do local _s = Instance.new('UIStroke', %s); _s.Color = Color3.fromRGB(38,38,46); _s.Thickness = 1 end", n))
+			w(
+				string.format(
+					"do local _s = Instance.new('UIStroke', %s); _s.Color = Color3.fromRGB(38,38,46); _s.Thickness = 1 end",
+					n
+				)
+			)
 		end
 		w(string.format("%s.Parent = ScreenGui", n))
 		w("")
@@ -1221,7 +1310,9 @@ function GC:ShowCodePreview(code)
 	ttl.Position = UDim2.fromOffset(10, 0)
 	local closeBtn = self:MakeBtn("CLOSE", C.DANGER, topbar, 70, 22)
 	closeBtn.Position = UDim2.new(1, -78, 0.5, -11)
-	closeBtn.MouseButton1Click:Connect(function() panel:Destroy() end)
+	closeBtn.MouseButton1Click:Connect(function()
+		panel:Destroy()
+	end)
 
 	local scroll = Instance.new("ScrollingFrame")
 	scroll.Size = UDim2.new(1, -16, 1, -38)
@@ -1246,10 +1337,6 @@ function GC:ShowCodePreview(code)
 	codeLabel.TextWrapped = false
 	codeLabel.Parent = scroll
 end
-
--- ============================================================
--- LIVE MODE — PICKER / LOAD / EXIT
--- ============================================================
 
 function GC:GetAllScreenGuis()
 	local results = {}
@@ -1293,7 +1380,9 @@ function GC:OpenLivePicker()
 	ttl.Position = UDim2.fromOffset(10, 0)
 	local closeBtn = self:MakeBtn("X", C.DANGER, modal, 24, 24)
 	closeBtn.Position = UDim2.new(1, -30, 0, 5)
-	closeBtn.MouseButton1Click:Connect(function() modal:Destroy() end)
+	closeBtn.MouseButton1Click:Connect(function()
+		modal:Destroy()
+	end)
 
 	local scroll = Instance.new("ScrollingFrame")
 	scroll.Size = UDim2.new(1, -16, 1, -50)
@@ -1339,7 +1428,6 @@ function GC:OpenLivePicker()
 	end)
 end
 
--- Tears down the watchdog guarding the previously selected live instance, if any.
 function GC:_clearLiveWatch()
 	if self.State.LiveSelectedWatch then
 		self.State.LiveSelectedWatch:Disconnect()
@@ -1347,9 +1435,6 @@ function GC:_clearLiveWatch()
 	end
 end
 
--- Guards the live selection: if the underlying instance is destroyed or
--- reparented out of the tree by the game's own scripts while we're editing
--- it, the property panel clears itself with a visible [DESTROYED] notice
 -- instead of silently no-opping every pcall.
 function GC:_watchLiveSelection(inst)
 	self:_clearLiveWatch()
@@ -1451,10 +1536,6 @@ function GC:ExitLiveMode()
 	self:UpdatePropertiesPanel(nil)
 	self:RefreshHierarchy()
 end
-
--- ============================================================
--- LIVE MODE — HIERARCHY TREE
--- ============================================================
 
 function GC:RefreshLiveHierarchy()
 	local panel = self.State.HierarchyPanel
@@ -1564,10 +1645,6 @@ function GC:RefreshLiveHierarchy()
 	buildTree(target, 0)
 end
 
--- ============================================================
--- LIVE MODE — PROPERTIES PANEL
--- ============================================================
-
 function GC:UpdateLivePropertiesPanel(inst)
 	self.State.SelectedElement = inst
 	local panel = self.State.PropertyPanel
@@ -1604,8 +1681,6 @@ function GC:UpdateLivePropertiesPanel(inst)
 	refreshBtn.AutoButtonColor = false
 	refreshBtn.Parent = hdr
 	border(refreshBtn, C.BORDER, 1)
-	-- Manual resync: if the underlying GUI is being driven by another script
-	-- while we inspect it, values can go stale. This forces a re-read.
 	refreshBtn.MouseButton1Click:Connect(function()
 		if inst and inst.Parent then
 			self:UpdateLivePropertiesPanel(inst)
@@ -1656,8 +1731,12 @@ function GC:UpdateLivePropertiesPanel(inst)
 				end
 				inp.Text = toStr(val)
 				self:PushUndo({
-					Do = function() pcall(setter, nv) end,
-					Undo = function() pcall(setter, oldVal) end,
+					Do = function()
+						pcall(setter, nv)
+					end,
+					Undo = function()
+						pcall(setter, oldVal)
+					end,
 				})
 			end
 		end)
@@ -1700,8 +1779,12 @@ function GC:UpdateLivePropertiesPanel(inst)
 				pcall(setter, nc)
 				inp.Text = colorToHex(nc)
 				self:PushUndo({
-					Do = function() pcall(setter, nc) end,
-					Undo = function() pcall(setter, old) end,
+					Do = function()
+						pcall(setter, nc)
+					end,
+					Undo = function()
+						pcall(setter, old)
+					end,
 				})
 			end
 		end)
@@ -1738,8 +1821,12 @@ function GC:UpdateLivePropertiesPanel(inst)
 			local nv = v
 			pcall(setter, nv)
 			self:PushUndo({
-				Do = function() pcall(setter, nv) end,
-				Undo = function() pcall(setter, old) end,
+				Do = function()
+					pcall(setter, nv)
+				end,
+				Undo = function()
+					pcall(setter, old)
+				end,
 			})
 		end)
 	end
@@ -1780,105 +1867,187 @@ function GC:UpdateLivePropertiesPanel(inst)
 		end)
 	end
 
-	safeProp("Name", function() return inst.Name end, function(v)
+	safeProp("Name", function()
+		return inst.Name
+	end, function(v)
 		inst.Name = v
 		self:RefreshLiveHierarchy()
 	end, tostring, tostring)
 
 	if inst:IsA("GuiObject") then
-		safeProp("Size X", function() return inst.Size.X.Offset end, function(v)
+		safeProp("Size X", function()
+			return inst.Size.X.Offset
+		end, function(v)
 			inst.Size = UDim2.fromOffset(tonumber(v) or inst.Size.X.Offset, inst.Size.Y.Offset)
 		end, tostring, tonumber)
-		safeProp("Size Y", function() return inst.Size.Y.Offset end, function(v)
+		safeProp("Size Y", function()
+			return inst.Size.Y.Offset
+		end, function(v)
 			inst.Size = UDim2.fromOffset(inst.Size.X.Offset, tonumber(v) or inst.Size.Y.Offset)
 		end, tostring, tonumber)
-		safeProp("Size X Scale", function() return inst.Size.X.Scale end, function(v)
+		safeProp("Size X Scale", function()
+			return inst.Size.X.Scale
+		end, function(v)
 			inst.Size = UDim2.new(tonumber(v) or 0, inst.Size.X.Offset, inst.Size.Y.Scale, inst.Size.Y.Offset)
 		end, tostring, tonumber)
-		safeProp("Size Y Scale", function() return inst.Size.Y.Scale end, function(v)
+		safeProp("Size Y Scale", function()
+			return inst.Size.Y.Scale
+		end, function(v)
 			inst.Size = UDim2.new(inst.Size.X.Scale, inst.Size.X.Offset, tonumber(v) or 0, inst.Size.Y.Offset)
 		end, tostring, tonumber)
-		safeProp("Pos X", function() return inst.Position.X.Offset end, function(v)
+		safeProp("Pos X", function()
+			return inst.Position.X.Offset
+		end, function(v)
 			inst.Position = UDim2.fromOffset(tonumber(v) or inst.Position.X.Offset, inst.Position.Y.Offset)
 		end, tostring, tonumber)
-		safeProp("Pos Y", function() return inst.Position.Y.Offset end, function(v)
+		safeProp("Pos Y", function()
+			return inst.Position.Y.Offset
+		end, function(v)
 			inst.Position = UDim2.fromOffset(inst.Position.X.Offset, tonumber(v) or inst.Position.Y.Offset)
 		end, tostring, tonumber)
-		safeProp("Pos X Scale", function() return inst.Position.X.Scale end, function(v)
-			inst.Position = UDim2.new(tonumber(v) or 0, inst.Position.X.Offset, inst.Position.Y.Scale, inst.Position.Y.Offset)
+		safeProp("Pos X Scale", function()
+			return inst.Position.X.Scale
+		end, function(v)
+			inst.Position =
+				UDim2.new(tonumber(v) or 0, inst.Position.X.Offset, inst.Position.Y.Scale, inst.Position.Y.Offset)
 		end, tostring, tonumber)
-		safeProp("Pos Y Scale", function() return inst.Position.Y.Scale end, function(v)
-			inst.Position = UDim2.new(inst.Position.X.Scale, inst.Position.X.Offset, tonumber(v) or 0, inst.Position.Y.Offset)
+		safeProp("Pos Y Scale", function()
+			return inst.Position.Y.Scale
+		end, function(v)
+			inst.Position =
+				UDim2.new(inst.Position.X.Scale, inst.Position.X.Offset, tonumber(v) or 0, inst.Position.Y.Offset)
 		end, tostring, tonumber)
-		-- AnchorPoint was entirely missing from live mode in v2; without it
-		-- repositioning a centered/anchored real-game element was guesswork.
-		safeProp("AnchorPoint X", function() return inst.AnchorPoint.X end, function(v)
+		safeProp("AnchorPoint X", function()
+			return inst.AnchorPoint.X
+		end, function(v)
 			inst.AnchorPoint = Vector2.new(math.clamp(tonumber(v) or 0, 0, 1), inst.AnchorPoint.Y)
 		end, tostring, tonumber)
-		safeProp("AnchorPoint Y", function() return inst.AnchorPoint.Y end, function(v)
+		safeProp("AnchorPoint Y", function()
+			return inst.AnchorPoint.Y
+		end, function(v)
 			inst.AnchorPoint = Vector2.new(inst.AnchorPoint.X, math.clamp(tonumber(v) or 0, 0, 1))
 		end, tostring, tonumber)
-		safeProp("ZIndex", function() return inst.ZIndex end, function(v)
+		safeProp("ZIndex", function()
+			return inst.ZIndex
+		end, function(v)
 			inst.ZIndex = math.max(0, tonumber(v) or 1)
 		end, tostring, tonumber)
-		-- LayoutOrder was missing; without it you can't reorder children
-		-- under a real UIListLayout/UIGridLayout from live mode.
-		safeProp("LayoutOrder", function() return inst.LayoutOrder end, function(v)
+		safeProp("LayoutOrder", function()
+			return inst.LayoutOrder
+		end, function(v)
 			inst.LayoutOrder = tonumber(v) or 0
 		end, tostring, tonumber)
-		safeProp("Rotation", function() return inst.Rotation end, function(v)
+		safeProp("Rotation", function()
+			return inst.Rotation
+		end, function(v)
 			inst.Rotation = tonumber(v) or 0
 		end, tostring, tonumber)
-		safeColorProp("BG Color", function() return inst.BackgroundColor3 end, function(v)
+		safeColorProp("BG Color", function()
+			return inst.BackgroundColor3
+		end, function(v)
 			inst.BackgroundColor3 = v
 		end)
-		safeProp("BG Transparency", function() return inst.BackgroundTransparency end, function(v)
+		safeProp("BG Transparency", function()
+			return inst.BackgroundTransparency
+		end, function(v)
 			inst.BackgroundTransparency = math.clamp(tonumber(v) or 0, 0, 1)
 		end, tostring, tonumber)
-		safeToggle("Visible", function() return inst.Visible end, function(v) inst.Visible = v end)
-		safeToggle("Clips Descendants", function() return inst.ClipsDescendants end, function(v)
+		safeToggle("Visible", function()
+			return inst.Visible
+		end, function(v)
+			inst.Visible = v
+		end)
+		safeToggle("Clips Descendants", function()
+			return inst.ClipsDescendants
+		end, function(v)
 			inst.ClipsDescendants = v
 		end)
 	end
 
 	if inst:IsA("TextLabel") or inst:IsA("TextButton") or inst:IsA("TextBox") then
-		safeProp("Text", function() return inst.Text end, function(v) inst.Text = v end, tostring, tostring)
-		safeProp("Text Size", function() return inst.TextSize end, function(v)
+		safeProp("Text", function()
+			return inst.Text
+		end, function(v)
+			inst.Text = v
+		end, tostring, tostring)
+		safeProp("Text Size", function()
+			return inst.TextSize
+		end, function(v)
 			inst.TextSize = tonumber(v) or 14
 		end, tostring, tonumber)
-		safeColorProp("Text Color", function() return inst.TextColor3 end, function(v) inst.TextColor3 = v end)
-		safeProp("Text Transparency", function() return inst.TextTransparency end, function(v)
+		safeColorProp("Text Color", function()
+			return inst.TextColor3
+		end, function(v)
+			inst.TextColor3 = v
+		end)
+		safeProp("Text Transparency", function()
+			return inst.TextTransparency
+		end, function(v)
 			inst.TextTransparency = math.clamp(tonumber(v) or 0, 0, 1)
 		end, tostring, tonumber)
-		safeToggle("Text Wrapped", function() return inst.TextWrapped end, function(v) inst.TextWrapped = v end)
-		safeToggle("Text Scaled", function() return inst.TextScaled end, function(v) inst.TextScaled = v end)
-		safeDrop("Font", FONTS, function() return tostring(inst.Font):gsub("Enum%.Font%.", "") end, function(v)
-			pcall(function() inst.Font = Enum.Font[v] end)
+		safeToggle("Text Wrapped", function()
+			return inst.TextWrapped
+		end, function(v)
+			inst.TextWrapped = v
 		end)
-		safeDrop("H Align", HALIGN, function() return tostring(inst.TextXAlignment):gsub("Enum%.TextXAlignment%.", "") end, function(v)
-			pcall(function() inst.TextXAlignment = Enum.TextXAlignment[v] end)
+		safeToggle("Text Scaled", function()
+			return inst.TextScaled
+		end, function(v)
+			inst.TextScaled = v
 		end)
-		safeDrop("V Align", VALIGN, function() return tostring(inst.TextYAlignment):gsub("Enum%.TextYAlignment%.", "") end, function(v)
-			pcall(function() inst.TextYAlignment = Enum.TextYAlignment[v] end)
+		safeDrop("Font", FONTS, function()
+			return tostring(inst.Font):gsub("Enum%.Font%.", "")
+		end, function(v)
+			pcall(function()
+				inst.Font = Enum.Font[v]
+			end)
+		end)
+		safeDrop("H Align", HALIGN, function()
+			return tostring(inst.TextXAlignment):gsub("Enum%.TextXAlignment%.", "")
+		end, function(v)
+			pcall(function()
+				inst.TextXAlignment = Enum.TextXAlignment[v]
+			end)
+		end)
+		safeDrop("V Align", VALIGN, function()
+			return tostring(inst.TextYAlignment):gsub("Enum%.TextYAlignment%.", "")
+		end, function(v)
+			pcall(function()
+				inst.TextYAlignment = Enum.TextYAlignment[v]
+			end)
 		end)
 		if inst:IsA("TextBox") then
-			safeProp("Placeholder", function() return inst.PlaceholderText end, function(v)
+			safeProp("Placeholder", function()
+				return inst.PlaceholderText
+			end, function(v)
 				inst.PlaceholderText = v
 			end, tostring, tostring)
 		end
 	end
 
 	if inst:IsA("ImageLabel") or inst:IsA("ImageButton") then
-		safeProp("Image", function() return inst.Image end, function(v) inst.Image = v end, tostring, tostring)
-		safeProp("Image Transparency", function() return inst.ImageTransparency end, function(v)
+		safeProp("Image", function()
+			return inst.Image
+		end, function(v)
+			inst.Image = v
+		end, tostring, tostring)
+		safeProp("Image Transparency", function()
+			return inst.ImageTransparency
+		end, function(v)
 			inst.ImageTransparency = math.clamp(tonumber(v) or 0, 0, 1)
 		end, tostring, tonumber)
-		safeColorProp("Image Color", function() return inst.ImageColor3 end, function(v) inst.ImageColor3 = v end)
-		safeDrop("Scale Type", SCALETYPES, function() return tostring(inst.ScaleType):gsub("Enum%.ScaleType%.", "") end, function(v)
-			pcall(function() inst.ScaleType = Enum.ScaleType[v] end)
+		safeColorProp("Image Color", function()
+			return inst.ImageColor3
+		end, function(v)
+			inst.ImageColor3 = v
 		end)
-		-- SliceCenter is the rect that defines 9-slice scaling; without it,
-		-- ScaleType.Slice on a real button is unverifiable and uneditable.
+		safeDrop("Scale Type", SCALETYPES, function()
+			return tostring(inst.ScaleType):gsub("Enum%.ScaleType%.", "")
+		end, function(v)
+			pcall(function()
+				inst.ScaleType = Enum.ScaleType[v]
+			end)
+		end)
 		if tostring(inst.ScaleType) == "Enum.ScaleType.Slice" then
 			safeProp("SliceCenter (LRTB)", function()
 				local r = inst.SliceCenter
@@ -1888,87 +2057,135 @@ function GC:UpdateLivePropertiesPanel(inst)
 				if a then
 					inst.SliceCenter = Rect.new(tonumber(a), tonumber(b), tonumber(c2), tonumber(d))
 				end
-			end, function(x) return x end, tostring)
+			end, function(x)
+				return x
+			end, tostring)
 		end
 	end
 
 	if inst:IsA("ScrollingFrame") then
-		safeProp("Canvas W", function() return inst.CanvasSize.X.Offset end, function(v)
+		safeProp("Canvas W", function()
+			return inst.CanvasSize.X.Offset
+		end, function(v)
 			inst.CanvasSize = UDim2.fromOffset(tonumber(v) or 0, inst.CanvasSize.Y.Offset)
 		end, tostring, tonumber)
-		safeProp("Canvas H", function() return inst.CanvasSize.Y.Offset end, function(v)
+		safeProp("Canvas H", function()
+			return inst.CanvasSize.Y.Offset
+		end, function(v)
 			inst.CanvasSize = UDim2.fromOffset(inst.CanvasSize.X.Offset, tonumber(v) or 0)
 		end, tostring, tonumber)
-		safeProp("Scrollbar Thickness", function() return inst.ScrollBarThickness end, function(v)
+		safeProp("Scrollbar Thickness", function()
+			return inst.ScrollBarThickness
+		end, function(v)
 			inst.ScrollBarThickness = tonumber(v) or 6
 		end, tostring, tonumber)
-		safeToggle("Scrolling Enabled", function() return inst.ScrollingEnabled end, function(v)
+		safeToggle("Scrolling Enabled", function()
+			return inst.ScrollingEnabled
+		end, function(v)
 			inst.ScrollingEnabled = v
 		end)
 	end
 
 	if inst:IsA("UIListLayout") then
-		safeProp("Padding", function() return inst.Padding.Offset end, function(v)
+		safeProp("Padding", function()
+			return inst.Padding.Offset
+		end, function(v)
 			inst.Padding = UDim.new(0, tonumber(v) or 4)
 		end, tostring, tonumber)
 		safeDrop("Fill Direction", { "Vertical", "Horizontal" }, function()
 			return tostring(inst.FillDirection):gsub("Enum%.FillDirection%.", "")
 		end, function(v)
-			pcall(function() inst.FillDirection = Enum.FillDirection[v] end)
+			pcall(function()
+				inst.FillDirection = Enum.FillDirection[v]
+			end)
 		end)
 		safeDrop("H Align", { "Left", "Center", "Right" }, function()
 			return tostring(inst.HorizontalAlignment):gsub("Enum%.HorizontalAlignment%.", "")
 		end, function(v)
-			pcall(function() inst.HorizontalAlignment = Enum.HorizontalAlignment[v] end)
+			pcall(function()
+				inst.HorizontalAlignment = Enum.HorizontalAlignment[v]
+			end)
 		end)
 		safeDrop("V Align", { "Top", "Center", "Bottom" }, function()
 			return tostring(inst.VerticalAlignment):gsub("Enum%.VerticalAlignment%.", "")
 		end, function(v)
-			pcall(function() inst.VerticalAlignment = Enum.VerticalAlignment[v] end)
+			pcall(function()
+				inst.VerticalAlignment = Enum.VerticalAlignment[v]
+			end)
 		end)
 	end
 
 	if inst:IsA("UIPadding") then
-		safeProp("Pad Top", function() return inst.PaddingTop.Offset end, function(v)
+		safeProp("Pad Top", function()
+			return inst.PaddingTop.Offset
+		end, function(v)
 			inst.PaddingTop = UDim.new(0, tonumber(v) or 0)
 		end, tostring, tonumber)
-		safeProp("Pad Bottom", function() return inst.PaddingBottom.Offset end, function(v)
+		safeProp("Pad Bottom", function()
+			return inst.PaddingBottom.Offset
+		end, function(v)
 			inst.PaddingBottom = UDim.new(0, tonumber(v) or 0)
 		end, tostring, tonumber)
-		safeProp("Pad Left", function() return inst.PaddingLeft.Offset end, function(v)
+		safeProp("Pad Left", function()
+			return inst.PaddingLeft.Offset
+		end, function(v)
 			inst.PaddingLeft = UDim.new(0, tonumber(v) or 0)
 		end, tostring, tonumber)
-		safeProp("Pad Right", function() return inst.PaddingRight.Offset end, function(v)
+		safeProp("Pad Right", function()
+			return inst.PaddingRight.Offset
+		end, function(v)
 			inst.PaddingRight = UDim.new(0, tonumber(v) or 0)
 		end, tostring, tonumber)
 	end
 
 	if inst:IsA("UICorner") then
-		safeProp("Corner Radius", function() return inst.CornerRadius.Offset end, function(v)
+		safeProp("Corner Radius", function()
+			return inst.CornerRadius.Offset
+		end, function(v)
 			inst.CornerRadius = UDim.new(0, math.max(0, tonumber(v) or 0))
 		end, tostring, tonumber)
 	end
 
 	if inst:IsA("UIStroke") then
-		safeProp("Thickness", function() return inst.Thickness end, function(v)
+		safeProp("Thickness", function()
+			return inst.Thickness
+		end, function(v)
 			inst.Thickness = math.max(0, tonumber(v) or 1)
 		end, tostring, tonumber)
-		safeColorProp("Stroke Color", function() return inst.Color end, function(v) inst.Color = v end)
+		safeColorProp("Stroke Color", function()
+			return inst.Color
+		end, function(v)
+			inst.Color = v
+		end)
 	end
 
-	-- UIGradient now appears in the live tree via isStructural; previously
-	-- it was invisible and unselectable entirely.
 	if inst:IsA("UIGradient") then
-		safeProp("Rotation", function() return inst.Rotation end, function(v)
+		safeProp("Rotation", function()
+			return inst.Rotation
+		end, function(v)
 			inst.Rotation = tonumber(v) or 0
 		end, tostring, tonumber)
-		safeToggle("Enabled", function() return inst.Enabled end, function(v) inst.Enabled = v end)
+		safeToggle("Enabled", function()
+			return inst.Enabled
+		end, function(v)
+			inst.Enabled = v
+		end)
 	end
 
 	if inst:IsA("ScreenGui") then
-		safeToggle("Enabled", function() return inst.Enabled end, function(v) inst.Enabled = v end)
-		safeToggle("Reset On Spawn", function() return inst.ResetOnSpawn end, function(v) inst.ResetOnSpawn = v end)
-		safeProp("Display Order", function() return inst.DisplayOrder end, function(v)
+		safeToggle("Enabled", function()
+			return inst.Enabled
+		end, function(v)
+			inst.Enabled = v
+		end)
+		safeToggle("Reset On Spawn", function()
+			return inst.ResetOnSpawn
+		end, function(v)
+			inst.ResetOnSpawn = v
+		end)
+		safeProp("Display Order", function()
+			return inst.DisplayOrder
+		end, function(v)
 			inst.DisplayOrder = tonumber(v) or 0
 		end, tostring, tonumber)
 	end
@@ -2008,10 +2225,6 @@ function GC:UpdateLivePropertiesPanel(inst)
 	end)
 end
 
--- ============================================================
--- MAIN UI SHELL
--- ============================================================
-
 function GC:_createUI()
 	local sg = Instance.new("ScreenGui")
 	sg.Name = "GUICreator_Zuka"
@@ -2031,7 +2244,6 @@ function GC:_createUI()
 	border(mf, C.ACCENT, 1)
 	self.UI.MainFrame = mf
 
-	-- Mode bar
 	local modeBar = Instance.new("Frame")
 	modeBar.Name = "ModeBar"
 	modeBar.Size = UDim2.new(1, 0, 0, 36)
@@ -2070,10 +2282,11 @@ function GC:_createUI()
 	local closeBtn = self:MakeBtn("X", C.DANGER, modeBar, 28, 28)
 	closeBtn.TextSize = 14
 	closeBtn.Position = UDim2.new(1, -33, 0.5, -14)
-	closeBtn.MouseButton1Click:Connect(function() self:Disable() end)
+	closeBtn.MouseButton1Click:Connect(function()
+		self:Disable()
+	end)
 	self:MakeDraggable(modeBar, mf)
 
-	-- Top action bar
 	local topBar = Instance.new("Frame")
 	topBar.Size = UDim2.new(1, -20, 0, 32)
 	topBar.Position = UDim2.fromOffset(10, 42)
@@ -2091,7 +2304,9 @@ function GC:_createUI()
 	topPad.Parent = topBar
 
 	local exportBtn = self:MakeBtn("EXPORT CODE", C.OK, topBar)
-	exportBtn.MouseButton1Click:Connect(function() self:ExportCode() end)
+	exportBtn.MouseButton1Click:Connect(function()
+		self:ExportCode()
+	end)
 
 	local liveBtn = self:MakeBtn("LIVE EDIT", C.LIVE, topBar, 100)
 	liveBtn.MouseButton1Click:Connect(function()
@@ -2105,11 +2320,17 @@ function GC:_createUI()
 	self.UI.LiveBtn = liveBtn
 
 	local undoBtn = self:MakeBtn("UNDO", C.TEXT, topBar, 70)
-	undoBtn.MouseButton1Click:Connect(function() self:Undo() end)
+	undoBtn.MouseButton1Click:Connect(function()
+		self:Undo()
+	end)
 	local redoBtn = self:MakeBtn("REDO", C.TEXT, topBar, 70)
-	redoBtn.MouseButton1Click:Connect(function() self:Redo() end)
+	redoBtn.MouseButton1Click:Connect(function()
+		self:Redo()
+	end)
 	local clearBtn = self:MakeBtn("CLEAR", C.DANGER, topBar, 70)
-	clearBtn.MouseButton1Click:Connect(function() self:ClearCanvas() end)
+	clearBtn.MouseButton1Click:Connect(function()
+		self:ClearCanvas()
+	end)
 
 	local gridBtn = self:MakeBtn("GRID: ON", C.TEXT, topBar, 80)
 	gridBtn.MouseButton1Click:Connect(function()
@@ -2123,7 +2344,6 @@ function GC:_createUI()
 		snapBtn.Text = "SNAP: " .. (self.Config.SnapToGrid and "ON" or "OFF")
 	end)
 
-	-- Toolbox (maker)
 	local leftPanel = Instance.new("Frame")
 	leftPanel.Name = "Toolbox"
 	leftPanel.Size = UDim2.new(0, 165, 1, -82)
@@ -2153,7 +2373,6 @@ function GC:_createUI()
 	tlayout.Parent = toolScroll
 	self:PopulateToolbox(toolScroll)
 
-	-- Live mode side panel
 	local livePanel = Instance.new("Frame")
 	livePanel.Name = "LivePanel"
 	livePanel.Size = UDim2.new(0, 165, 1, -82)
@@ -2168,7 +2387,8 @@ function GC:_createUI()
 	local liveTitle = label(livePanel, "LIVE MODE", 11, C.LIVE)
 	liveTitle.Size = UDim2.new(1, 0, 0, 24)
 	liveTitle.Position = UDim2.fromOffset(8, 0)
-	local liveTip = label(livePanel, "Click any node in the\nhierarchy to inspect\nand edit it live.", 10, C.MUTED, "Code")
+	local liveTip =
+		label(livePanel, "Click any node in the\nhierarchy to inspect\nand edit it live.", 10, C.MUTED, "Code")
 	liveTip.Size = UDim2.new(1, -16, 0, 60)
 	liveTip.Position = UDim2.fromOffset(8, 28)
 	liveTip.TextWrapped = true
@@ -2181,7 +2401,6 @@ function GC:_createUI()
 		self.UI.LiveBtn.Text = "LIVE EDIT"
 	end)
 
-	-- Canvas (maker)
 	local canvas = Instance.new("Frame")
 	canvas.Name = "Canvas"
 	canvas.Size = UDim2.new(1, -560, 1, -82)
@@ -2218,7 +2437,6 @@ function GC:_createUI()
 	self.State.GridFrame = gridFrame
 	self:DrawGrid()
 
-	-- Right column: properties + hierarchy
 	local rightCol = Instance.new("Frame")
 	rightCol.Name = "RightCol"
 	rightCol.Size = UDim2.new(0, 240, 1, -82)
