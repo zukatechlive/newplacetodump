@@ -95,10 +95,6 @@ GoonLabel.TextXAlignment = Enum.TextXAlignment.Left
 GoonLabel.TextYAlignment = Enum.TextYAlignment.Center
 GoonLabel.TextWrapped = true
 
-do
-	local _s = Instance.new("UIStroke", GoonLabel)
-	_s.Color = Color3.fromRGB(38, 38, 46)
-	_s.Thickness = 1
-end
+
 
 GoonLabel.Parent = GoonLogoWrap
