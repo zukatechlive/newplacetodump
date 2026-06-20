@@ -16,6 +16,9 @@ o888bood8P'      `Y8bod8P'       o88'   888o
 ]]
 
 local CLASS_ICONS = {}
+-- b64 icons
+
+
 local function buildIconTable()
 	if not (type(writefile) == "function" and type(getcustomasset) == "function") then
 		return
@@ -7869,9 +7872,7 @@ local EmbeddedModules = {
 								return true
 							elseif n == "Lifesteal" then
 								return 99999
-							--	elseif n == "ShotgunEnabled" then
-							--		return true
-							elseif n == "ChargedShotEnabled" then
+																					elseif n == "ChargedShotEnabled" then
 								return false
 							elseif n == "ChargingTime" then
 								return 0
@@ -7879,9 +7880,7 @@ local EmbeddedModules = {
 								return false
 							elseif n == "DelayBeforeFiring" then
 								return 0
-							--elseif n == "Auto" then
-							--	return false
-							elseif n == "CriticalDamageEnabled" then
+																					elseif n == "CriticalDamageEnabled" then
 								return 999999
 							elseif n == "HoldDownEnabled" then
 								return false
@@ -8063,8 +8062,6 @@ local EmbeddedModules = {
 						end
 					end,
 				})
-
-				-- GUI -> SCRIPT CONVERTER  v5
 
 				context:Register("SCREENGUI_TO_SCRIPT", {
 					Name = "Convert to Script",
@@ -28069,7 +28066,12 @@ local RETURN_ELAPSED_TIME = false
 					local function guard(n)
 						if cursor + n > blen then
 							error(
-								string.format("Reader OOB: need %d byte(s) at offset %d (buf len %d)", n, cursor, blen),
+								string.format(
+									"Uh oh! OOB: it needs %d byte(s) at offset %d (buf len %d)  maybe an opcode issue?",
+									n,
+									cursor,
+									blen
+								),
 								2
 							)
 						end
@@ -29303,6 +29305,289 @@ local RETURN_ELAPSED_TIME = false
 									end
 									return "upv_" .. tostring(r)
 								end
+								local function getSourceRegisters(opName, ur2)
+									if opName == "CALL" or opName == "CALLFB" then
+										local srcs = {}
+										if ur2 then
+											for k = 1, #ur2 do
+												srcs[#srcs + 1] = ur2[k]
+											end
+										end
+										return srcs
+									end
+									if opName == "NAMECALL" then
+										if ur2 and ur2[1] ~= nil then
+											return { ur2[1] }
+										end
+										return {}
+									end
+									if opName == "MOVE" then
+										if ur2 and ur2[2] ~= nil then
+											return { ur2[2] }
+										end
+										return {}
+									end
+									local srcs = {}
+									if ur2 then
+										for k = 2, #ur2 do
+											srcs[#srcs + 1] = ur2[k]
+										end
+									end
+									return srcs
+								end
+								local NO_DEF_OPS = {
+									SETTABLE = true,
+									SETTABLEKS = true,
+									SETTABLEN = true,
+									SETGLOBAL = true,
+									SETUPVAL = true,
+									SETUDATAKS = true,
+									RETURN = true,
+									JUMP = true,
+									JUMPBACK = true,
+									JUMPIF = true,
+									JUMPIFNOT = true,
+									JUMPIFEQ = true,
+									JUMPIFLE = true,
+									JUMPIFLT = true,
+									JUMPIFNOTEQ = true,
+									JUMPIFNOTLE = true,
+									JUMPIFNOTLT = true,
+									JUMPXEQKNIL = true,
+									JUMPXEQKB = true,
+									JUMPXEQKN = true,
+									JUMPXEQKS = true,
+									NAMECALL = true,
+									NAMECALLUDATA = true,
+									CLOSEUPVALS = true,
+									SETLIST = true,
+									FORNLOOP = true,
+									FORGLOOP = true,
+									COVERAGE = true,
+									CAPTURE = true,
+									NOP = true,
+									BREAK = true,
+									PREPVARARGS = true,
+									CMPPROTO = true,
+									FASTCALL = true,
+									FASTCALL1 = true,
+									FASTCALL2 = true,
+									FASTCALL2K = true,
+									FASTCALL3 = true,
+									JUMPX = true,
+									NEWCLASSMEMBER = true,
+								}
+								local function getDefinedRegisters(opName, ur2, ed2)
+									if NO_DEF_OPS[opName] then
+										return {}
+									end
+									if opName == "CALL" or opName == "CALLFB" then
+										local baseR = ur2[1]
+										local nRes = (ed2 and ed2[2] or 1) - 1
+										if nRes == -1 then
+											return { baseR }
+										elseif nRes == 0 then
+											return {}
+										end
+										local defs = {}
+										for k = 1, nRes do
+											defs[#defs + 1] = baseR + k - 1
+										end
+										return defs
+									end
+									if opName == "GETVARARGS" then
+										local baseR = ur2[1]
+										local vc = (ed2 and ed2[1] or 1) - 1
+										if vc == -1 then
+											return { baseR }
+										end
+										local defs = {}
+										for k = 1, vc do
+											defs[#defs + 1] = baseR + k - 1
+										end
+										return defs
+									end
+									if ur2 and ur2[1] ~= nil then
+										return { ur2[1] }
+									end
+									return {}
+								end
+								local function isChainedRedefine(opName, ur2, ed2, defR, priorAct)
+									local srcs = getSourceRegisters(opName, ur2)
+									for k = 1, #srcs do
+										if srcs[k] == defR then
+											return true
+										end
+									end
+									if priorAct and priorAct.opCode and priorAct.opCode.name == "NAMECALL" then
+										if priorAct.usedRegisters and priorAct.usedRegisters[1] == defR then
+											return true
+										end
+									end
+									return false
+								end
+								local regGeneration = {}
+								local regGenTimeline = {}
+								local function ensureRegTimeline(r)
+									if not regGenTimeline[r] then
+										regGenTimeline[r] = {}
+										regGeneration[r] = 0
+									end
+								end
+								for ai, act in ipairs(actions) do
+									local actOpn = act.opCode and act.opCode.name
+									if actOpn then
+										local aur, aed = act.usedRegisters, act.extraData
+										local srcs = getSourceRegisters(actOpn, aur)
+										for k = 1, #srcs do
+											local r = srcs[k]
+											ensureRegTimeline(r)
+											local g = regGeneration[r]
+											local tl = regGenTimeline[r]
+											if tl[#tl] and tl[#tl].gen == g then
+												tl[#tl].endIdx = ai
+											end
+										end
+										local defs = getDefinedRegisters(actOpn, aur, aed)
+										local priorAct = actions[ai - 1]
+										for k = 1, #defs do
+											local r = defs[k]
+											ensureRegTimeline(r)
+											local chained = isChainedRedefine(actOpn, aur, aed, r, priorAct)
+											local tl = regGenTimeline[r]
+											if chained and tl[#tl] then
+												tl[#tl].endIdx = ai
+												tl[#tl].defAi = ai
+											else
+												regGeneration[r] += 1
+												tl[#tl + 1] =
+													{ gen = regGeneration[r], startIdx = ai, endIdx = ai, defAi = ai }
+											end
+										end
+									end
+								end
+								local regNeedsSuffix = {}
+								for r, tl in pairs(regGenTimeline) do
+									if #tl > 1 then
+										regNeedsSuffix[r] = true
+									end
+								end
+								local function regGenAt(r, instrIdx)
+									local tl = regGenTimeline[r]
+									if not tl then
+										return 0
+									end
+									local best = 0
+									for k = 1, #tl do
+										local entry = tl[k]
+										if entry.startIdx <= instrIdx then
+											best = entry.gen
+										else
+											break
+										end
+									end
+									return best
+								end
+
+								local function constStr(idx)
+									local c = consts[idx + 1]
+									if c and type(c.value) == "string" then
+										return c.value
+									end
+									return nil
+								end
+								local function findRecentStringLiteral(r, beforeAi)
+									for j = beforeAi - 1, math.max(1, beforeAi - 6), -1 do
+										local a = actions[j]
+										if not a or not a.opCode then
+											continue
+										end
+										local an = a.opCode.name
+										local au = a.usedRegisters
+										if au and au[1] == r then
+											if an == "LOADK" then
+												return constStr(a.extraData[1])
+											end
+											return nil
+										end
+									end
+									return nil
+								end
+								local SERVICE_LIKE_METHODS = { GetService = true }
+								local CHILD_LOOKUP_METHODS = {
+									WaitForChild = true,
+									FindFirstChild = true,
+									FindFirstChildOfClass = true,
+									FindFirstChildWhichIsA = true,
+								}
+								local KNOWN_GLOBAL_NAMES = {
+									game = false,
+									workspace = true,
+									script = true,
+									shared = false,
+								}
+								local function sanitizeName(s)
+									if not s or s == "" then
+										return nil
+									end
+									if not s:match("^[%a_][%w_]*$") then
+										return nil
+									end
+									return s
+								end
+								local regInferredName = {}
+								for r, tl in pairs(regGenTimeline) do
+									for _, entry in ipairs(tl) do
+										local defAi = entry.defAi
+										local act = actions[defAi]
+										if act and act.opCode then
+											local opn2 = act.opCode.name
+											local ed2 = act.extraData
+											local name = nil
+											if opn2 == "CALL" then
+												local prevAct = actions[defAi - 1]
+												if prevAct and prevAct.opCode and prevAct.opCode.name == "NAMECALL" then
+													local method = constStr(prevAct.extraData[2])
+													if
+														method
+														and (
+															SERVICE_LIKE_METHODS[method] or CHILD_LOOKUP_METHODS[method]
+														)
+													then
+														local argReg = act.usedRegisters[1] + 1
+														local lit = findRecentStringLiteral(argReg, defAi)
+														name = sanitizeName(lit)
+													end
+												end
+											elseif opn2 == "GETGLOBAL" or opn2 == "GETIMPORT" then
+												local gname = constStr(ed2[1])
+												if gname and KNOWN_GLOBAL_NAMES[gname] == true then
+													name = gname
+												end
+											end
+											if name then
+												regInferredName[r .. ":" .. entry.gen] = name
+											end
+										end
+									end
+								end
+								do
+									local seenNames = {}
+									for r, tl in pairs(regGenTimeline) do
+										for _, entry in ipairs(tl) do
+											local key = r .. ":" .. entry.gen
+											local nm = regInferredName[key]
+											if nm then
+												if seenNames[nm] then
+													regInferredName[key] = nil
+												else
+													seenNames[nm] = true
+												end
+											end
+										end
+									end
+								end
+
 								local regNameCache = {}
 								local function fmtReg(r, instrIdx)
 									if r == nil then
@@ -29323,7 +29608,21 @@ local RETURN_ELAPSED_TIME = false
 									if pr < safeNumParams + 1 then
 										return "p" .. tostring((totalParameters - safeNumParams) + pr)
 									end
-									return "v" .. tostring(r - safeNumParams)
+									if instrIdx then
+										local g = regGenAt(r, instrIdx)
+										local inferred = regInferredName[r .. ":" .. g]
+										if inferred then
+											return inferred
+										end
+									end
+									local baseName = "v" .. tostring(r - safeNumParams)
+									if instrIdx and regNeedsSuffix[r] then
+										local g = regGenAt(r, instrIdx)
+										if g > 1 then
+											return baseName .. "_" .. g
+										end
+									end
+									return baseName
 								end
 								local function paramName(j)
 									if proto.debugLocals then
@@ -29916,7 +30215,6 @@ local RETURN_ELAPSED_TIME = false
 										local name = consts[(ed[1] or 0) + 1] and consts[(ed[1] or 0) + 1].value or "?"
 										emit(ind() .. R(ur[1]) .. "." .. tostring(name) .. " = " .. R(ur[2]))
 									elseif opn == "CALLFB" then
-										-- CALLFB is like CALL but with a feedback slot; render identically to CALL
 										local baseR = ur[1]
 										local nArgs = (ed[1] or 1) - 1
 										local nRes = (ed[2] or 1) - 1
@@ -33492,14 +33790,12 @@ local RETURN_ELAPSED_TIME = false
 		local function main()
 			local RemoteSpy = {}
 
-			-- Fake Window object so Dex's CreateApp can Show/Hide us
-			local fakeWindow = {}
+						local fakeWindow = {}
 			local spyLaunched = false
-			local spyGui = nil -- reference to ui.SimpleSpy3 once launched
+			local spyGui = nil
 
 			local function launchSpy()
-				-- Run SimpleSpy in a sandboxed pcall, capturing the ScreenGui it creates
-				local ok, err = pcall(function()
+								local ok, err = pcall(function()
 					if getgenv().SimpleSpyExecuted and type(getgenv().SimpleSpyShutdown) == "function" then
 						getgenv().SimpleSpyShutdown()
 					end
@@ -33509,8 +33805,7 @@ local RETURN_ELAPSED_TIME = false
 						autoblock = false,
 						funcEnabled = true,
 						advancedinfo = false,
-						--logreturnvalues = false,
-						supersecretdevtoggle = false,
+												supersecretdevtoggle = false,
 						log_FireServer = true,
 						log_InvokeServer = true,
 						log_Fire = true,
@@ -33651,8 +33946,7 @@ local RETURN_ELAPSED_TIME = false
 							sGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 							sGui.DisplayOrder = 999999999
 							sGui.ResetOnSpawn = false
-							--sGui.IgnoreGuiInset = true
-						end
+													end
 						local cGUI = SafeGetService("CoreGui")
 						local lPlr = SafeGetService("Players").LocalPlayer
 
@@ -33795,7 +34089,7 @@ local RETURN_ELAPSED_TIME = false
 						local function SearchTable(tbl)
 							table.insert(checkedtables, tbl)
 
-							for i, v in next, tbl do -- Stupid mistake on my part thanks 59it for pointing it out
+							for i, v in next, tbl do
 								if type(v) == "table" then
 									return table.find(checkedtables, v) and true or SearchTable(v)
 								end
@@ -33857,7 +34151,7 @@ local RETURN_ELAPSED_TIME = false
 					local ContentProvider = SafeGetService("ContentProvider")
 					local TextService = SafeGetService("TextService")
 					local http = SafeGetService("HttpService")
-					local GuiInset = SafeGetService("GuiService"):GetGuiInset() :: Vector2 -- pulled from rewrite
+					local GuiInset = SafeGetService("GuiService"):GetGuiInset() :: Vector2
 
 					local function jsone(str)
 						return http:JSONEncode(str)
@@ -33871,7 +34165,7 @@ local RETURN_ELAPSED_TIME = false
 						if getrenv then
 							local ErrorPrompt = getrenv().require(
 								CoreGui:WaitForChild("RobloxGui"):WaitForChild("Modules"):WaitForChild("ErrorPrompt")
-							) -- File can be located in your roblox folder (C:\Users\%Username%\AppData\Local\Roblox\Versions\whateverversionitis\ExtraContent\scripts\CoreScripts\Modules)
+							)
 							local prompt = ErrorPrompt.new("Default", { HideErrorCode = true })
 							local ErrorStoarge = Create("ScreenGui", { Parent = CoreGui, ResetOnSpawn = false })
 							local thread = state and running()
@@ -34084,42 +34378,24 @@ local RETURN_ELAPSED_TIME = false
 						})
 					end
 
-					-------------------------------------------------------------------------------
-
 					local selectedColor = Color3.new(0.321569, 0.333333, 1)
 					local deselectedColor = Color3.new(0.8, 0.8, 0.8)
-					--- So things are descending
-					local layoutOrderNum = 999999999
-					--- Whether or not the gui is closing
-					local mainClosing = false
-					--- Whether or not the gui is closed (defaults to false)
-					local closed = false
-					--- Whether or not the sidebar is closing
-					local sideClosing = false
-					--- Whether or not the sidebar is closed (defaults to true but opens automatically on remote selection)
-					local sideClosed = false
-					--- Whether or not the code box is maximized (defaults to false)
-					local maximized = false
-					--- The event logs to be read from
-					local logs = {}
-					--- The event currently selected.Log (defaults to nil)
-					local selected = nil
-					--- The blacklist (can be a string name or the Remote Instance)
-					local blacklist = {}
-					--- The block list (can be a string name or the Remote Instance)
-					local blocklist = {}
-					--- Whether or not to add getNil function
-					local getNil = false
-					--- Array of remotes (and original functions) connected to
-					local connectedRemotes = {}
-					--- True = hookfunction, false = namecall
-					local toggle = false
-					--- used to prevent recursives
-					local prevTables = {}
-					--- holds logs (for deletion)
-					local remoteLogs = {}
-					--- used for hookfunction
-					getgenv().SIMPLESPYCONFIG_MaxRemotes = 300
+										local layoutOrderNum = 999999999
+										local mainClosing = false
+										local closed = false
+										local sideClosing = false
+										local sideClosed = false
+										local maximized = false
+										local logs = {}
+										local selected = nil
+										local blacklist = {}
+										local blocklist = {}
+										local getNil = false
+										local connectedRemotes = {}
+										local toggle = false
+										local prevTables = {}
+										local remoteLogs = {}
+										getgenv().SIMPLESPYCONFIG_MaxRemotes = 300
 					getgenv().SIMPLESPYCONFIG_SchedulerBurst = 12
 					local indent = 4
 					local scheduled = {}
@@ -34133,12 +34409,10 @@ local RETURN_ELAPSED_TIME = false
 					local p
 					local getnilrequired = false
 
-					-- autoblock variables
-					local history = {}
+										local history = {}
 					local excluding = {}
 
-					-- if mouse inside gui
-					local mouseInGui = false
+										local mouseInGui = false
 
 					local connections = {}
 					local DecompiledScripts = {}
@@ -34152,7 +34426,7 @@ local RETURN_ELAPSED_TIME = false
 					local originalBindableFunctionInvoke
 					local NamecallHandler = Instance.new("BindableEvent", ui.Storage)
 					local IndexHandler = Instance.new("BindableEvent", ui.Storage)
-					local GetDebugIdHandler = Instance.new("BindableFunction", ui.Storage) --Thanks engo for the idea of using BindableFunctions
+					local GetDebugIdHandler = Instance.new("BindableFunction", ui.Storage)
 					local loggedClientEvent, wrappedClientInvoke = {}, {}
 					local _origClientInvoke = setmetatable({}, { __mode = "k" })
 					local wrappedInvokeCallbacks = setmetatable({}, { __mode = "k" })
@@ -34198,12 +34472,12 @@ local RETURN_ELAPSED_TIME = false
 					markInternal(IndexHandler)
 					markInternal(GetDebugIdHandler)
 
-					function GetDebugIdHandler.OnInvoke(obj: Instance) -- To avoid having to set thread identity and ect
+					function GetDebugIdHandler.OnInvoke(obj: Instance)
 						return OldDebugId(obj)
 					end
 
 					local function ThreadGetDebugId(obj: Instance): string
-						return GetDebugIDInvoke(GetDebugIdHandler, obj) -- indexing to avoid having to setnamecall later
+						return GetDebugIDInvoke(GetDebugIdHandler, obj)
 					end
 
 					local synv3 = false
@@ -34256,8 +34530,7 @@ local RETURN_ELAPSED_TIME = false
 						table.insert(running_threads, thread)
 					end
 
-					--- Prevents remote spam from causing lag (clears logs after `getgenv().SIMPLESPYCONFIG_MaxRemotes` or 500 remotes)
-					function clean()
+										function clean()
 						local max = getgenv().SIMPLESPYCONFIG_MaxRemotes
 						if not typeof(max) == "number" and math.floor(max) ~= max then
 							max = 500
@@ -34284,8 +34557,7 @@ local RETURN_ELAPSED_TIME = false
 						return not status(thread) == "dead"
 					end
 
-					--- Scales the ui.ToolTip to fit containing text
-					function scaleToolTip()
+										function scaleToolTip()
 						local size = TextService:GetTextSize(
 							ui.TextLabel.Text,
 							ui.TextLabel.TextSize,
@@ -34296,8 +34568,7 @@ local RETURN_ELAPSED_TIME = false
 						ui.ToolTip.Size = UDim2.new(0, size.X + 4, 0, size.Y + 4)
 					end
 
-					--- Executed when the toggle button (the SimpleSpy logo) is hovered over
-					function onToggleButtonHover()
+										function onToggleButtonHover()
 						if not toggle then
 							TweenService
 								:Create(ui.Simple, TweenInfo.new(0.5), { TextColor3 = Color3.fromRGB(252, 51, 51) })
@@ -34309,15 +34580,13 @@ local RETURN_ELAPSED_TIME = false
 						end
 					end
 
-					--- Executed when the toggle button is unhovered over
-					function onToggleButtonUnhover()
+										function onToggleButtonUnhover()
 						TweenService
 							:Create(ui.Simple, TweenInfo.new(0.5), { TextColor3 = Color3.fromRGB(255, 255, 255) })
 							:Play()
 					end
 
-					--- Executed when the X button is hovered over
-					function onXButtonHover()
+										function onXButtonHover()
 						TweenService
 							:Create(
 								ui.CloseButton,
@@ -34327,8 +34596,7 @@ local RETURN_ELAPSED_TIME = false
 							:Play()
 					end
 
-					--- Executed when the X button is unhovered over
-					function onXButtonUnhover()
+										function onXButtonUnhover()
 						TweenService
 							:Create(
 								ui.CloseButton,
@@ -34338,8 +34606,7 @@ local RETURN_ELAPSED_TIME = false
 							:Play()
 					end
 
-					--- Toggles the remote spy method (when button clicked)
-					function onToggleButtonClick()
+										function onToggleButtonClick()
 						if toggle then
 							TweenService
 								:Create(ui.Simple, TweenInfo.new(0.5), { TextColor3 = Color3.fromRGB(252, 51, 51) })
@@ -34352,8 +34619,7 @@ local RETURN_ELAPSED_TIME = false
 						toggleSpyMethod()
 					end
 
-					--- Reconnects bringBackOnResize if the current viewport changes and also connects it initially
-					function connectResize()
+										function connectResize()
 						if not SafeGetService("Workspace").CurrentCamera then
 							SafeGetService("Workspace"):GetPropertyChangedSignal("CurrentCamera"):Wait()
 						end
@@ -34371,8 +34637,7 @@ local RETURN_ELAPSED_TIME = false
 						end)
 					end
 
-					--- Brings gui back if it gets lost offscreen (connected to the camera viewport changing)
-					function bringBackOnResize()
+										function bringBackOnResize()
 						validateSize()
 						if sideClosed then
 							minimizeSize()
@@ -34413,9 +34678,7 @@ local RETURN_ELAPSED_TIME = false
 						):Play()
 					end
 
-					--- Drags gui (so long as mouse is held down)
-					--- @param input InputObject
-					function onBarInput(input)
+															function onBarInput(input)
 						if
 							input.UserInputType == Enum.UserInputType.MouseButton1
 							or input.UserInputType == Enum.UserInputType.Touch
@@ -34484,8 +34747,7 @@ local RETURN_ELAPSED_TIME = false
 						end
 					end
 
-					--- Fades out the table of elements (and makes them invisible), returns a function to make them visible again
-					function fadeOut(elements)
+										function fadeOut(elements)
 						local data = {}
 						for _, v in next, elements do
 							if typeof(v) == "Instance" and v:IsA("GuiObject") and v.Visible then
@@ -34544,8 +34806,7 @@ local RETURN_ELAPSED_TIME = false
 						end
 					end
 
-					--- Expands and minimizes the gui (closed is the toggle boolean)
-					function toggleMinimize(override)
+										function toggleMinimize(override)
 						if mainClosing and not override or maximized then
 							return
 						end
@@ -34573,8 +34834,7 @@ local RETURN_ELAPSED_TIME = false
 						mainClosing = false
 					end
 
-					--- Expands and minimizes the sidebar (sideClosed is the toggle boolean)
-					function toggleSideTray(override)
+										function toggleSideTray(override)
 						if sideClosing and not override or maximized then
 							return
 						end
@@ -34601,8 +34861,7 @@ local RETURN_ELAPSED_TIME = false
 						sideClosing = false
 					end
 
-					--- Expands code box to fit screen for more convenient viewing
-					function toggleMaximize()
+										function toggleMaximize()
 						if not sideClosed and not maximized then
 							maximized = true
 							local disable = Instance.new("TextButton")
@@ -34649,9 +34908,7 @@ local RETURN_ELAPSED_TIME = false
 						end
 					end
 
-					--- Checks if cursor is within resize range
-					--- @param p Vector2
-					function isInResizeRange(p)
+															function isInResizeRange(p)
 						local relativeP = p - ui.Background.AbsolutePosition
 						local range = 5
 						if
@@ -34675,9 +34932,7 @@ local RETURN_ELAPSED_TIME = false
 						return false
 					end
 
-					--- Checks if cursor is within dragging range
-					--- @param p Vector2
-					function isInDragRange(p)
+															function isInDragRange(p)
 						local relativeP = p - ui.Background.AbsolutePosition
 						local topbarAS = ui.TopBar.AbsoluteSize
 						return relativeP.X <= topbarAS.X - ui.CloseButton.AbsoluteSize.X * 3
@@ -34687,8 +34942,7 @@ local RETURN_ELAPSED_TIME = false
 							or false
 					end
 
-					--- Called when mouse enters SimpleSpy
-					local customCursor = Create("ImageLabel", {
+										local customCursor = Create("ImageLabel", {
 						Parent = ui.SimpleSpy3,
 						Visible = false,
 						Size = UDim2.fromOffset(200, 200),
@@ -34730,8 +34984,7 @@ local RETURN_ELAPSED_TIME = false
 						end)
 					end
 
-					--- Called when mouse moves
-					function mouseMoved()
+										function mouseMoved()
 						local mousePos = UserInputService:GetMouseLocation() - GuiInset
 						if
 							not closed
@@ -34749,8 +35002,7 @@ local RETURN_ELAPSED_TIME = false
 						end
 					end
 
-					--- Adjusts the ui elements to the 'Maximized' size
-					function maximizeSize(speed)
+										function maximizeSize(speed)
 						speed = speed or 0.05
 						TweenService:Create(ui.LeftPanel, TweenInfo.new(speed), {
 							Size = UDim2.fromOffset(
@@ -34793,8 +35045,7 @@ local RETURN_ELAPSED_TIME = false
 						}):Play()
 					end
 
-					--- Adjusts the ui elements to close the side
-					function minimizeSize(speed)
+										function minimizeSize(speed)
 						speed = speed or 0.05
 						TweenService:Create(ui.LeftPanel, TweenInfo.new(speed), {
 							Size = UDim2.fromOffset(
@@ -34833,8 +35084,7 @@ local RETURN_ELAPSED_TIME = false
 						}):Play()
 					end
 
-					--- Ensures size is within screensize limitations
-					function validateSize()
+										function validateSize()
 						local x, y = ui.Background.AbsoluteSize.X, ui.Background.AbsoluteSize.Y
 						local screenSize = SafeGetService("Workspace").CurrentCamera.ViewportSize
 						if x + ui.Background.AbsolutePosition.X > screenSize.X then
@@ -34853,9 +35103,7 @@ local RETURN_ELAPSED_TIME = false
 						ui.Background.Size = UDim2.fromOffset(x, y)
 					end
 
-					--- Called on user input while mouse in 'ui.Background' frame
-					--- @param input InputObject
-					function backgroundUserInput(input)
+															function backgroundUserInput(input)
 						local mousePos = UserInputService:GetMouseLocation() - GuiInset
 						local inResizeRange, type = isInResizeRange(mousePos)
 						if input.UserInputType == Enum.UserInputType.MouseButton1 and inResizeRange then
@@ -34879,7 +35127,7 @@ local RETURN_ELAPSED_TIME = false
 											(not sideClosed and not closed and (type == "X" or type == "B"))
 													and currentPos.X
 												or ui.Background.AbsoluteSize.X,
-											(--[[(not sideClosed or currentPos.X <= ui.LeftPanel.AbsolutePosition.X + ui.LeftPanel.AbsoluteSize.X) and]]not closed and (type == "Y" or type == "B"))
+											(not closed and (type == "Y" or type == "B"))
 													and currentPos.Y
 												or ui.Background.AbsoluteSize.Y
 										)
@@ -34909,8 +35157,7 @@ local RETURN_ELAPSED_TIME = false
 						end
 					end
 
-					--- Gets the player an instance is descended from
-					function getPlayerFromInstance(instance)
+										function getPlayerFromInstance(instance)
 						for _, v in next, Players:GetPlayers() do
 							if v.Character and (instance:IsDescendantOf(v.Character) or instance == v.Character) then
 								return v
@@ -34918,8 +35165,7 @@ local RETURN_ELAPSED_TIME = false
 						end
 					end
 
-					--- Runs on MouseButton1Click of an event frame
-					function eventSelect(frame)
+										function eventSelect(frame)
 						if selected and selected.Log then
 							if selected.Button then
 								spawn(function()
@@ -34952,26 +35198,21 @@ local RETURN_ELAPSED_TIME = false
 						end
 					end
 
-					--- Updates the canvas size to fit the current amount of function buttons
-					function updateFunctionCanvas()
+										function updateFunctionCanvas()
 						ui.ScrollingFrame.CanvasSize = UDim2.fromOffset(
 							ui.UIGridLayout.AbsoluteContentSize.X,
 							ui.UIGridLayout.AbsoluteContentSize.Y
 						)
 					end
 
-					--- Updates the canvas size to fit the amount of current remotes
-					function updateRemoteCanvas()
+										function updateRemoteCanvas()
 						ui.LogList.CanvasSize = UDim2.fromOffset(
 							ui.UIListLayout.AbsoluteContentSize.X,
 							ui.UIListLayout.AbsoluteContentSize.Y
 						)
 					end
 
-					--- Allows for toggling of the ui.ToolTip and easy setting of le description
-					--- @param enable boolean
-					--- @param text string
-					function makeToolTip(enable, text)
+																				function makeToolTip(enable, text)
 						if enable and text then
 							if ui.ToolTip.Visible then
 								ui.ToolTip.Visible = false
@@ -35032,11 +35273,7 @@ local RETURN_ELAPSED_TIME = false
 						end
 					end
 
-					--- Creates new function button (below ui.CodeBox)
-					--- @param name string
-					---@param description function
-					---@param onClick function
-					function newButton(name, description, onClick)
+																									function newButton(name, description, onClick)
 						local FunctionTemplate = Create("Frame", {
 							Name = "FunctionTemplate",
 							Parent = ui.ScrollingFrame,
@@ -35064,8 +35301,7 @@ local RETURN_ELAPSED_TIME = false
 							ZIndex = 2,
 							Font = Enum.Font.SourceSans,
 							TextColor3 = Color3.new(1, 1, 1),
-							--TextSize = 14,
-							TextScaled = true,
+														TextScaled = true,
 							TextStrokeColor3 = Color3.new(0.145098, 0.141176, 0.14902),
 							TextXAlignment = Enum.TextXAlignment.Left,
 						})
@@ -35081,8 +35317,7 @@ local RETURN_ELAPSED_TIME = false
 							Font = Enum.Font.SourceSans,
 							Text = "",
 							TextColor3 = Color3.new(0, 0, 0),
-							--TextSize = 14,
-							TextScaled = true,
+														TextScaled = true,
 						})
 
 						Button.MouseEnter:Connect(function()
@@ -35133,14 +35368,7 @@ local RETURN_ELAPSED_TIME = false
 						return Color3.fromRGB(180, 180, 180)
 					end
 
-					--- Adds new Remote to logs
-					--- @param name string The name of the remote being logged
-					--- @param type string The type of the remote being logged (either 'function' or 'event')
-					--- @param args any
-					--- @param remote any
-					--- @param function_info string
-					--- @param blocked any
-					logsById = logsById or {}
+																																								logsById = logsById or {}
 
 					local function logKey(data)
 						local rid = data.id or OldDebugId(data.remote)
@@ -35486,8 +35714,7 @@ local RETURN_ELAPSED_TIME = false
 						updateRemoteCanvas()
 					end
 
-					--- Generates a script from the provided arguments (first has to be remote path)
-					function genScript(remote, args, method)
+										function genScript(remote, args, method)
 						method = tostring(method or ""):lower()
 						prevTables = {}
 						local gen = ""
@@ -35815,8 +36042,7 @@ local RETURN_ELAPSED_TIME = false
 						end
 					end
 
-					--- value-to-string: value, string (out), level (indentation), parent table, var name, is from tovar
-					local CustomGeneration = {
+										local CustomGeneration = {
 						Vector3 = (function()
 							local temp = {}
 							for i, v in Vector3 do
@@ -35931,10 +36157,10 @@ local RETURN_ELAPSED_TIME = false
 						buffer = function(u, l)
 							return buffer_literal(u, l)
 						end,
-						RBXScriptSignal = function(u) -- The server doesnt recive this
+						RBXScriptSignal = function(u)
 							return "RBXScriptSignal --[[RBXScriptSignal's are not supported]]"
 						end,
-						RBXScriptConnection = function(u) -- The server doesnt recive this
+						RBXScriptConnection = function(u)
 							return "RBXScriptConnection --[[RBXScriptConnection's are not supported]]"
 						end,
 					}
@@ -35950,7 +36176,7 @@ local RETURN_ELAPSED_TIME = false
 						string = function(v, l)
 							return formatstr(v, l)
 						end,
-						["function"] = function(v) -- The server doesnt recive this
+						["function"] = function(v)
 							return f2s(v)
 						end,
 						table = function(v, l, p, n, vtv, i, pt, path, tables, tI)
@@ -35960,7 +36186,7 @@ local RETURN_ELAPSED_TIME = false
 							local DebugId = OldDebugId(v)
 							return i2p(v, generation[DebugId])
 						end,
-						userdata = function(v) -- The server doesnt recive this
+						userdata = function(v)
 							if configs.advancedinfo then
 								if getrawmetatable(v) then
 									return "newproxy(true)"
@@ -35979,7 +36205,7 @@ local RETURN_ELAPSED_TIME = false
 							if ufunctions[vtypeof] then
 								return ufunctions[vtypeof](v, l)
 							end
-							return `{vtypeof}({rawtostring(v)}) --[[Generation Failure]]`
+							return `{vtypeof}({rawtostring(v)}) `
 						end,
 						vector = ufunctions["Vector3"],
 					}
@@ -36003,12 +36229,10 @@ local RETURN_ELAPSED_TIME = false
 						elseif vtypefunc then
 							return vtypefunc(v, vtypeof, l)
 						end
-						return `{vtypeof}({rawtostring(v)}) --[[Generation Failure]]`
+						return `{vtypeof}({rawtostring(v)}) `
 					end
 
-					--- value-to-variable
-					--- @param t any
-					function v2v(t)
+															function v2v(t)
 						topstr = ""
 						bottomstr = ""
 						getnilrequired = false
@@ -36053,36 +36277,25 @@ local RETURN_ELAPSED_TIME = false
 
 					function tabletostring(tbl: table, format: boolean) end
 
-					--- table-to-string
-					--- @param t table
-					--- @param l number
-					--- @param p table
-					--- @param n string
-					--- @param vtv boolean
-					--- @param i any
-					--- @param pt table
-					--- @param path string
-					--- @param tables table
-					--- @param tI table
-					function t2s(t, l, p, n, vtv, i, pt, path, tables, tI)
-						local globalIndex = table.find(getgenv(), t) -- checks if table is a global
+																																																												function t2s(t, l, p, n, vtv, i, pt, path, tables, tI)
+						local globalIndex = table.find(getgenv(), t)
 						if type(globalIndex) == "string" then
 							return globalIndex
 						end
 						if not tI then
 							tI = { 0 }
 						end
-						if not path then -- sets path to empty string (so it doesn't have to manually provided every time)
+						if not path then
 							path = ""
 						end
-						if not l then -- sets the level to 0 (for indentation) and tables for logging tables it already serialized
+						if not l then
 							l = 0
 							tables = {}
 						end
-						if not p then -- p is the previous table but doesn't really matter if it's the first
+						if not p then
 							p = t
 						end
-						for _, v in next, tables do -- checks if the current table has been serialized before
+						for _, v in next, tables do
 							if n and rawequal(v, t) then
 								bottomstr = bottomstr
 									.. "\n"
@@ -36094,12 +36307,12 @@ local RETURN_ELAPSED_TIME = false
 								return "{} --[[DUPLICATE]]"
 							end
 						end
-						table.insert(tables, t) -- logs table to past tables
-						local s = "{" -- start of serialization
+						table.insert(tables, t)
+						local s = "{"
 						local size = 0
-						l += indent -- set indentation level
-						for k, v in next, t do -- iterates over table
-							size = size + 1 -- changes size for max limit
+						l += indent
+						for k, v in next, t do
+							size = size + 1
 							if size > (getgenv().SimpleSpyMaxTableSize or 1000) then
 								s = s
 									.. "\n"
@@ -36107,7 +36320,7 @@ local RETURN_ELAPSED_TIME = false
 									.. "-- MAXIMUM TABLE SIZE REACHED, CHANGE 'getgenv().SimpleSpyMaxTableSize' TO ADJUST MAXIMUM SIZE "
 								break
 							end
-							if rawequal(k, t) then -- checks if the table being iterated over is being used as an index within itself (yay, lua)
+							if rawequal(k, t) then
 								bottomstr ..= `\n{n}{path}[{n}{path}] = {(rawequal(v, k) and `{n}{path}` or v2s(
 									v,
 									l,
@@ -36119,12 +36332,11 @@ local RETURN_ELAPSED_TIME = false
 									`{path}[{n}{path}]`,
 									tables
 								))}`
-								--bottomstr = bottomstr .. "\n" .. rawtostring(n) .. rawtostring(path) .. "[" .. rawtostring(n) .. rawtostring(path) .. "]" .. " = " .. (rawequal(v, k) and rawtostring(n) .. rawtostring(path) or v2s(v, l, p, n, vtv, k, t, path .. "[" .. rawtostring(n) .. rawtostring(path) .. "]", tables))
-								size -= 1
+																size -= 1
 								continue
 							end
-							local currentPath = "" -- initializes the path of 'v' within 't'
-							if type(k) == "string" and k:match("^[%a_]+[%w_]*$") then -- cleanly handles table path generation (for the first half)
+							local currentPath = ""
+							if type(k) == "string" and k:match("^[%a_]+[%w_]*$") then
 								currentPath = "." .. k
 							else
 								currentPath = "[" .. v2s(k, l, p, n, vtv, k, t, path .. currentPath, tables, tI) .. "]"
@@ -36132,8 +36344,7 @@ local RETURN_ELAPSED_TIME = false
 							if size % 100 == 0 then
 								scheduleWait()
 							end
-							-- actually serializes the member of the table
-							s = s
+														s = s
 								.. "\n"
 								.. string.rep(" ", l)
 								.. "["
@@ -36142,17 +36353,16 @@ local RETURN_ELAPSED_TIME = false
 								.. v2s(v, l, p, n, vtv, k, t, path .. currentPath, tables, tI)
 								.. ","
 						end
-						if #s > 1 then -- removes the last comma because it looks nicer (no way to tell if it's done 'till it's done so...)
+						if #s > 1 then
 							s = s:sub(1, #s - 1)
 						end
-						if size > 0 then -- cleanly indents the last curly bracket
+						if size > 0 then
 							s = s .. "\n" .. string.rep(" ", l - indent)
 						end
 						return s .. "}"
 					end
 
-					--- function-to-string
-					function f2s(f)
+										function f2s(f)
 						for k, x in next, getgenv() do
 							local isgucci, gpath
 							if rawequal(x, f) then
@@ -36173,15 +36383,13 @@ local RETURN_ELAPSED_TIME = false
 							local funcname = info(f, "n")
 
 							if funcname and funcname:match("^[%a_]+[%w_]*$") then
-								return `function {funcname}() end -- Function Called: {funcname}`
+								return `function {funcname}() end
 							end
 						end
 						return tostring(f)
 					end
 
-					--- instance-to-path
-					--- @param i userdata
-					local function hasDupName(parent, name)
+															local function hasDupName(parent, name)
 						local n = 0
 						for _, c in ipairs(parent:GetChildren()) do
 							if c.Name == name then
@@ -36397,8 +36605,7 @@ local RETURN_ELAPSED_TIME = false
 						return base .. descend
 					end
 
-					--- Gets the player an instance is descended from
-					function getplayer(instance)
+										function getplayer(instance)
 						for _, v in next, Players:GetPlayers() do
 							if v.Character and (instance:IsDescendantOf(v.Character) or instance == v.Character) then
 								return v
@@ -36406,8 +36613,7 @@ local RETURN_ELAPSED_TIME = false
 						end
 					end
 
-					--- value-to-path (in table)
-					function v2p(x, t, path, prev)
+										function v2p(x, t, path, prev)
 						if not path then
 							path = ""
 						end
@@ -36449,8 +36655,7 @@ local RETURN_ELAPSED_TIME = false
 						return false, ""
 					end
 
-					--- format s: string, byte encrypt (for weird symbols)
-					local function formatstr_with_status(s, indentation)
+										local function formatstr_with_status(s, indentation)
 						if not indentation then
 							indentation = 0
 						end
@@ -36470,8 +36675,6 @@ local RETURN_ELAPSED_TIME = false
 						local literal = formatstr_with_status(s, indentation)
 						return literal
 					end
-
-					--- Adds \'s to the text as a replacement to whitespace chars and other things because string.format can't yayeet
 
 					local function isFinished(coroutines: table)
 						for _, v in next, coroutines do
@@ -36524,8 +36727,7 @@ local RETURN_ELAPSED_TIME = false
 									i += 1
 								elseif byte(char) > 126 or byte(char) < 32 then
 									resume(c, i, "\\" .. byte(char))
-									-- s = s:sub(0, i - 1) .. "\\" .. byte(char) .. s:sub(i + 1, -1)
-									i += #rawtostring(byte(char))
+																		i += #rawtostring(byte(char))
 								end
 								if i >= n * 100 then
 									local extra = string.format('" ..\n%s"', string.rep(" ", indentation + indent))
@@ -36664,13 +36866,10 @@ local RETURN_ELAPSED_TIME = false
 						return literal
 					end
 
-					--- finds script from 'src' from getinfo, returns nil if not found
-					--- @param src string
-					function getScriptFromSrc(src)
+															function getScriptFromSrc(src)
 						local realPath
 						local runningTest
-						--- @type number
-						local s, e
+												local s, e
 						local match = false
 						if src:sub(1, 1) == "=" then
 							realPath = game
@@ -36716,8 +36915,6 @@ local RETURN_ELAPSED_TIME = false
 						return realPath
 					end
 
-					--- schedules the provided function (and calls it with any args after)
-
 					local function scheduleUrgent(f, ...)
 						table.insert(scheduled, 1, { f, ... })
 					end
@@ -36726,8 +36923,7 @@ local RETURN_ELAPSED_TIME = false
 						table.insert(scheduled, { f, ... })
 					end
 
-					--- yields the current thread until the scheduler gives the ok
-					function scheduleWait()
+										function scheduleWait()
 						local thread = running()
 						schedule(function()
 							resume(thread)
@@ -36735,8 +36931,7 @@ local RETURN_ELAPSED_TIME = false
 						yield()
 					end
 
-					--- the big (well tbh small now) boi task scheduler himself, handles p much anything as quicc as possible
-					local function taskscheduler()
+										local function taskscheduler()
 						if not toggle then
 							scheduled = {}
 							return
@@ -37113,8 +37308,7 @@ local RETURN_ELAPSED_TIME = false
 						end
 					end
 
-					--- Toggles on and off the remote spy
-					function toggleSpy()
+										function toggleSpy()
 						if not toggle then
 							local oldnamecall
 							if synv3 then
@@ -37156,14 +37350,12 @@ local RETURN_ELAPSED_TIME = false
 						end
 					end
 
-					--- Toggles between the two remotespy methods (hookfunction currently = disabled)
-					function toggleSpyMethod()
+										function toggleSpyMethod()
 						toggleSpy()
 						toggle = not toggle
 					end
 
-					--- Shuts down the remote spy
-					local function shutdown()
+										local function shutdown()
 						if schedulerconnect then
 							schedulerconnect:Disconnect()
 						end
@@ -37186,8 +37378,7 @@ local RETURN_ELAPSED_TIME = false
 						getgenv().SimpleSpyExecuted = false
 					end
 
-					-- main
-					if not getgenv().SimpleSpyExecuted then
+										if not getgenv().SimpleSpyExecuted then
 						local succeeded, err = pcall(function()
 							if not RunService:IsClient() then
 								error("SimpleSpy cannot run on the server!")
@@ -37227,8 +37418,7 @@ local RETURN_ELAPSED_TIME = false
 								mouseEntered()
 							end)
 							ui.TextLabel:GetPropertyChangedSignal("Text"):Connect(scaleToolTip)
-							-- ui.TopBar.InputBegan:Connect(onBarInput)
-							ui.MinimizeButton.MouseButton1Click:Connect(toggleMinimize)
+														ui.MinimizeButton.MouseButton1Click:Connect(toggleMinimize)
 							ui.MaximizeButton.MouseButton1Click:Connect(toggleSideTray)
 							ui.Simple.MouseButton1Click:Connect(onToggleButtonClick)
 							ui.CloseButton.MouseEnter:Connect(onXButtonHover)
@@ -37305,29 +37495,6 @@ local RETURN_ELAPSED_TIME = false
 						return newButton(name, description, onClick)
 					end
 
-					----- ADD ONS ----- (easily add or remove additonal functionality to the RemoteSpy!)
-					--[[
-			    Some helpful things:
-			        - add your function in here, and create buttons for them through the 'newButton' function
-			        - the first argument provided is the TextButton the player clicks to run the function
-			        - generated scripts are generated when the namecall is initially fired and saved in remoteFrame objects
-			        - blacklisted remotes will be ignored directly in namecall (less lag)
-			        - the properties of a 'remoteFrame' object:
-			            {
-			                Name: (string) The name of the Remote
-			                GenScript: (string) The generated script that appears in the ui.CodeBox (generated when namecall fired)
-			                Source: (Instance (LocalScript)) The script that fired/invoked the remote
-			                Remote: (Instance (RemoteEvent) | Instance (RemoteFunction)) The remote that was fired/invoked
-			                Log: (Instance (TextButton)) The button being used for the remote (same as 'selected.Log')
-			            }
-			        - globals list: (contact @exx#9394 for more information or if you have suggestions for more to be added)
-			            - closed: (boolean) whether or not the GUI is currently minimized
-			            - logs: (table[remoteFrame]) full of remoteFrame objects (properties listed above)
-			            - selected: (remoteFrame) the currently selected remoteFrame (properties listed above)
-			            - blacklist: (string[] | Instance[] (RemoteEvent) | Instance[] (RemoteFunction)) an array of blacklisted names and remotes
-			            - ui.CodeBox: (Instance (Frame)) container for the Highlight code viewer
-			]]
-
 					do
 						ui.NextButton.MouseButton1Click:Connect(function()
 							ui.Background.Visible = not ui.Background.Visible
@@ -37364,16 +37531,14 @@ local RETURN_ELAPSED_TIME = false
 						end)
 					end
 
-					-- Copies the contents of the ui.CodeBox
-					newButton("Copy Code", function()
+										newButton("Copy Code", function()
 						return "Click to copy code"
 					end, function()
 						setclipboard(codebox:getString())
 						ui.TextLabel.Text = "Copied successfully!"
 					end)
 
-					--- Copies the source script (that fired the remote)
-					newButton("Copy Remote", function()
+										newButton("Copy Remote", function()
 						return "Click to copy the path of the remote"
 					end, function()
 						if selected and selected.Remote then
@@ -37382,8 +37547,7 @@ local RETURN_ELAPSED_TIME = false
 						end
 					end)
 
-					-- Executes the contents of the ui.CodeBox through loadstring
-					newButton("Run Code", function()
+										newButton("Run Code", function()
 						return "Click to execute code"
 					end, function()
 						if not loadstring then
@@ -37456,8 +37620,7 @@ local RETURN_ELAPSED_TIME = false
 						ui.TextLabel.Text = configs.adonisBypass and "Auto-bypass enabled" or "Auto-bypass disabled"
 					end)
 
-					--- Gets the calling script (not super reliable but w/e)
-					newButton("Get Script", function()
+										newButton("Get Script", function()
 						return "Click to copy calling script to clipboard\nWARNING: Not super reliable, nil == could not find"
 					end, function()
 						if selected then
@@ -37469,8 +37632,7 @@ local RETURN_ELAPSED_TIME = false
 						end
 					end)
 
-					--- Decompiles the script that fired the remote and puts it in the code box
-					newButton("Function Info", function()
+										newButton("Function Info", function()
 						return "Click to view calling function information"
 					end, function()
 						local func = selected and selected.Function
@@ -37544,8 +37706,7 @@ local RETURN_ELAPSED_TIME = false
 						end
 					end)
 
-					--- Clears the Remote logs
-					newButton("Clr Logs", function()
+										newButton("Clr Logs", function()
 						return "Click to clear logs"
 					end, function()
 						ui.TextLabel.Text = "Clearing..."
@@ -37565,8 +37726,7 @@ local RETURN_ELAPSED_TIME = false
 						ui.TextLabel.Text = "Logs cleared!"
 					end)
 
-					--- Excludes the selected.Log Remote from the RemoteSpy
-					newButton("Exclude (i)", function()
+										newButton("Exclude (i)", function()
 						return "Click to exclude this Remote.\nExcluding a remote makes SimpleSpy ignore it, but it will continue to be usable."
 					end, function()
 						if selected then
@@ -37575,8 +37735,7 @@ local RETURN_ELAPSED_TIME = false
 						end
 					end)
 
-					--- Excludes all Remotes that share the same name as the selected.Log remote from the RemoteSpy
-					newButton("Exclude (n)", function()
+										newButton("Exclude (n)", function()
 						return "Click to exclude all remotes with this name.\nExcluding a remote makes SimpleSpy ignore it, but it will continue to be usable."
 					end, function()
 						if selected then
@@ -37585,16 +37744,14 @@ local RETURN_ELAPSED_TIME = false
 						end
 					end)
 
-					--- clears blacklist
-					newButton("Clr Blacklist", function()
+										newButton("Clr Blacklist", function()
 						return "Click to clear the blacklist.\nExcluding a remote makes SimpleSpy ignore it, but it will continue to be usable."
 					end, function()
 						blacklist = {}
 						ui.TextLabel.Text = "Blacklist cleared!"
 					end)
 
-					--- Prevents the selected.Log Remote from firing the server (still logged)
-					newButton("Block (i)", function()
+										newButton("Block (i)", function()
 						return "Click to stop this remote from firing.\nBlocking a remote won't remove it from SimpleSpy logs, but it will not continue to fire the server."
 					end, function()
 						if selected then
@@ -37603,8 +37760,7 @@ local RETURN_ELAPSED_TIME = false
 						end
 					end)
 
-					--- Prevents all remotes from firing that share the same name as the selected.Log remote from the RemoteSpy (still logged)
-					newButton("Block (n)", function()
+										newButton("Block (n)", function()
 						return "Click to stop remotes with this name from firing.\nBlocking a remote won't remove it from SimpleSpy logs, but it will not continue to fire the server."
 					end, function()
 						if selected then
@@ -37613,16 +37769,14 @@ local RETURN_ELAPSED_TIME = false
 						end
 					end)
 
-					--- clears blacklist
-					newButton("Clr Blocklist", function()
+										newButton("Clr Blocklist", function()
 						return "Click to stop blocking remotes.\nBlocking a remote won't remove it from SimpleSpy logs, but it will not continue to fire the server."
 					end, function()
 						blocklist = {}
 						ui.TextLabel.Text = "Blocklist cleared!"
 					end)
 
-					--- Attempts to decompile the source script
-					newButton("Decompile", function()
+										newButton("Decompile", function()
 						return "Decompile source script"
 					end, function()
 						if decompile then
@@ -37681,24 +37835,6 @@ local RETURN_ELAPSED_TIME = false
 						ui.TextLabel.Text = "Script path copied!"
 					end)
 
-					--[[newButton(
-			        "returnvalue",
-			        function() return "Get a Remote's return data" end,
-			        function()
-			            if selected then
-			                local Remote = selected.Remote
-			                if Remote and Remote:IsA("RemoteFunction") then
-			                    if selected.returnvalue and selected.returnvalue.data then
-			                        return codebox:setRaw(v2s(selected.returnvalue.data))
-			                    end
-			                    return codebox:setRaw("No data was returned")
-			                else
-			                    codebox:setRaw("RemoteFunction expected got "..(Remote and Remote.ClassName))
-			                end
-			            end
-			        end
-			    )]]
-
 					newButton("Disable Info", function()
 						return string.format(
 							"[%s] Toggle function info (because it can cause lag in some games)",
@@ -37737,14 +37873,6 @@ local RETURN_ELAPSED_TIME = false
 							configs.logcheckcaller and "ENABLED" or "DISABLED"
 						)
 					end)
-
-					--[[newButton("Log returnvalues",function()
-			    return ("[BETA] [%s] Log RemoteFunction's return values"):format(configs.logcheckcaller and "ENABLED" or "DISABLED")
-			end,
-			function()
-			    configs.logreturnvalues = not configs.logreturnvalues
-			    ui.TextLabel.Text = ("[BETA] [%s] Log RemoteFunction's return values"):format(configs.logreturnvalues and "ENABLED" or "DISABLED")
-			end)]]
 
 					newButton("Advanced Info", function()
 						return ("[%s] Display more remoteinfo"):format(configs.advancedinfo and "ENABLED" or "DISABLED")
@@ -37818,10 +37946,8 @@ local RETURN_ELAPSED_TIME = false
 						end)
 					end
 
-					-- After launch, grab the gui reference via getgenv
-					if getgenv().SimpleSpyExecuted then
-						-- find it via gethui or CoreGui/PlayerGui
-						local function findSpyGui()
+										if getgenv().SimpleSpyExecuted then
+												local function findSpyGui()
 							local searchRoots = {}
 							if gethui then
 								table.insert(searchRoots, gethui())
@@ -37836,8 +37962,7 @@ local RETURN_ELAPSED_TIME = false
 							end
 							for _, root in ipairs(searchRoots) do
 								for _, child in ipairs(root:GetChildren()) do
-									-- SimpleSpy renames its gui to '\0' for protection
-									if child:IsA("ScreenGui") and child:FindFirstChild("Background", true) then
+																		if child:IsA("ScreenGui") and child:FindFirstChild("Background", true) then
 										return child
 									end
 								end
@@ -37859,8 +37984,7 @@ local RETURN_ELAPSED_TIME = false
 				elseif spyGui then
 					spyGui.Enabled = true
 				elseif getgenv().SimpleSpyShutdown then
-					-- already running, just re-show via its own toggle
-					if getgenv().SimpleSpyExecuted then
+										if getgenv().SimpleSpyExecuted then
 						local bg = spyGui and spyGui:FindFirstChild("Background")
 						if bg then
 							bg.Visible = true
@@ -37873,8 +37997,7 @@ local RETURN_ELAPSED_TIME = false
 				if spyGui then
 					spyGui.Enabled = false
 				elseif getgenv().SimpleSpyExecuted then
-					-- find and hide
-					local function findAndHide(root)
+										local function findAndHide(root)
 						for _, child in ipairs(root:GetChildren()) do
 							if child:IsA("ScreenGui") and child:FindFirstChild("Background", true) then
 								child.Enabled = false
@@ -37897,8 +38020,7 @@ local RETURN_ELAPSED_TIME = false
 				end
 			end
 
-			-- OnActivate/OnDeactivate stubs so Dex doesn't error
-			fakeWindow.OnActivate = Instance.new("BindableEvent").Event
+						fakeWindow.OnActivate = Instance.new("BindableEvent").Event
 			fakeWindow.OnDeactivate = Instance.new("BindableEvent").Event
 
 			RemoteSpy.Window = fakeWindow
@@ -40132,9 +40254,3 @@ Main = (function()
 	return Main
 end)()
 Main.Init()
-
---      /  /\         /  /\         |  |\
---    /  /:/\:\     /  /:/\:\       |  |:|
---  /__/:/ \__\:| /__/:/\:\ \:\ ____/__/::::\
---   \  \:\  /:/   \  \:\ \:\      |~~|:|
---     \__\::/       \  \:\        |__|:|
