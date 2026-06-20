@@ -63,11 +63,6 @@ end
 writefile(GoonLogoPath, b64decode(GoonLogoB64))
 GoonLogo.Image = getcustomasset(GoonLogoPath)
 
-do
-	local _s = Instance.new("UIStroke", GoonLogo)
-	_s.Color = Color3.fromRGB(38, 38, 46)
-	_s.Thickness = 1
-end
 
 GoonLogo.Parent = GoonLogoWrap
 
