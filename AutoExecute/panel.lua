@@ -34,6 +34,7 @@ end
 
 ]]
 
+
 task.wait(3)
 
 local genv = getgenv()
@@ -5972,114 +5973,6 @@ RegisterCommand({
 	setReadOnly(Meta, true)
 	Log("Anti-Teleport on.")
 end)
---[[RegisterCommand({
-	Name = "anticframetp",
-	Aliases = { "antic" },
-	Description = "Anti Cframe Teleporter.",
-	ArgsDesc = {},
-	Permissions = {},
-}, function(args, speaker)
-	local Players = game:GetService("Players")
-	local RunService = game:GetService("RunService")
-	local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
-	local AntiCFrame = {
-		Enabled = false,
-		Debug = true,
-		Connections = {},
-		Allowed = {},
-		LastCFrame = {},
-		ProtectedParts = {},
-	}
-	local function Log(msg)
-		if AntiCFrame.Debug then
-			print(string.format("[Anti-CFrame]: %s", msg))
-		end
-	end
-	local function ClearConnections(group)
-		if AntiCFrame.Connections[group] then
-			for _, con in ipairs(AntiCFrame.Connections[group]) do
-				con:Disconnect()
-			end
-			AntiCFrame.Connections[group] = {}
-		end
-	end
-	local function HookPart(part)
-		if not part:IsA("BasePart") or AntiCFrame.Allowed[part] ~= nil then
-			return
-		end
-		AntiCFrame.Allowed[part] = false
-		AntiCFrame.LastCFrame[part] = part.CFrame
-		table.insert(AntiCFrame.ProtectedParts, part)
-		local con = part:GetPropertyChangedSignal("CFrame"):Connect(function()
-			if not AntiCFrame.Enabled then
-				return
-			end
-			if AntiCFrame.Allowed[part] then
-				return
-			end
-			local last = AntiCFrame.LastCFrame[part]
-			if last then
-				AntiCFrame.Allowed[part] = true
-				part.CFrame = last
-				task.wait()
-				AntiCFrame.Allowed[part] = false
-				Log("Blocked forced movement on: " .. part.Name)
-			end
-		end)
-		table.insert(AntiCFrame.Connections["Character"], con)
-	end
-	local function SetupCharacter(char)
-		ClearConnections("Character")
-		AntiCFrame.Allowed = {}
-		AntiCFrame.LastCFrame = {}
-		AntiCFrame.ProtectedParts = {}
-		AntiCFrame.Connections["Character"] = {}
-		for _, part in ipairs(char:GetDescendants()) do
-			if part:IsA("BasePart") then
-				HookPart(part)
-			end
-		end
-		local descCon = char.DescendantAdded:Connect(function(desc)
-			if desc:IsA("BasePart") then
-				HookPart(desc)
-			end
-		end)
-		table.insert(AntiCFrame.Connections["Character"], descCon)
-		task.spawn(function()
-			while AntiCFrame.Enabled and char and char.Parent do
-				for _, part in ipairs(AntiCFrame.ProtectedParts) do
-					if part and part.Parent and not AntiCFrame.Allowed[part] then
-						AntiCFrame.LastCFrame[part] = part.CFrame
-					end
-				end
-				task.wait(0.1)
-			end
-		end)
-	end
-	function AntiCFrame:Toggle(state)
-		self.Enabled = state
-		if state then
-			local char = LocalPlayer.Character
-			if char then
-				SetupCharacter(char)
-			end
-			local respawnCon = LocalPlayer.CharacterAdded:Connect(function(newChar)
-				task.wait(0.5)
-				SetupCharacter(newChar)
-			end)
-			self.Connections["Global"] = { respawnCon }
-			Log("Anti-CFrame Teleport Protection Active.")
-		else
-			ClearConnections("Global")
-			ClearConnections("Character")
-			self.Allowed = {}
-			self.LastCFrame = {}
-			self.ProtectedParts = {}
-			Log("Anti-CFrame Teleport Protection Disabled.")
-		end
-	end
-	AntiCFrame:Toggle(true)
-end)]]
 Modules.FireRemotes = {
 	State = {
 		Enabled = false,
@@ -22328,18 +22221,6 @@ RegisterCommand({
 	getgenv().PartFlingerV2_Module = NetworkClaim
 	NetworkClaim:Enable()
 end)
-addcmd("guimaker", {}, function(args, speaker)
-	local ok, err = pcall(function()
-		loadstring(
-			game:HttpGet("https://raw.githubusercontent.com/idioticanisgae-pixel/Moon/refs/heads/main/GuiMaker.lua")
-		)()
-	end)
-	if not ok then
-		DoNotif("failed: " .. tostring(err), 3)
-	else
-		DoNotif("opened!", 2)
-	end
-end)
 RegisterCommand({
 	Name = "casino",
 	Aliases = { "cas", "bet" },
@@ -25258,615 +25139,6 @@ function Modules.PlayerLookup:Initialize()
 		module:LookupUserId(userId)
 	end)
 end
-Modules.NetworkClaim = {
-	State = {
-		IsEnabled = false,
-		ClaimedObjects = {},
-		SelectedObject = nil,
-		UI = nil,
-		Connections = {},
-		AutoClaim = false,
-	},
-	Config = {
-		HighlightColor = Color3.fromRGB(255, 100, 0),
-		ClaimMethod = "ownership",
-		UpdateRate = 0.03,
-		ShowVisuals = true,
-	},
-}
-local LocalPlayer = Players.LocalPlayer
-function Modules.NetworkClaim:_createUI()
-	local screenGui = Instance.new("ScreenGui")
-	screenGui.Name = "NetworkClaim_Zuka"
-	screenGui.ResetOnSpawn = false
-	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-	self.State.UI = screenGui
-	local mainFrame = Instance.new("Frame")
-	mainFrame.Name = "MainFrame"
-	mainFrame.Size = UDim2.fromOffset(380, 560)
-	mainFrame.Position = UDim2.new(1, -390, 0.5, -280)
-	mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-	mainFrame.BorderSizePixel = 0
-	mainFrame.Parent = screenGui
-	Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
-	local stroke = Instance.new("UIStroke", mainFrame)
-	stroke.Color = Color3.fromRGB(255, 100, 0)
-	stroke.Thickness = 2
-	local glowTween =
-		TweenService:Create(stroke, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
-			Thickness = 3,
-		})
-	glowTween:Play()
-	local titleBar = Instance.new("Frame", mainFrame)
-	titleBar.Name = "TitleBar"
-	titleBar.Size = UDim2.new(1, 0, 0, 35)
-	titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-	titleBar.BorderSizePixel = 0
-	Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 8)
-	local title = Instance.new("TextLabel", titleBar)
-	title.Size = UDim2.new(1, -90, 1, 0)
-	title.Position = UDim2.fromOffset(10, 0)
-	title.BackgroundTransparency = 1
-	title.Font = Enum.Font.Code
-	title.Text = " NETWORK CLAIM"
-	title.TextColor3 = Color3.fromRGB(255, 100, 0)
-	title.TextSize = 16
-	title.TextXAlignment = Enum.TextXAlignment.Left
-	local statusIndicator = Instance.new("TextLabel", titleBar)
-	statusIndicator.Name = "StatusIndicator"
-	statusIndicator.Size = UDim2.fromOffset(90, 20)
-	statusIndicator.Position = UDim2.new(1, -160, 0.5, -10)
-	statusIndicator.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-	statusIndicator.BorderSizePixel = 0
-	statusIndicator.Font = Enum.Font.GothamBold
-	statusIndicator.Text = "0 CLAIMED"
-	statusIndicator.TextColor3 = Color3.fromRGB(200, 200, 200)
-	statusIndicator.TextSize = 10
-	Instance.new("UICorner", statusIndicator).CornerRadius = UDim.new(0, 4)
-	local closeBtn = Instance.new("TextButton", titleBar)
-	closeBtn.Size = UDim2.fromOffset(30, 30)
-	closeBtn.Position = UDim2.new(1, -32, 0, 2)
-	closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
-	closeBtn.BorderSizePixel = 0
-	closeBtn.Text = "×"
-	closeBtn.TextColor3 = Color3.new(1, 1, 1)
-	closeBtn.Font = Enum.Font.GothamBold
-	closeBtn.TextSize = 20
-	Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
-	closeBtn.MouseButton1Click:Connect(function()
-		self:Disable()
-	end)
-	local dragStart, startPos
-	titleBar.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragStart = input.Position
-			startPos = mainFrame.Position
-			local moveConn, endConn
-			moveConn = game:GetService("UserInputService").InputChanged:Connect(function(moveInput)
-				if moveInput.UserInputType == Enum.UserInputType.MouseMovement then
-					local delta = moveInput.Position - dragStart
-					mainFrame.Position = UDim2.new(
-						startPos.X.Scale,
-						startPos.X.Offset + delta.X,
-						startPos.Y.Scale,
-						startPos.Y.Offset + delta.Y
-					)
-				end
-			end)
-			endConn = game:GetService("UserInputService").InputEnded:Connect(function(endInput)
-				if endInput.UserInputType == Enum.UserInputType.MouseButton1 then
-					moveConn:Disconnect()
-					endConn:Disconnect()
-				end
-			end)
-		end
-	end)
-	local content = Instance.new("Frame", mainFrame)
-	content.Name = "Content"
-	content.Size = UDim2.new(1, -20, 1, -45)
-	content.Position = UDim2.fromOffset(10, 40)
-	content.BackgroundTransparency = 1
-	local selectionLabel = Instance.new("TextLabel", content)
-	selectionLabel.Name = "SelectionLabel"
-	selectionLabel.Size = UDim2.new(1, 0, 0, 35)
-	selectionLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-	selectionLabel.BorderSizePixel = 0
-	selectionLabel.Font = Enum.Font.GothamMedium
-	selectionLabel.Text = "Click an object to select"
-	selectionLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-	selectionLabel.TextSize = 12
-	Instance.new("UICorner", selectionLabel).CornerRadius = UDim.new(0, 6)
-	local methodLabel = Instance.new("TextLabel", content)
-	methodLabel.Size = UDim2.new(1, 0, 0, 20)
-	methodLabel.Position = UDim2.fromOffset(0, 45)
-	methodLabel.BackgroundTransparency = 1
-	methodLabel.Font = Enum.Font.GothamBold
-	methodLabel.Text = "Claim Method:"
-	methodLabel.TextColor3 = Color3.new(1, 1, 1)
-	methodLabel.TextSize = 13
-	methodLabel.TextXAlignment = Enum.TextXAlignment.Left
-	local methodButtons = {}
-	local methods = {
-		{ id = "ownership", name = "OWNERSHIP", desc = "Set network owner" },
-		{ id = "velocity", name = "VELOCITY", desc = "Spam velocity changes" },
-		{ id = "cframe", name = "CFRAME", desc = "Spam CFrame updates" },
-	}
-	for i, method in ipairs(methods) do
-		local btn = Instance.new("TextButton", content)
-		btn.Name = method.id .. "Btn"
-		btn.Size = UDim2.fromOffset(110, 30)
-		btn.Position = UDim2.fromOffset((i - 1) * 120, 70)
-		btn.BackgroundColor3 = method.id == "ownership" and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(50, 50, 65)
-		btn.BorderSizePixel = 0
-		btn.Font = Enum.Font.GothamSemibold
-		btn.Text = method.name
-		btn.TextColor3 = Color3.new(1, 1, 1)
-		btn.TextSize = 10
-		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-		methodButtons[method.id] = btn
-		btn.MouseButton1Click:Connect(function()
-			self.Config.ClaimMethod = method.id
-			for m, b in pairs(methodButtons) do
-				b.BackgroundColor3 = m == method.id and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(50, 50, 65)
-			end
-			print(string.format(" Claim method: %s", method.name))
-		end)
-		local tooltip = Instance.new("TextLabel", btn)
-		tooltip.Size = UDim2.new(1, 0, 0, 15)
-		tooltip.Position = UDim2.new(0, 0, 1, 2)
-		tooltip.BackgroundTransparency = 1
-		tooltip.Font = Enum.Font.Gotham
-		tooltip.Text = method.desc
-		tooltip.TextColor3 = Color3.fromRGB(150, 150, 150)
-		tooltip.TextSize = 8
-		tooltip.TextWrapped = true
-	end
-	local autoClaimToggle = Instance.new("TextButton", content)
-	autoClaimToggle.Name = "AutoClaimToggle"
-	autoClaimToggle.Size = UDim2.new(1, 0, 0, 35)
-	autoClaimToggle.Position = UDim2.fromOffset(0, 120)
-	autoClaimToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
-	autoClaimToggle.BorderSizePixel = 0
-	autoClaimToggle.Font = Enum.Font.GothamBold
-	autoClaimToggle.Text = "AUTO-CLAIM: OFF"
-	autoClaimToggle.TextColor3 = Color3.new(1, 1, 1)
-	autoClaimToggle.TextSize = 12
-	Instance.new("UICorner", autoClaimToggle).CornerRadius = UDim.new(0, 6)
-	autoClaimToggle.MouseButton1Click:Connect(function()
-		self.State.AutoClaim = not self.State.AutoClaim
-		autoClaimToggle.Text = "AUTO-CLAIM: " .. (self.State.AutoClaim and "ON" or "OFF")
-		autoClaimToggle.BackgroundColor3 = self.State.AutoClaim and Color3.fromRGB(0, 200, 100)
-			or Color3.fromRGB(50, 50, 65)
-		print(string.format(" Auto-claim: %s", self.State.AutoClaim and "ON" or "OFF"))
-	end)
-	local actionsLabel = Instance.new("TextLabel", content)
-	actionsLabel.Size = UDim2.new(1, 0, 0, 20)
-	actionsLabel.Position = UDim2.fromOffset(0, 165)
-	actionsLabel.BackgroundTransparency = 1
-	actionsLabel.Font = Enum.Font.GothamBold
-	actionsLabel.Text = "Actions:"
-	actionsLabel.TextColor3 = Color3.new(1, 1, 1)
-	actionsLabel.TextSize = 13
-	actionsLabel.TextXAlignment = Enum.TextXAlignment.Left
-	local claimBtn = Instance.new("TextButton", content)
-	claimBtn.Name = "ClaimButton"
-	claimBtn.Size = UDim2.new(1, 0, 0, 40)
-	claimBtn.Position = UDim2.fromOffset(0, 190)
-	claimBtn.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
-	claimBtn.BorderSizePixel = 0
-	claimBtn.Font = Enum.Font.GothamBold
-	claimBtn.Text = "CLAIM SELECTED"
-	claimBtn.TextColor3 = Color3.new(1, 1, 1)
-	claimBtn.TextSize = 14
-	Instance.new("UICorner", claimBtn).CornerRadius = UDim.new(0, 6)
-	claimBtn.MouseButton1Click:Connect(function()
-		self:ClaimSelected()
-	end)
-	local releaseBtn = Instance.new("TextButton", content)
-	releaseBtn.Size = UDim2.new(0.48, 0, 0, 35)
-	releaseBtn.Position = UDim2.fromOffset(0, 240)
-	releaseBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 50)
-	releaseBtn.BorderSizePixel = 0
-	releaseBtn.Font = Enum.Font.GothamBold
-	releaseBtn.Text = "RELEASE"
-	releaseBtn.TextColor3 = Color3.new(1, 1, 1)
-	releaseBtn.TextSize = 12
-	Instance.new("UICorner", releaseBtn).CornerRadius = UDim.new(0, 6)
-	releaseBtn.MouseButton1Click:Connect(function()
-		self:ReleaseSelected()
-	end)
-	local releaseAllBtn = Instance.new("TextButton", content)
-	releaseAllBtn.Size = UDim2.new(0.48, 0, 0, 35)
-	releaseAllBtn.Position = UDim2.new(0.52, 0, 0, 240)
-	releaseAllBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 100)
-	releaseAllBtn.BorderSizePixel = 0
-	releaseAllBtn.Font = Enum.Font.GothamBold
-	releaseAllBtn.Text = "RELEASE ALL"
-	releaseAllBtn.TextColor3 = Color3.new(1, 1, 1)
-	releaseAllBtn.TextSize = 12
-	Instance.new("UICorner", releaseAllBtn).CornerRadius = UDim.new(0, 6)
-	releaseAllBtn.MouseButton1Click:Connect(function()
-		self:ReleaseAll()
-	end)
-	local bulkLabel = Instance.new("TextLabel", content)
-	bulkLabel.Size = UDim2.new(1, 0, 0, 20)
-	bulkLabel.Position = UDim2.fromOffset(0, 285)
-	bulkLabel.BackgroundTransparency = 1
-	bulkLabel.Font = Enum.Font.GothamBold
-	bulkLabel.Text = "Bulk Actions:"
-	bulkLabel.TextColor3 = Color3.new(1, 1, 1)
-	bulkLabel.TextSize = 13
-	bulkLabel.TextXAlignment = Enum.TextXAlignment.Left
-	local claimModelBtn = Instance.new("TextButton", content)
-	claimModelBtn.Size = UDim2.new(1, 0, 0, 35)
-	claimModelBtn.Position = UDim2.fromOffset(0, 310)
-	claimModelBtn.BackgroundColor3 = Color3.fromRGB(150, 80, 200)
-	claimModelBtn.BorderSizePixel = 0
-	claimModelBtn.Font = Enum.Font.GothamBold
-	claimModelBtn.Text = "CLAIM ENTIRE MODEL"
-	claimModelBtn.TextColor3 = Color3.new(1, 1, 1)
-	claimModelBtn.TextSize = 12
-	Instance.new("UICorner", claimModelBtn).CornerRadius = UDim.new(0, 6)
-	claimModelBtn.MouseButton1Click:Connect(function()
-		self:ClaimEntireModel()
-	end)
-	local claimChildrenBtn = Instance.new("TextButton", content)
-	claimChildrenBtn.Size = UDim2.new(1, 0, 0, 35)
-	claimChildrenBtn.Position = UDim2.fromOffset(0, 352)
-	claimChildrenBtn.BackgroundColor3 = Color3.fromRGB(100, 150, 200)
-	claimChildrenBtn.BorderSizePixel = 0
-	claimChildrenBtn.Font = Enum.Font.GothamBold
-	claimChildrenBtn.Text = "CLAIM ALL DESCENDANTS"
-	claimChildrenBtn.TextColor3 = Color3.new(1, 1, 1)
-	claimChildrenBtn.TextSize = 12
-	Instance.new("UICorner", claimChildrenBtn).CornerRadius = UDim.new(0, 6)
-	claimChildrenBtn.MouseButton1Click:Connect(function()
-		self:ClaimAllDescendants()
-	end)
-	local infoLabel = Instance.new("TextLabel", content)
-	infoLabel.Size = UDim2.new(1, 0, 0, 20)
-	infoLabel.Position = UDim2.fromOffset(0, 397)
-	infoLabel.BackgroundTransparency = 1
-	infoLabel.Font = Enum.Font.GothamBold
-	infoLabel.Text = "Claimed Objects:"
-	infoLabel.TextColor3 = Color3.new(1, 1, 1)
-	infoLabel.TextSize = 13
-	infoLabel.TextXAlignment = Enum.TextXAlignment.Left
-	local claimedList = Instance.new("ScrollingFrame", content)
-	claimedList.Name = "ClaimedList"
-	claimedList.Size = UDim2.new(1, 0, 0, 118)
-	claimedList.Position = UDim2.fromOffset(0, 422)
-	claimedList.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-	claimedList.BorderSizePixel = 0
-	claimedList.ScrollBarThickness = 4
-	claimedList.ScrollBarImageColor3 = Color3.fromRGB(255, 100, 0)
-	claimedList.CanvasSize = UDim2.fromOffset(0, 0)
-	claimedList.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	Instance.new("UICorner", claimedList).CornerRadius = UDim.new(0, 6)
-	local listLayout = Instance.new("UIListLayout", claimedList)
-	listLayout.Padding = UDim.new(0, 3)
-	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	screenGui.Parent = CoreGui
-	return selectionLabel, statusIndicator, claimedList
-end
-function Modules.NetworkClaim:GetAllParts(obj)
-	local parts = {}
-	if obj:IsA("BasePart") then
-		table.insert(parts, obj)
-	elseif obj:IsA("Model") then
-		for _, part in pairs(obj:GetDescendants()) do
-			if part:IsA("BasePart") then
-				table.insert(parts, part)
-			end
-		end
-	end
-	return parts
-end
-function Modules.NetworkClaim:ClaimPart(part)
-	if not part:IsA("BasePart") then
-		return false
-	end
-	local method = self.Config.ClaimMethod
-	local connection
-	if method == "ownership" then
-		local success = pcall(function()
-			part:SetNetworkOwner(LocalPlayer)
-		end)
-		if not success then
-			connection = RunService.Heartbeat:Connect(function()
-				if part and part.Parent then
-					part.Velocity = Vector3.new(0, 0.01, 0)
-				end
-			end)
-		end
-	elseif method == "velocity" then
-		connection = RunService.Heartbeat:Connect(function()
-			if part and part.Parent then
-				part.Velocity = Vector3.new(0, 0.01, 0)
-				part.RotVelocity = Vector3.new(0, 0, 0)
-			end
-		end)
-	elseif method == "cframe" then
-		local originalCF = part.CFrame
-		connection = RunService.Heartbeat:Connect(function()
-			if part and part.Parent then
-				part.CFrame = originalCF
-			end
-		end)
-	end
-	return connection
-end
-function Modules.NetworkClaim:ClaimSelected()
-	if not self.State.SelectedObject then
-		print(" No object selected")
-		return
-	end
-	local obj = self.State.SelectedObject
-	local parts = self:GetAllParts(obj)
-	if #parts == 0 then
-		print(" No valid parts found")
-		return
-	end
-	for _, data in pairs(self.State.ClaimedObjects) do
-		if data.Object == obj then
-			print(" Object already claimed")
-			return
-		end
-	end
-	local connections = {}
-	local claimedCount = 0
-	for _, part in ipairs(parts) do
-		local conn = self:ClaimPart(part)
-		if conn then
-			table.insert(connections, conn)
-		end
-		claimedCount = claimedCount + 1
-	end
-	local highlight = Instance.new("Highlight")
-	highlight.Name = "NetworkClaim_Highlight"
-	highlight.FillColor = self.Config.HighlightColor
-	highlight.OutlineColor = self.Config.HighlightColor
-	highlight.FillTransparency = 0.5
-	highlight.OutlineTransparency = 0
-	if obj:IsA("Model") then
-		highlight.Adornee = obj
-		highlight.Parent = obj
-	else
-		highlight.Adornee = obj
-		highlight.Parent = obj
-	end
-	table.insert(self.State.ClaimedObjects, {
-		Object = obj,
-		Connections = connections,
-		Highlight = highlight,
-		Name = obj.Name,
-		PartCount = claimedCount,
-	})
-	print(string.format(" Claimed: %s (%d parts)", obj.Name, claimedCount))
-	self:UpdateDisplay()
-end
-function Modules.NetworkClaim:ClaimEntireModel()
-	if not self.State.SelectedObject then
-		print(" No object selected")
-		return
-	end
-	local obj = self.State.SelectedObject
-	local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
-	if not model then
-		print(" Selected object is not in a model")
-		return
-	end
-	self.State.SelectedObject = model
-	self:ClaimSelected()
-end
-function Modules.NetworkClaim:ClaimAllDescendants()
-	if not self.State.SelectedObject then
-		print(" No object selected")
-		return
-	end
-	local obj = self.State.SelectedObject
-	local descendants = obj:GetDescendants()
-	local claimedCount = 0
-	for _, descendant in ipairs(descendants) do
-		if descendant:IsA("BasePart") then
-			self:ClaimPart(descendant)
-			claimedCount = claimedCount + 1
-		end
-	end
-	print(string.format(" Claimed %d descendants", claimedCount))
-end
-function Modules.NetworkClaim:ReleaseSelected()
-	if not self.State.SelectedObject then
-		print(" No object selected")
-		return
-	end
-	for i, data in ipairs(self.State.ClaimedObjects) do
-		if data.Object == self.State.SelectedObject then
-			for _, conn in ipairs(data.Connections) do
-				if conn then
-					conn:Disconnect()
-				end
-			end
-			if data.Highlight then
-				data.Highlight:Destroy()
-			end
-			for _, part in ipairs(self:GetAllParts(data.Object)) do
-				pcall(function()
-					part:SetNetworkOwnershipAuto()
-				end)
-			end
-			table.remove(self.State.ClaimedObjects, i)
-			print(string.format(" Released: %s", data.Name))
-			self:UpdateDisplay()
-			return
-		end
-	end
-	print(" Selected object is not claimed")
-end
-function Modules.NetworkClaim:ReleaseAll()
-	if #self.State.ClaimedObjects == 0 then
-		print(" No objects to release")
-		return
-	end
-	local count = #self.State.ClaimedObjects
-	for _, data in ipairs(self.State.ClaimedObjects) do
-		for _, conn in ipairs(data.Connections) do
-			if conn then
-				conn:Disconnect()
-			end
-		end
-		if data.Highlight then
-			data.Highlight:Destroy()
-		end
-		for _, part in ipairs(self:GetAllParts(data.Object)) do
-			pcall(function()
-				part:SetNetworkOwnershipAuto()
-			end)
-		end
-	end
-	self.State.ClaimedObjects = {}
-	print(string.format(" Released %d objects", count))
-	self:UpdateDisplay()
-end
-function Modules.NetworkClaim:SelectObject(obj)
-	if not obj or (not obj:IsA("Model") and not obj:IsA("BasePart")) then
-		print(" Invalid object selected")
-		return
-	end
-	if self.State.SelectedObject then
-		local oldHighlight = self.State.SelectedObject:FindFirstChild("NetworkClaim_Selection")
-		if oldHighlight then
-			oldHighlight:Destroy()
-		end
-	end
-	self.State.SelectedObject = obj
-	local selectionBox = Instance.new("SelectionBox")
-	selectionBox.Name = "NetworkClaim_Selection"
-	selectionBox.Adornee = obj
-	selectionBox.LineThickness = 0.05
-	selectionBox.Color3 = Color3.fromRGB(255, 255, 0)
-	selectionBox.Parent = obj
-	print(string.format(" Selected: %s", obj.Name))
-	self:UpdateDisplay()
-end
-function Modules.NetworkClaim:UpdateDisplay()
-	if not self.State.UI then
-		return
-	end
-	local selectionLabel = self.State.UI.MainFrame.Content.SelectionLabel
-	local statusIndicator = self.State.UI.MainFrame.TitleBar.StatusIndicator
-	local claimedList = self.State.UI.MainFrame.Content.ClaimedList
-	if self.State.SelectedObject then
-		local objType = self.State.SelectedObject:IsA("Model") and "Model" or "Part"
-		selectionLabel.Text = string.format("Selected: %s (%s)", self.State.SelectedObject.Name, objType)
-		selectionLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-	else
-		selectionLabel.Text = "Click an object to select"
-		selectionLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-	end
-	local count = #self.State.ClaimedObjects
-	statusIndicator.Text = count .. " CLAIMED"
-	statusIndicator.BackgroundColor3 = count > 0 and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(50, 50, 50)
-	statusIndicator.TextColor3 = count > 0 and Color3.new(1, 1, 1) or Color3.fromRGB(200, 200, 200)
-	for _, child in pairs(claimedList:GetChildren()) do
-		if not child:IsA("UIListLayout") then
-			child:Destroy()
-		end
-	end
-	for i, data in ipairs(self.State.ClaimedObjects) do
-		local entry = Instance.new("TextButton")
-		entry.Size = UDim2.new(1, -5, 0, 30)
-		entry.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-		entry.BorderSizePixel = 0
-		entry.Font = Enum.Font.Code
-		entry.Text = string.format("[%d] %s (%d parts)", i, data.Name, data.PartCount)
-		entry.TextColor3 = Color3.fromRGB(255, 150, 0)
-		entry.TextSize = 10
-		entry.TextXAlignment = Enum.TextXAlignment.Left
-		entry.AutoButtonColor = false
-		entry.Parent = claimedList
-		Instance.new("UICorner", entry).CornerRadius = UDim.new(0, 4)
-		local padding = Instance.new("UIPadding", entry)
-		padding.PaddingLeft = UDim.new(0, 8)
-		entry.MouseButton1Click:Connect(function()
-			self.State.SelectedObject = data.Object
-			self:SelectObject(data.Object)
-		end)
-		entry.MouseEnter:Connect(function()
-			entry.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-		end)
-		entry.MouseLeave:Connect(function()
-			entry.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-		end)
-	end
-end
-function Modules.NetworkClaim:Enable()
-	if self.State.IsEnabled then
-		return
-	end
-	self.State.IsEnabled = true
-	self:_createUI()
-	self.State.Connections.MouseClick = game:GetService("UserInputService").InputBegan
-		:Connect(function(input, gameProcessed)
-			if gameProcessed then
-				return
-			end
-			if input.UserInputType == Enum.UserInputType.MouseButton1 then
-				local mouse = LocalPlayer:GetMouse()
-				local target = mouse.Target
-				if target then
-					local obj = target:IsA("Model") and target or target.Parent
-					if obj and (obj:IsA("Model") or obj:IsA("BasePart")) then
-						self:SelectObject(obj)
-						if self.State.AutoClaim then
-							task.wait(0.1)
-							self:ClaimSelected()
-						end
-					end
-				end
-			end
-		end)
-	print(" Network Claim enabled - Click objects to select")
-end
-function Modules.NetworkClaim:Disable()
-	if not self.State.IsEnabled then
-		return
-	end
-	self:ReleaseAll()
-	self.State.IsEnabled = false
-	if self.State.SelectedObject then
-		local highlight = self.State.SelectedObject:FindFirstChild("NetworkClaim_Selection")
-		if highlight then
-			highlight:Destroy()
-		end
-	end
-	for _, conn in pairs(self.State.Connections) do
-		if conn then
-			conn:Disconnect()
-		end
-	end
-	table.clear(self.State.Connections)
-	if self.State.UI then
-		self.State.UI:Destroy()
-		self.State.UI = nil
-	end
-	self.State.SelectedObject = nil
-	print(" Network Claim disabled")
-end
-function Modules.NetworkClaim:Toggle()
-	if self.State.IsEnabled then
-		self:Disable()
-	else
-		self:Enable()
-	end
-end
-RegisterCommand({
-	Name = "networkclaim",
-	Aliases = { "claim", "netclaim" },
-	Description = "Forces network ownership of any workspace object. Click to select, then claim.",
-}, function()
-	Modules.NetworkClaim:Toggle()
-end)
 Modules.MapStripper = {
 	State = { IsEnabled = false, Connection = nil },
 	Dependencies = { "Players", "UserInputService" },
@@ -25884,16 +25156,14 @@ function Modules.MapStripper:Initialize()
 			self.State.Connection = mouse.Button1Down:Connect(function()
 				local target = mouse.Target
 				if target and not target:IsDescendantOf(lp.Character) then
-					print("--> [STRIPPER]: Removed " .. target:GetFullName())
+					print("Removed " .. target:GetFullName())
 					target:Destroy()
 				end
 			end)
-			DoNotif("(Click to delete)", 2)
 		else
 			if self.State.Connection then
 				self.State.Connection:Disconnect()
 			end
-			DoNotif("Map Stripper: DISABLED", 2)
 		end
 	end)
 end
@@ -26207,7 +25477,6 @@ function Modules.HeuristicRemoteBruteforcer:Enable(): ()
 	self.State.Connection = self.Services.RunService.Heartbeat:Connect(function()
 		self:_processQueue()
 	end)
-	DoNotif("Heuristic Bruteforcer: ENABLED", 2)
 end
 function Modules.HeuristicRemoteBruteforcer:Disable(): ()
 	if not self.State.IsEnabled then
@@ -26219,12 +25488,11 @@ function Modules.HeuristicRemoteBruteforcer:Disable(): ()
 		self.State.Connection = nil
 	end
 	self.State.TargetQueue = {}
-	DoNotif("Heuristic Bruteforcer: DISABLED. Queue cleared.", 2)
 end
 function Modules.HeuristicRemoteBruteforcer:Initialize(): ()
 	RegisterCommand({
 		Name = "bruteforce",
-		Aliases = {},
+		Aliases = {"bf"},
 		Description = "This will more than likely kick you.",
 	}, function()
 		if self.State.IsEnabled then
@@ -26420,7 +25688,7 @@ function Modules.ClickDetectorTools:Initialize()
 	self.Services.Workspace = game:GetService("Workspace")
 	RegisterCommand({
 		Name = "noclickdetectorlimits",
-		Aliases = { "nocdlimits", "removecdlimits" },
+		Aliases = {"ncl"},
 		Description = "Removes the distance limit for all ClickDetectors in the workspace.",
 	}, function()
 		local count = 0
@@ -30996,84 +30264,7 @@ RegisterCommand({
 }, function()
 	Modules.VisualClear:Toggle()
 end)
-Modules.NetworkOwner = {
-	State = {
-		IsEnabled = false,
-		Connection = nil,
-		CharacterAddedConn = nil,
-		CachedParts = {},
-	},
-	Config = {
-		NETWORK_VELOCITY = Vector3.new(0, 30.01, 0),
-	},
-}
-function Modules.NetworkOwner:CacheCharacterParts(character: Model)
-	table.clear(self.State.CachedParts)
-	for _, part in ipairs(character:GetDescendants()) do
-		if part:IsA("BasePart") then
-			table.insert(self.State.CachedParts, part)
-		end
-	end
-end
-function Modules.NetworkOwner:Enable(): ()
-	if self.State.IsEnabled then
-		return
-	end
-	self.State.IsEnabled = true
-	local localPlayer = Players.LocalPlayer
-	local function setup(character)
-		self:CacheCharacterParts(character)
-	end
-	if localPlayer.Character then
-		setup(localPlayer.Character)
-	end
-	self.State.CharacterAddedConn = localPlayer.CharacterAdded:Connect(setup)
-	self.State.Connection = RunService.Heartbeat:Connect(function()
-		local character = localPlayer.Character
-		if not character then
-			return
-		end
-		for i = #self.State.CachedParts, 1, -1 do
-			local part = self.State.CachedParts[i]
-			if part and part.Parent then
-				part.AssemblyLinearVelocity = self.Config.NETWORK_VELOCITY
-			else
-				table.remove(self.State.CachedParts, i)
-			end
-		end
-	end)
-	DoNotif("Netless: ENABLED (Persistent Physics Authority)", 2)
-end
-function Modules.NetworkOwner:Disable(): ()
-	if not self.State.IsEnabled then
-		return
-	end
-	self.State.IsEnabled = false
-	if self.State.Connection then
-		self.State.Connection:Disconnect()
-		self.State.Connection = nil
-	end
-	if self.State.CharacterAddedConn then
-		self.State.CharacterAddedConn:Disconnect()
-		self.State.CharacterAddedConn = nil
-	end
-	table.clear(self.State.CachedParts)
-	DoNotif("Netless: DISABLED", 2)
-end
-function Modules.NetworkOwner:Toggle(): ()
-	if self.State.IsEnabled then
-		self:Disable()
-	else
-		self:Enable()
-	end
-end
-RegisterCommand({
-	Name = "ownnet",
-	Aliases = { "networkowner", "net" },
-	Description = "Optimized persistence of network ownership for character parts.",
-}, function()
-	Modules.NetworkOwner:Toggle()
-end)
+
 Modules.ToolAttributeLister = {
 	State = {},
 }
@@ -34361,12 +33552,10 @@ function Modules.GoToPart:SearchAndTeleport(searchTerm)
 		else
 			self.State.LastSearchResults = results
 			DoNotif("Found " .. #results .. " matches. Use ;gotopart # to select.", 4)
-			print("=== GoToPart Results ===")
 			for i, result in ipairs(results) do
 				local path = result:GetFullName()
 				print(string.format("[%d] %s (%s)", i, result.Name, result.ClassName))
 			end
-			print("========================")
 			print("Use: ;gotopart " .. math.min(#results, 5) .. " (for example)")
 		end
 	end)
@@ -36664,7 +35853,7 @@ end)
 Modules.Heavy = {
 	State = {
 		Enabled = false,
-		Density = 500,
+		Density = 100,
 		OriginalProperties = {},
 	},
 }
@@ -36821,7 +36010,7 @@ Modules.AdminOrb = {
         HoverHeight     = 3.0,
         Color           = Color3.fromRGB(128, 0, 0),
         GlowColor       = Color3.fromRGB(128, 0, 0),
-        Size            = 0.55,
+        Size            = 0.45,
         LightRange      = 14,
         LightBrightness = 3.5,
         TrailEnabled    = true,
@@ -37447,6 +36636,17 @@ function Modules.Disarmer:Initialize()
 	end)
 end
 
+
+
+
+
+
+
+
+
+
+
+
 -- Loadstrings
 local function loadstringCmd(url, notif)
 	pcall(function()
@@ -37825,11 +37025,13 @@ RegisterCommand({
     synsaveinstance(Options)
 end)
 
+
+
 --
 -- addcmd section / infyield
 --
 
-addcmd("ctrllock", {}, function(args, speaker)
+addcmd("ctrllock", {"cl"}, function(args, speaker)
 	local mouseLockController = speaker.PlayerScripts
 		:WaitForChild("PlayerModule")
 		:WaitForChild("CameraModule")
@@ -37844,7 +37046,7 @@ addcmd("ctrllock", {}, function(args, speaker)
 		boundKeys.Parent = mouseLockController
 	end
 end)
-addcmd("unctrllock", {}, function(args, speaker)
+addcmd("unctrllock", {"ucl"}, function(args, speaker)
 	local mouseLockController = speaker.PlayerScripts
 		:WaitForChild("PlayerModule")
 		:WaitForChild("CameraModule")
@@ -37860,6 +37062,428 @@ addcmd("unctrllock", {}, function(args, speaker)
 	end
 end)
 
+addcmd("nopush", {}, function(args, speaker)
+	local Players = game:GetService("Players")
+	local RunService = game:GetService("RunService")
+	local LocalPlayer = Players.LocalPlayer
+	local Camera = workspace.CurrentCamera
+
+	if LocalPlayer:GetAttribute("NoPushActive") then
+		LocalPlayer:SetAttribute("NoPushActive", false)
+		return
+	end
+	LocalPlayer:SetAttribute("NoPushActive", true)
+
+	local Gyro = Instance.new("BodyGyro")
+	Gyro.Name = "NoPushGyro"
+	Gyro.P = 1e6
+	Gyro.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+
+	local TouchedParts = {}
+
+	local function NeutralizeOtherPlayerTool(Tool)
+		for _, Part in ipairs(Tool:GetDescendants()) do
+			if Part:IsA("BasePart") and not TouchedParts[Part] then
+				TouchedParts[Part] = {
+					CanCollide = Part.CanCollide,
+					CanTouch = Part.CanTouch,
+					Massless = Part.Massless,
+				}
+				Part.CanTouch = false
+			end
+		end
+	end
+
+	local function RestoreTouchedParts()
+		for Part, Saved in pairs(TouchedParts) do
+			if Part and Part.Parent then
+				Part.CanCollide = Saved.CanCollide
+				Part.CanTouch = Saved.CanTouch
+				Part.Massless = Saved.Massless
+			end
+		end
+		table.clear(TouchedParts)
+	end
+
+	local Connection
+	Connection = RunService.RenderStepped:Connect(function()
+		if not LocalPlayer:GetAttribute("NoPushActive") then
+			Gyro.Parent = nil
+			RestoreTouchedParts()
+			Connection:Disconnect()
+			return
+		end
+
+		local Character = LocalPlayer.Character
+		local RootPart = Character and Character:FindFirstChild("HumanoidRootPart")
+		local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+
+		if RootPart and Humanoid then
+			Gyro.Parent = RootPart
+
+			local LookDir = Camera.CFrame.LookVector
+			Gyro.CFrame = CFrame.new(RootPart.Position, RootPart.Position + Vector3.new(LookDir.X, 0, LookDir.Z))
+
+			local Velocity = RootPart.AssemblyLinearVelocity
+			if Velocity.Magnitude > 75 then
+				RootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+			end
+
+			Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+			Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+		else
+			Gyro.Parent = nil
+		end
+
+		for _, Player in ipairs(Players:GetPlayers()) do
+			if Player ~= LocalPlayer then
+				local OtherCharacter = Player.Character
+				if OtherCharacter then
+					for _, Item in ipairs(OtherCharacter:GetChildren()) do
+						if Item:IsA("Tool") then
+							NeutralizeOtherPlayerTool(Item)
+						end
+					end
+				end
+			end
+		end
+	end)
+
+	LocalPlayer.CharacterRemoving:Connect(function()
+		Gyro.Parent = nil
+	end)
+end)
+
+
+addcmd("leaderboard", {"lb"}, function(args, speaker)
+    local LawEnforcement = game:GetService("StarterGui")
+    local ConstantPulse = game:GetService("RunService")
+
+    local function ForceTheSnitchList()
+    	pcall(function()
+    		LawEnforcement:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, true)
+    	end)
+
+    	pcall(function()
+    		LawEnforcement:SetCore("TopbarEnabled", true)
+    	end)
+
+    	pcall(function()
+    		LawEnforcement:SetCoreGuiEnabled(Enum.CoreGuiType.All, true)
+    	end)
+    end
+
+    ConstantPulse.RenderStepped:Connect(ForceTheSnitchList)
+end)
+
+addcmd("noprox", {"nopp"}, function(args, speaker)
+    do
+    	local function socialDistancingEnforcer(unwantedPhysicalTouch)
+    		if unwantedPhysicalTouch:IsA("ProximityPrompt") then
+    			unwantedPhysicalTouch:Destroy()
+    		end
+    	end
+
+    	for _, rubbish in ipairs(game:GetDescendants()) do
+    		pcall(socialDistancingEnforcer, rubbish)
+    	end
+
+    	game.DescendantAdded:Connect(function(freshTrash)
+    		pcall(socialDistancingEnforcer, freshTrash)
+    	end)
+    end
+end)
+
+addcmd("novoid", {}, function(args, speaker)
+    do
+    	local PhysicsTyrant = workspace
+    	local BottomlessPitHeight = -2e9
+
+    	PhysicsTyrant.FallenPartsDestroyHeight = BottomlessPitHeight
+
+    	PhysicsTyrant:GetPropertyChangedSignal("FallenPartsDestroyHeight"):Connect(function()
+    		PhysicsTyrant.FallenPartsDestroyHeight = BottomlessPitHeight
+    	end)
+
+    	local DepressedPlayer = game:GetService("Players").LocalPlayer
+
+    	game:GetService("RunService").Heartbeat:Connect(function()
+    		local MeatSuit = DepressedPlayer.Character
+    		local Ego = MeatSuit and MeatSuit:FindFirstChild("HumanoidRootPart")
+
+    		if Ego and Ego.Position.Y < -1000 then
+    			Ego.CFrame = CFrame.new(0, 50, 0)
+    			Ego.AssemblyLinearVelocity = Vector3.zero
+    		end
+    	end)
+    end
+end)
+
+addcmd("grapple", {}, function(args, speaker)
+	local Players = game:GetService("Players")
+	local RunService = game:GetService("RunService")
+	local UserInputService = game:GetService("UserInputService")
+	local Workspace = workspace
+
+	local LocalPlayer = Players.LocalPlayer
+	local Camera = Workspace.CurrentCamera
+	local Mouse = LocalPlayer:GetMouse()
+
+	if LocalPlayer:GetAttribute("GrappleActive") then
+		LocalPlayer:SetAttribute("GrappleActive", false)
+		return
+	end
+	LocalPlayer:SetAttribute("GrappleActive", true)
+
+	local CONFIG = {
+		MaxDistance = 400,
+		YankAcceleration = 90,
+		YankArriveRadius = 6,
+		SwingRopeSlack = 4,
+		SwingMaxLength = 250,
+		ZipBoostSpeed = 80,
+		ZipUpwardBias = 0.15,
+	}
+
+	local Mode = "Yank"
+	local State = {
+		Hooked = false,
+		TargetPoint = nil,
+		AlignPosition = nil,
+		AlignAttachment = nil,
+		RopeConstraint = nil,
+		RopeAttachment0 = nil,
+		RopeAttachment1 = nil,
+		AnchorPart = nil,
+		HeartbeatConn = nil,
+	}
+
+	local function GetRootAndHumanoid()
+		local Character = LocalPlayer.Character
+		if not Character then
+			return nil, nil
+		end
+		local Root = Character:FindFirstChild("HumanoidRootPart")
+		local Humanoid = Character:FindFirstChildOfClass("Humanoid")
+		return Root, Humanoid
+	end
+
+	local function CleanupHook()
+		if State.HeartbeatConn then
+			State.HeartbeatConn:Disconnect()
+			State.HeartbeatConn = nil
+		end
+		if State.AlignPosition then
+			State.AlignPosition:Destroy()
+			State.AlignPosition = nil
+		end
+		if State.RopeConstraint then
+			State.RopeConstraint:Destroy()
+			State.RopeConstraint = nil
+		end
+		if State.AlignAttachment then
+			State.AlignAttachment:Destroy()
+			State.AlignAttachment = nil
+		end
+		if State.RopeAttachment0 then
+			State.RopeAttachment0:Destroy()
+			State.RopeAttachment0 = nil
+		end
+		if State.RopeAttachment1 then
+			State.RopeAttachment1:Destroy()
+			State.RopeAttachment1 = nil
+		end
+		if State.AnchorPart then
+			State.AnchorPart:Destroy()
+			State.AnchorPart = nil
+		end
+		State.Hooked = false
+		State.TargetPoint = nil
+	end
+
+	local function CreateAnchor(Position)
+		local Anchor = Instance.new("Part")
+		Anchor.Name = "GrappleAnchor"
+		Anchor.Anchored = true
+		Anchor.CanCollide = false
+		Anchor.CanTouch = false
+		Anchor.CanQuery = false
+		Anchor.Transparency = 1
+		Anchor.Size = Vector3.new(0.2, 0.2, 0.2)
+		Anchor.Position = Position
+		Anchor.Parent = Workspace
+		return Anchor
+	end
+
+	local function FireRay()
+		local UnitRay = Camera:ScreenPointToRay(Mouse.X, Mouse.Y)
+		local Params = RaycastParams.new()
+		Params.FilterType = Enum.RaycastFilterType.Exclude
+		Params.FilterDescendantsInstances = { LocalPlayer.Character }
+		local Result = Workspace:Raycast(UnitRay.Origin, UnitRay.Direction * CONFIG.MaxDistance, Params)
+		return Result
+	end
+
+	local function StartYank(Root, HitPosition)
+		State.AnchorPart = CreateAnchor(HitPosition)
+
+		local Attachment = Instance.new("Attachment")
+		Attachment.Parent = Root
+		State.AlignAttachment = Attachment
+
+		local Align = Instance.new("AlignPosition")
+		Align.Attachment0 = Attachment
+		Align.Mode = Enum.PositionAlignmentMode.OneAttachment
+		Align.MaxForce = math.huge
+		Align.MaxVelocity = math.huge
+		Align.Responsiveness = CONFIG.YankAcceleration
+		Align.Position = HitPosition
+		Align.Parent = Root
+		State.AlignPosition = Align
+
+		State.TargetPoint = HitPosition
+		State.Hooked = true
+
+		State.HeartbeatConn = RunService.Heartbeat:Connect(function()
+			local CurrentRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+			if not CurrentRoot or not State.Hooked then
+				CleanupHook()
+				return
+			end
+			local Distance = (CurrentRoot.Position - State.TargetPoint).Magnitude
+			if Distance <= CONFIG.YankArriveRadius then
+				ReleaseHook(true)
+			end
+		end)
+	end
+
+	local function StartSwing(Root, HitPosition)
+		State.AnchorPart = CreateAnchor(HitPosition)
+
+		local CharAttachment = Instance.new("Attachment")
+		CharAttachment.Parent = Root
+		State.RopeAttachment0 = CharAttachment
+
+		local AnchorAttachment = Instance.new("Attachment")
+		AnchorAttachment.Parent = State.AnchorPart
+		State.RopeAttachment1 = AnchorAttachment
+
+		local InitialDistance = (Root.Position - HitPosition).Magnitude
+		local RopeLength = math.min(InitialDistance + CONFIG.SwingRopeSlack, CONFIG.SwingMaxLength)
+
+		local Rope = Instance.new("RopeConstraint")
+		Rope.Attachment0 = CharAttachment
+		Rope.Attachment1 = AnchorAttachment
+		Rope.Length = RopeLength
+		Rope.Visible = true
+		Rope.Color = BrickColor.new("Really black")
+		Rope.Thickness = 0.08
+		Rope.Parent = Root
+		State.RopeConstraint = Rope
+
+		State.TargetPoint = HitPosition
+		State.Hooked = true
+
+		State.HeartbeatConn = RunService.Heartbeat:Connect(function()
+			local CurrentRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+			if not CurrentRoot or not State.Hooked then
+				CleanupHook()
+			end
+		end)
+	end
+
+	function ReleaseHook(IsAutoArrive)
+		if not State.Hooked then
+			return
+		end
+
+		local Root, Humanoid = GetRootAndHumanoid()
+		if Root then
+			local CurrentVelocity = Root.AssemblyLinearVelocity
+			local ForwardDir = Camera.CFrame.LookVector
+
+			local BoostDir = (ForwardDir + Vector3.new(0, CONFIG.ZipUpwardBias, 0)).Unit
+			local Boost = BoostDir * CONFIG.ZipBoostSpeed
+
+			if IsAutoArrive then
+				Root.AssemblyLinearVelocity = CurrentVelocity * 0.15 + Boost * 0.5
+			else
+				Root.AssemblyLinearVelocity = CurrentVelocity + Boost
+			end
+		end
+
+		CleanupHook()
+	end
+
+	local function FireHook()
+		if State.Hooked then
+			ReleaseHook(false)
+			return
+		end
+
+		local Root = GetRootAndHumanoid()
+		if not Root then
+			return
+		end
+
+		local Result = FireRay()
+		if not Result then
+			return
+		end
+
+		if Mode == "Yank" then
+			StartYank(Root, Result.Position)
+		else
+			StartSwing(Root, Result.Position)
+		end
+	end
+
+	local function ToggleMode()
+		if State.Hooked then
+			ReleaseHook(false)
+		end
+		Mode = (Mode == "Yank") and "Swing" or "Yank"
+		if game:GetService("StarterGui") then
+			pcall(function()
+				game:GetService("StarterGui"):SetCore("SendNotification", {
+					Title = "Grapple Mode",
+					Text = Mode,
+					Duration = 1.5,
+				})
+			end)
+		end
+	end
+
+	local InputConn = UserInputService.InputBegan:Connect(function(Input, GameProcessed)
+		if GameProcessed then
+			return
+		end
+		if not LocalPlayer:GetAttribute("GrappleActive") then
+			return
+		end
+
+		if Input.KeyCode == Enum.KeyCode.Q then
+			FireHook()
+		elseif Input.KeyCode == Enum.KeyCode.R then
+			ReleaseHook(false)
+		elseif Input.KeyCode == Enum.KeyCode.G then
+			ToggleMode()
+		end
+	end)
+
+	LocalPlayer.CharacterRemoving:Connect(function()
+		CleanupHook()
+	end)
+
+	local AttributeConn
+	AttributeConn = LocalPlayer:GetAttributeChangedSignal("GrappleActive"):Connect(function()
+		if not LocalPlayer:GetAttribute("GrappleActive") then
+			CleanupHook()
+			InputConn:Disconnect()
+			AttributeConn:Disconnect()
+		end
+	end)
+end)
 
 
 
@@ -37867,7 +37491,33 @@ end)
 -- end of addcmd section --
 --
 
--- loadstringend
+--
+-- addcmd loadstrings --
+--
+
+addcmd("shrek", {}, function(args, speaker)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/shrekinbackrooms.lua"))()
+end)
+
+
+addcmd("unanchored", {}, function(args, speaker)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/unanchorednoclip.lua"))()
+end)
+
+
+addcmd("guimaker", {}, function(args, speaker)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/random/GUI.lua"))()
+end)
+
+
+
+--
+-- loadstring end --
+--
+
+
+
+
 -- aimbot core/gui 
 local function loadAimbotGUI(args)
 	local CoreGui = game:GetService("CoreGui")
@@ -39237,9 +38887,20 @@ RegisterCommand({
 			DoNotif("Aimbot GUI is already open.", 2)
 		end
 	end
-end)
+end) --end of commands
 
 
+
+-- Logo
+do
+	task.wait(2)
+    
+	loadstring(
+		game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/random/misc/tm.lua")
+	)()
+    DoNotif("Welcome back degen.", 5)
+end
+--
 
 --commands never go below this
 function processCommand(message)
@@ -39259,7 +38920,7 @@ function processCommand(message)
 		local success, err = pcall(cmdFunc, args)
 		if success then
 		else
-			warn("Command Error:", err)
+			warn("Broken FUCKKK :", err)
 			DoNotif("Error: " .. tostring(err), 5)
 		end
 		return true
@@ -39275,9 +38936,9 @@ function processCommand(message)
 		end
 	end
 	if closestMatch and lowestDistance <= SUGGESTION_THRESHOLD then
-		DoNotif(string.format("Unknown command: %s. Did you mean ;%s?", cmdName, closestMatch), 4)
+		DoNotif(string.format("Nice Grammar: %s. Did you mean ;%s?", cmdName, closestMatch), 4)
 	else
-		DoNotif("Unknown command: " .. cmdName, 3)
+		DoNotif("Not a command: " .. cmdName, 3)
 	end
 	return true
 end
@@ -39542,7 +39203,6 @@ return {
 
 
 
--- addons optional below
 
 
 -- loadstring(game:HttpGet(" "))()
