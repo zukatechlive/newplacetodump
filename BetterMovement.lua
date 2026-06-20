@@ -18,8 +18,13 @@ do
 		if prev.ShiftLockDisable then
 			pcall(prev.ShiftLockDisable)
 		end
+		if prev.Cleanups then
+			for _, fn in ipairs(prev.Cleanups) do
+				pcall(fn)
+			end
+		end
 	end
-	_G._BetterMovement = { Connections = {}, GUIs = {} }
+	_G._BetterMovement = { Connections = {}, GUIs = {}, Cleanups = {} }
 end
 local _BM = _G._BetterMovement
 local function _BM_trackConn(c)
@@ -29,6 +34,10 @@ end
 local function _BM_trackGui(g)
 	table.insert(_BM.GUIs, g)
 	return g
+end
+local function _BM_trackCleanup(fn)
+	table.insert(_BM.Cleanups, fn)
+	return fn
 end
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -61,7 +70,7 @@ local ShiftLock = {
 			Off = "rbxasset://textures/ui/mouseLock_off.png",
 		},
 		CameraOffset = Vector3.new(2.2, 0, 0),
-		Smoothing = 0.1,
+		Smoothing = 0,
 		ToggleKey = Enum.KeyCode.LeftAlt,
 	},
 }
@@ -416,6 +425,235 @@ if UserInputService.TouchEnabled then
 	end)
 end
 DoNotif("Dash ready! Press Q to dash.", 3)
+
+local Grapple = {
+	State = {
+		Enabled = false,
+		Hooked = false,
+		Mode = "Yank",
+		TargetPoint = nil,
+		AlignPosition = nil,
+		AlignAttachment = nil,
+		RopeConstraint = nil,
+		RopeAttachment0 = nil,
+		RopeAttachment1 = nil,
+		AnchorPart = nil,
+		HeartbeatConn = nil,
+		InputConn = nil,
+	},
+	Config = {
+		FireKey = Enum.KeyCode.F,
+		ModeToggleKey = Enum.KeyCode.C,
+		MaxDistance = 400,
+		YankAcceleration = 90,
+		YankArriveRadius = 6,
+		SwingRopeSlack = 4,
+		SwingMaxLength = 250,
+		ZipBoostSpeed = 80,
+		ZipUpwardBias = 0.15,
+	},
+}
+function Grapple:_getRoot()
+	local char = LocalPlayer.Character
+	return char and char:FindFirstChild("HumanoidRootPart")
+end
+function Grapple:_cleanupHook()
+	if self.State.HeartbeatConn then
+		self.State.HeartbeatConn:Disconnect()
+		self.State.HeartbeatConn = nil
+	end
+	if self.State.AlignPosition then
+		self.State.AlignPosition:Destroy()
+		self.State.AlignPosition = nil
+	end
+	if self.State.RopeConstraint then
+		self.State.RopeConstraint:Destroy()
+		self.State.RopeConstraint = nil
+	end
+	if self.State.AlignAttachment then
+		self.State.AlignAttachment:Destroy()
+		self.State.AlignAttachment = nil
+	end
+	if self.State.RopeAttachment0 then
+		self.State.RopeAttachment0:Destroy()
+		self.State.RopeAttachment0 = nil
+	end
+	if self.State.RopeAttachment1 then
+		self.State.RopeAttachment1:Destroy()
+		self.State.RopeAttachment1 = nil
+	end
+	if self.State.AnchorPart then
+		self.State.AnchorPart:Destroy()
+		self.State.AnchorPart = nil
+	end
+	self.State.Hooked = false
+	self.State.TargetPoint = nil
+end
+function Grapple:_createAnchor(position)
+	local anchor = Instance.new("Part")
+	anchor.Name = "GrappleAnchor"
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanTouch = false
+	anchor.CanQuery = false
+	anchor.Transparency = 1
+	anchor.Size = Vector3.new(0.2, 0.2, 0.2)
+	anchor.Position = position
+	anchor.Parent = workspace
+	return anchor
+end
+function Grapple:_fireRay()
+	local Camera = workspace.CurrentCamera
+	local Mouse = LocalPlayer:GetMouse()
+	local UnitRay = Camera:ScreenPointToRay(Mouse.X, Mouse.Y)
+	local Params = RaycastParams.new()
+	Params.FilterType = Enum.RaycastFilterType.Exclude
+	Params.FilterDescendantsInstances = { LocalPlayer.Character }
+	return workspace:Raycast(UnitRay.Origin, UnitRay.Direction * self.Config.MaxDistance, Params)
+end
+function Grapple:_startYank(root, hitPosition)
+	self.State.AnchorPart = self:_createAnchor(hitPosition)
+	local attachment = Instance.new("Attachment")
+	attachment.Parent = root
+	self.State.AlignAttachment = attachment
+	local align = Instance.new("AlignPosition")
+	align.Attachment0 = attachment
+	align.Mode = Enum.PositionAlignmentMode.OneAttachment
+	align.MaxForce = math.huge
+	align.MaxVelocity = math.huge
+	align.Responsiveness = self.Config.YankAcceleration
+	align.Position = hitPosition
+	align.Parent = root
+	self.State.AlignPosition = align
+	self.State.TargetPoint = hitPosition
+	self.State.Hooked = true
+	self.State.HeartbeatConn = RunService.Heartbeat:Connect(function()
+		local currentRoot = self:_getRoot()
+		if not currentRoot or not self.State.Hooked then
+			self:_cleanupHook()
+			return
+		end
+		local distance = (currentRoot.Position - self.State.TargetPoint).Magnitude
+		if distance <= self.Config.YankArriveRadius then
+			self:Release(true)
+		end
+	end)
+end
+function Grapple:_startSwing(root, hitPosition)
+	self.State.AnchorPart = self:_createAnchor(hitPosition)
+	local charAttachment = Instance.new("Attachment")
+	charAttachment.Parent = root
+	self.State.RopeAttachment0 = charAttachment
+	local anchorAttachment = Instance.new("Attachment")
+	anchorAttachment.Parent = self.State.AnchorPart
+	self.State.RopeAttachment1 = anchorAttachment
+	local initialDistance = (root.Position - hitPosition).Magnitude
+	local ropeLength = math.min(initialDistance + self.Config.SwingRopeSlack, self.Config.SwingMaxLength)
+	local rope = Instance.new("RopeConstraint")
+	rope.Attachment0 = charAttachment
+	rope.Attachment1 = anchorAttachment
+	rope.Length = ropeLength
+	rope.Visible = true
+	rope.Color = BrickColor.new("Really black")
+	rope.Thickness = 0.08
+	rope.Parent = root
+	self.State.RopeConstraint = rope
+	self.State.TargetPoint = hitPosition
+	self.State.Hooked = true
+	self.State.HeartbeatConn = RunService.Heartbeat:Connect(function()
+		local currentRoot = self:_getRoot()
+		if not currentRoot or not self.State.Hooked then
+			self:_cleanupHook()
+		end
+	end)
+end
+function Grapple:Release(isAutoArrive)
+	if not self.State.Hooked then
+		return
+	end
+	local root = self:_getRoot()
+	if root then
+		local Camera = workspace.CurrentCamera
+		local currentVelocity = root.AssemblyLinearVelocity
+		local forwardDir = Camera.CFrame.LookVector
+		local boostDir = (forwardDir + Vector3.new(0, self.Config.ZipUpwardBias, 0)).Unit
+		local boost = boostDir * self.Config.ZipBoostSpeed
+		if isAutoArrive then
+			root.AssemblyLinearVelocity = currentVelocity * 0.15 + boost * 0.5
+		else
+			root.AssemblyLinearVelocity = currentVelocity + boost
+		end
+	end
+	self:_cleanupHook()
+end
+function Grapple:Fire()
+	if not self.State.Enabled then
+		return
+	end
+	if self.State.Hooked then
+		self:Release(false)
+		return
+	end
+	local root = self:_getRoot()
+	if not root then
+		return
+	end
+	local result = self:_fireRay()
+	if not result then
+		return
+	end
+	if self.State.Mode == "Yank" then
+		self:_startYank(root, result.Position)
+	else
+		self:_startSwing(root, result.Position)
+	end
+end
+function Grapple:ToggleMode()
+	if self.State.Hooked then
+		self:Release(false)
+	end
+	self.State.Mode = (self.State.Mode == "Yank") and "Swing" or "Yank"
+	DoNotif("Grapple mode: " .. self.State.Mode, 1.5)
+end
+function Grapple:Enable()
+	if self.State.Enabled then
+		return
+	end
+	self.State.Enabled = true
+	self.State.InputConn = _BM_trackConn(UserInputService.InputBegan:Connect(function(input, gpe)
+		if gpe then
+			return
+		end
+		if input.KeyCode == self.Config.FireKey then
+			self:Fire()
+		elseif input.KeyCode == self.Config.ModeToggleKey then
+			self:ToggleMode()
+		end
+	end))
+	DoNotif("Grapple ready! F to fire/release, C to switch Yank/Swing.", 3)
+end
+function Grapple:Disable()
+	self:_cleanupHook()
+	if self.State.InputConn then
+		self.State.InputConn:Disconnect()
+		self.State.InputConn = nil
+	end
+	self.State.Enabled = false
+end
+Grapple:Enable()
+_BM_trackCleanup(function()
+	Grapple:Disable()
+end)
+-- release the hook first (with its normal zip boost) instead of letting
+-- on the same frame.
+local _OriginalDashDo = Dash.Do
+function Dash:Do()
+	if Grapple.State.Hooked then
+		Grapple:Release(false)
+	end
+	return _OriginalDashDo(self)
+end
+
 local FixCamera = {
 	State = {
 		Enabled = false,
@@ -423,11 +661,13 @@ local FixCamera = {
 		OriginalMaxZoom = nil,
 		OriginalOcclusionMode = nil,
 		OriginalCameraMode = nil,
+		CurrentClampedDistance = nil,
 	},
 	Config = {
-		MaxZoomDistance = 10000,
+		MaxZoomDistance = 128,
 		ForcedCameraMode = Enum.CameraMode.Classic,
-		PreferredOcclusionMode = Enum.DevCameraOcclusionMode.Invisicam,
+		WallPadding = 0.5,
+		ClampSmoothing = 0.35,
 	},
 }
 local function _fixCamSafeSet(instance, property, value, fallback)
@@ -453,22 +693,65 @@ local function _fixCamSafeSet(instance, property, value, fallback)
 	end
 	return success
 end
+function FixCamera:_clampStep()
+	local Camera = workspace.CurrentCamera
+	local Character = LocalPlayer.Character
+	if not (Camera and Character) then
+		return
+	end
+	local Root = Character:FindFirstChild("HumanoidRootPart")
+	if not Root then
+		return
+	end
+
+	if Camera.CameraMode ~= self.Config.ForcedCameraMode then
+		Camera.CameraMode = self.Config.ForcedCameraMode
+	end
+
+	local DesiredDistance = math.clamp(
+		Camera.CFrame.Position and (Camera.CFrame.Position - Root.Position).Magnitude or 10,
+		0.5,
+		self.Config.MaxZoomDistance
+	)
+
+	local LookVector = Camera.CFrame.LookVector
+	local CastOrigin = Root.Position
+	local CastDirection = -LookVector * DesiredDistance
+
+	local Params = RaycastParams.new()
+	Params.FilterType = Enum.RaycastFilterType.Exclude
+	Params.FilterDescendantsInstances = { Character }
+	Params.IgnoreWater = true
+
+	local Result = workspace:Raycast(CastOrigin, CastDirection, Params)
+
+	local TargetDistance = DesiredDistance
+	if Result then
+		local HitDistance = (Result.Position - CastOrigin).Magnitude
+		TargetDistance = math.max(HitDistance - self.Config.WallPadding, 0.5)
+	end
+
+	local Current = self.State.CurrentClampedDistance or TargetDistance
+	local NewDistance = Current + (TargetDistance - Current) * self.Config.ClampSmoothing
+	self.State.CurrentClampedDistance = NewDistance
+
+	Camera.CFrame = CFrame.new(Root.Position - LookVector * NewDistance, Root.Position)
+end
 function FixCamera:Enable()
 	if not LocalPlayer then
 		return false
 	end
+	local Camera = workspace.CurrentCamera
 	self.State.OriginalMaxZoom = LocalPlayer.CameraMaxZoomDistance
 	self.State.OriginalOcclusionMode = LocalPlayer.DevCameraOcclusionMode
 	self.State.OriginalCameraMode = LocalPlayer.CameraMode
 	LocalPlayer.CameraMaxZoomDistance = self.Config.MaxZoomDistance
-	_fixCamSafeSet(LocalPlayer, "DevCameraOcclusionMode", self.Config.PreferredOcclusionMode, 0)
+	_fixCamSafeSet(LocalPlayer, "DevCameraOcclusionMode", Enum.DevCameraOcclusionMode.Scriptable, 0)
 	self.State.Connection = RunService.RenderStepped:Connect(function()
-		if LocalPlayer.CameraMode ~= self.Config.ForcedCameraMode then
-			LocalPlayer.CameraMode = self.Config.ForcedCameraMode
-		end
+		self:_clampStep()
 	end)
 	self.State.Enabled = true
-	DoNotif("Camera unlocked (zoom: " .. self.Config.MaxZoomDistance .. ", occlusion: off)", 3)
+	DoNotif("Camera fixed: wall-clamped, max zoom " .. self.Config.MaxZoomDistance, 3)
 	return true
 end
 function FixCamera:Disable()
@@ -492,6 +775,7 @@ function FixCamera:Disable()
 	self.State.OriginalOcclusionMode = nil
 	self.State.OriginalMaxZoom = nil
 	self.State.OriginalCameraMode = nil
+	self.State.CurrentClampedDistance = nil
 	self.State.Enabled = false
 	return true
 end
@@ -503,6 +787,9 @@ function FixCamera:Toggle()
 	end
 end
 FixCamera:Enable()
+_BM_trackCleanup(function()
+	FixCamera:Disable()
+end)
 local function ClonedService(name)
 	local Service = game.GetService
 	local Reference = cloneref or function(reference)
