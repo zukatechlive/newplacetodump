@@ -27,8 +27,11 @@ local Enforcer = {
 		NoKnockback = true,
 		NoRagdoll = true,
 		NoFreeze = true,
+		NoM1Cooldown = true,
+		NoFlinch = true,
+		NoAnimCancel = true,
 
-		StandPersistence = true,
+		StandPersistence = false,
 
 		KickBypass = true,
 		BlockForcedReset = true,
@@ -221,23 +224,24 @@ local function PatchNetworkEvents()
 		end
 
 		if eventName == "HideStand" and Enforcer.Config.StandPersistence then
-			return
+			local NoOp = function(...) end
+			return OldBindEvent(self, eventName, NoOp, ...)
 		end
 
 		if Enforcer.Config.BlockControllerLock then
 			if eventName == "DisableCharacterController" or eventName == "ToggleCharacterController" then
-				return
+				local NoOp = function(...) end
+				return OldBindEvent(self, eventName, NoOp, ...)
 			end
 		end
 
 		if eventName == "FreezeCharacter" and Enforcer.Config.NoFreeze then
-			local WrappedFreeze = function(cframe, boolVal)
-				task.spawn(function()
-					local char = LocalPlayer.Character
-					if char then
-						StripFreeze(char)
-					end
-				end)
+			local WrappedFreeze = function(...)
+				callback(...)
+				local char = LocalPlayer.Character
+				if char then
+					StripFreeze(char)
+				end
 			end
 			return OldBindEvent(self, eventName, WrappedFreeze, ...)
 		end
@@ -370,6 +374,18 @@ local function StartHeartbeat()
 			end
 			if Enforcer.Config.NoBusy then
 				ct.busy = false
+			end
+			if Enforcer.Config.NoM1Cooldown then
+				ct.activeHitCheck = false
+				ct.activeProjectileCheck = false
+			end
+			if Enforcer.Config.NoFlinch then
+				ct.Flinch = function() end
+				ct.CancelActiveHit = function() end
+			end
+
+			if Enforcer.Config.NoAnimCancel then
+				ct.StopAllCharacterAnimations = function() end
 			end
 		end
 
