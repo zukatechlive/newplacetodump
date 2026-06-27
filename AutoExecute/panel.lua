@@ -36636,7 +36636,508 @@ function Modules.Disarmer:Initialize()
 	end)
 end
 
+Modules.ChatFix = {
+	State = {
+		Loaded = false,
+		Hooks = {},
+		Watched = {},
+		Connections = {},
+		ChatHistory = {},
+		PendingRequests = {},
+	},
+}
 
+local GEMINI_API_KEY  = ""
+local GEMINI_MODEL    = "gemini-2.5-flash"
+local GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/"
+	.. GEMINI_MODEL
+	.. ":generateContent?key="
+	.. GEMINI_API_KEY
+
+local REPLY_CHANCE           = 100
+local LOCALPLAYER_REPLY_CHANCE = 100
+local MAX_HISTORY            = 100
+local REPLY_DELAY_MIN        = 1.2
+local REPLY_DELAY_MAX        = 3.8
+local GEMINI_TIMEOUT         = 8
+
+local _gameName = "a Roblox game"
+pcall(function()
+	_gameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+end)
+
+local SYSTEM_PROMPT = [[You are a real Roblox player in a game called ]]
+	.. _gameName
+	.. [[
+
+Your job is to blend in with real players naturally.
+Strict rules:
+- Replies must be 1-11 words ONLY, no exceptions
+- Read the last few messages for context and reply relevantly
+- Never repeat what was just said
+- Vary your style: sometimes ask questions, always react, always be toxic
+- Use current Gen Z / Roblox slang naturally: fr, ngl, bro, no cap, lowkey, W, L, ratio, based, skill issue, cooked, mid, bussin, it's giving, no shot, on god, slay, rizzler, fanum tax, etc.
+- React to the specific topic being discussed (trading, dying, winning, lagging, etc.)
+- Occasionally be funny or slightly unhinged like a real player
+- Use 💀😭🙏 emojis sparingly (1 in every 4-5 replies max)
+- NEVER use periods, commas, or formal punctuation
+- NEVER say things like "as an AI" or break character
+- NEVER repeat a reply you recently made
+- Output ONLY the reply text, nothing else, no quotes, no labels
+]]
+
+local NAME_PREFIXES = {
+	"Cool","Dark","Epic","Fire","Gamer","Happy","Ice","Jade","King","Lava",
+	"Mega","MasterX","Nova","Omega","Pro","Quick","Red","Shadow","Super","Tiger",
+	"Ultra","Void","Wild","Xeno","Zap","Blaze","Cyber","Dragon","Edge","Frost",
+	"Ghost","Hyper","Iron","Jet","Killer","Legend","Moon","Night","Pixel","Rogue",
+}
+local NAME_SUFFIXES = {
+	"Blade","Boss","Blox","Claw","Craft","Dash","Dude","Fire","Fox","Gamer",
+	"Guy","Hero","Hunter","King","Knight","Lord","Master","Nova","Player","Pro",
+	"Roblox","Runner","Slayer","Storm","Strike","Sword","Tiger","Titan","Wolf","X",
+	"YT","Zer0","Zilla","Bro","Man","Boy","Girl","Star","Skull","Grill",
+}
+local NAME_NUMBERS = {
+	"","","","123","456","789","007","69","420",
+	"1","2","3","99","100","1337","2010","2011","XD",
+}
+
+local FAKE_MESSAGES = {
+	"lol","bro what","gg","this game is so fun, headass this game dookie",
+	"anyone wanna trade?","how do i get robux","skill issue","nah bro",
+	"wait what just happened","this is actually crazy","fr fr","no way",
+	"lets goooo","omg","why is everyone so good","i just joined",
+	"can someone help me","bro got cooked","ez","this map is huge",
+	"how long have you been playing","i need more coins","brb","back",
+	"lag??","my wifi is bad rn","wait how did you do that",
+	"anyone else lagging","this update is crazy","i love this game",
+	"report him","bro is trolling","L","W","ratio","real","based",
+	"nope","yep","maybe","idk tbh","same","exactly","literally",
+	"not me losing again","gg wp","try harder next time","is this game good",
+	"just started playing","woah","bro really said that","no shot",
+	"actually insane","calm down","its just a game","😭","bro zuka?",
+	"we're so back","no cap","on god","bro thinks hes slick",
+	"wait is that allowed","how","WHY","ok that was cold","yooo",
+	"ngl this slaps","i cant","im dead 💀","respectfully no","who asked",
+	"i did","carry me","im trying my best ok",
+	"take that somewhere else bro we dont wanna see that",
+}
+
+local GENERIC_REPLIES = {
+	"lol","fr","real","same","nah","yep","facts","based","💀","no way",
+	"bro what","actually","lowkey yeah","idk man","depends","maybe",
+	"not gonna lie","kinda","wait really","no shot","bro 💀","W","L","ratio",
+}
+
+local HttpService = game:GetService("HttpService")
+
+local function randomName()
+	local prefix = NAME_PREFIXES[math.random(#NAME_PREFIXES)]
+	local suffix = NAME_SUFFIXES[math.random(#NAME_SUFFIXES)]
+	local number = NAME_NUMBERS[math.random(#NAME_NUMBERS)]
+	return prefix .. suffix .. number
+end
+
+local function randomMessage()
+	return FAKE_MESSAGES[math.random(#FAKE_MESSAGES)]
+end
+
+local function fakeText()
+	return randomName() .. ": " .. randomMessage()
+end
+
+local function staticReply()
+	return GENERIC_REPLIES[math.random(#GENERIC_REPLIES)]
+end
+
+local function pushHistory(sender, message)
+	local history = Modules.ChatFix.State.ChatHistory
+	table.insert(history, { sender = sender, message = message })
+	if #history > MAX_HISTORY then
+		table.remove(history, 1)
+	end
+end
+
+local function buildContext()
+	local lines = {}
+	for _, entry in ipairs(Modules.ChatFix.State.ChatHistory) do
+		table.insert(lines, entry.sender .. ": " .. entry.message)
+	end
+	return table.concat(lines, "\n")
+end
+
+local function callGemini(triggerMessage, callback)
+	task.spawn(function()
+		local context    = buildContext()
+		local userPrompt = context ~= ""
+			and ("Recent chat:\n" .. context .. "\n\nReply to this message: " .. triggerMessage)
+			or  ("Reply to this Roblox chat message: " .. triggerMessage)
+
+		local body = HttpService:JSONEncode({
+			system_instruction = {
+				parts = { { text = SYSTEM_PROMPT } },
+			},
+			contents = {
+				{
+					role  = "user",
+					parts = { { text = userPrompt } },
+				},
+			},
+			generationConfig = {
+				maxOutputTokens = 40,
+				temperature     = 0.95,
+				topP            = 0.9,
+			},
+		})
+
+		local success, result = pcall(function()
+			local requestFn = (syn and syn.request)
+				or (http and http.request)
+				or request
+			return requestFn({
+				Url     = GEMINI_ENDPOINT,
+				Method  = "POST",
+				Headers = { ["Content-Type"] = "application/json" },
+				Body    = body,
+			})
+		end)
+
+		if not success or not result then
+			callback(nil)
+			return
+		end
+
+		local ok, decoded = pcall(HttpService.JSONDecode, HttpService, result.Body)
+		if not ok or not decoded then
+			callback(nil)
+			return
+		end
+
+		local reply = nil
+		pcall(function()
+			reply = decoded.candidates[1].content.parts[1].text
+		end)
+
+		if reply then
+			reply = reply:gsub("\n", " "):gsub("^%s+", ""):gsub("%s+$", "")
+			if #reply > 80 then
+				reply = reply:sub(1, 80)
+			end
+		end
+
+		callback(reply)
+	end)
+end
+
+local function injectFakeMessage(text, scrollView)
+	if not scrollView or not scrollView.Parent then
+		return
+	end
+
+		local template = nil
+	for _, child in ipairs(scrollView:GetChildren()) do
+		local tm = child:FindFirstChild("TextMessage")
+		if tm and tm:FindFirstChild("BodyText") then
+			template = child
+			break
+		end
+	end
+	if not template then
+		return
+	end
+
+	local clone = template:Clone()
+	clone.Name  = "FakeReply_" .. math.random(100000, 999999)
+
+		local maxOrder = 0
+	for _, child in ipairs(scrollView:GetChildren()) do
+		if child:IsA("GuiObject") then
+			local lo = child.LayoutOrder
+			if lo and lo > maxOrder then
+				maxOrder = lo
+			end
+		end
+	end
+	clone.LayoutOrder = maxOrder + 1
+
+		local tm = clone:FindFirstChild("TextMessage")
+	if tm then
+		local body = tm:FindFirstChild("BodyText")
+		if body then
+			body.Text = text
+			body:SetAttribute("ZukaFake", true)
+		end
+		local nameLabel = tm:FindFirstChild("NameText") or tm:FindFirstChild("Username")
+		if nameLabel then
+			nameLabel.Text = ""
+		end
+	end
+
+	clone.Parent = scrollView
+
+		pcall(function()
+		local scrollFrame = scrollView.Parent
+		while scrollFrame and not scrollFrame:IsA("ScrollingFrame") do
+			scrollFrame = scrollFrame.Parent
+		end
+		if scrollFrame and scrollFrame:IsA("ScrollingFrame") then
+			scrollFrame.CanvasPosition = Vector2.new(0, scrollFrame.AbsoluteCanvasSize.Y)
+		end
+	end)
+end
+
+function Modules.ChatFix:_svc(n)
+	local ok, s = pcall(game.GetService, game, n)
+	if not ok or not s then
+		return nil
+	end
+	if cloneref and type(cloneref) == "function" then
+		local ok2, c = pcall(cloneref, s)
+		if ok2 and c then
+			return c
+		end
+	end
+	return s
+end
+
+function Modules.ChatFix:_isLockRow(lbl)
+	if not lbl or not lbl:IsA("TextLabel") then
+		return false
+	end
+	if lbl.Name ~= "BodyText" then
+		return false
+	end
+	local txt = ""
+	pcall(function() txt = lbl.ContentText end)
+	if txt == "" then txt = lbl.Text or "" end
+	if txt == "" then return false end
+	txt = txt:gsub("^%s+", "")
+	return txt:match("^🔒%s*:") ~= nil
+end
+
+function Modules.ChatFix:_spoofRow(lbl)
+	if not lbl or self.State.Watched[lbl] then
+		return
+	end
+	self.State.Watched[lbl] = true
+
+	local writing    = false
+	local staticText = fakeText()
+
+	local function applySpoof()
+		writing = true
+		pcall(function()
+			lbl.Visible = false
+			lbl.Text    = staticText
+			lbl.Visible = true
+		end)
+		writing = false
+	end
+
+	applySpoof()
+
+	local conn
+	conn = lbl:GetPropertyChangedSignal("Text"):Connect(function()
+		if writing then return end
+		if not lbl or not lbl.Parent then
+			if conn then conn:Disconnect(); conn = nil end
+			self.State.Watched[lbl] = nil
+			return
+		end
+		local txt = ""
+		pcall(function() txt = lbl.ContentText end)
+		if txt == "" then txt = lbl.Text or "" end
+		txt = txt:gsub("^%s+", "")
+		if txt:match("^🔒%s*:") then
+			applySpoof()
+		end
+	end)
+	table.insert(self.State.Connections, conn)
+end
+
+local function isLocalPlayer(txt)
+	local lp = game:GetService("Players").LocalPlayer
+	return txt:find("^" .. lp.Name .. "%s*:") ~= nil
+end
+
+local function parseChatLine(txt)
+	local sender, msg = txt:match("^([^:]+):%s*(.+)$")
+	return sender or "Unknown", msg or txt
+end
+
+function Modules.ChatFix:_handleIncomingMessage(body, scrollView)
+	if body:GetAttribute("ZukaFake") then return end
+	if self:_isLockRow(body) then return end
+
+	local txt = ""
+	pcall(function() txt = body.ContentText end)
+	if txt == "" then txt = body.Text or "" end
+	if txt == "" then return end
+
+	local fromLocal = isLocalPlayer(txt)
+	local chance    = fromLocal and LOCALPLAYER_REPLY_CHANCE or REPLY_CHANCE
+	local sender, msg = parseChatLine(txt)
+	pushHistory(sender, msg)
+
+	if math.random(100) > chance then return end
+
+	local debounceKey = txt:sub(1, 30)
+	if self.State.PendingRequests[debounceKey] then return end
+	self.State.PendingRequests[debounceKey] = true
+
+	task.spawn(function()
+				local delayTenths = math.random(
+			math.floor(REPLY_DELAY_MIN * 10),
+			math.floor(REPLY_DELAY_MAX * 10)
+		)
+		task.wait(delayTenths / 10)
+
+		if not scrollView or not scrollView.Parent then
+			self.State.PendingRequests[debounceKey] = nil
+			return
+		end
+
+		local fakeName  = randomName()
+		local replied   = false
+		local timeoutAt = os.clock() + GEMINI_TIMEOUT
+
+		local function finishReply(replyText)
+			if replied then return end
+			replied = true
+			self.State.PendingRequests[debounceKey] = nil
+			if scrollView and scrollView.Parent then
+				injectFakeMessage(fakeName .. ": " .. replyText, scrollView)
+				pushHistory(fakeName, replyText)
+			end
+		end
+
+		callGemini(txt, function(geminiReply)
+			local text = (geminiReply and geminiReply ~= "") and geminiReply or staticReply()
+			finishReply(text)
+		end)
+
+				task.spawn(function()
+			repeat task.wait(0.5) until replied or os.clock() > timeoutAt
+			if not replied then
+				finishReply(staticReply())
+			end
+		end)
+	end)
+end
+
+function Modules.ChatFix:_hookContainer(cont)
+	if not cont or self.State.Hooks[cont] then return end
+	self.State.Hooks[cont] = true
+
+		for _, row in ipairs(cont:GetChildren()) do
+		local tm = row:FindFirstChild("TextMessage")
+		if tm then
+			local body = tm:FindFirstChild("BodyText")
+			if body and self:_isLockRow(body) then
+				self:_spoofRow(body)
+			end
+		end
+	end
+
+	local dConn
+	dConn = cont.DescendantAdded:Connect(function(inst)
+		if inst:IsA("TextLabel") and inst.Name == "BodyText" then
+			task.wait()
+			if inst:GetAttribute("ZukaFake") then return end
+			if self:_isLockRow(inst) then
+				self:_spoofRow(inst)
+			else
+				self:_handleIncomingMessage(inst, cont)
+			end
+		end
+	end)
+	table.insert(self.State.Connections, dConn)
+end
+
+function Modules.ChatFix:Enable()
+	if self.State.Loaded then
+		DoNotif("Chat fix already running", 2)
+		return
+	end
+
+	local cg = self:_svc("CoreGui")
+	if not cg then
+		DoNotif("Could not get CoreGui", 3)
+		return
+	end
+
+	local ec    = nil
+	local start = os.clock()
+	repeat
+		ec = cg:FindFirstChild("ExperienceChat")
+		if not ec then task.wait(0.3) end
+	until ec or (os.clock() - start > 30)
+
+	if not ec then
+		DoNotif("ExperienceChat not found", 3)
+		return
+	end
+
+	for _, inst in ipairs(ec:GetDescendants()) do
+		if inst.Name == "RCTScrollContentView" then
+			self:_hookContainer(inst)
+		end
+	end
+
+	local ecConn
+	ecConn = ec.DescendantAdded:Connect(function(inst)
+		if not ec.Parent then
+			if ecConn then ecConn:Disconnect(); ecConn = nil end
+			return
+		end
+		if inst.Name == "RCTScrollContentView" then
+			self:_hookContainer(inst)
+		end
+	end)
+	table.insert(self.State.Connections, ecConn)
+
+	self.State.Loaded = true
+	DoNotif("Chat fix enabled — Gemini AI replies active ✓", 2)
+end
+
+function Modules.ChatFix:Disable()
+	for _, conn in pairs(self.State.Connections) do
+		pcall(function() conn:Disconnect() end)
+	end
+	self.State.Connections    = {}
+	self.State.Hooks          = {}
+	self.State.Watched        = {}
+	self.State.PendingRequests = {}
+	self.State.ChatHistory    = {}
+	self.State.Loaded         = false
+	DoNotif("Chat fix disabled", 2)
+end
+
+RegisterCommand({
+	Name        = "chatfix",
+	Aliases     = { "fixchat" },
+	Description = "Enable AI chat replies (Gemini 2.5 Flash)",
+}, function()
+	Modules.ChatFix:Enable()
+end)
+
+RegisterCommand({
+	Name        = "chatfixoff",
+	Aliases     = { "unfixchat" },
+	Description = "Disable AI chat replies",
+}, function()
+	Modules.ChatFix:Disable()
+end)
+
+RegisterCommand({
+	Name        = "clearchathistory",
+	Aliases     = { "clearchat" },
+	Description = "Clear Gemini chat context history",
+}, function()
+	Modules.ChatFix.State.ChatHistory = {}
+	DoNotif("Chat history cleared", 2)
+end)
 
 
 
@@ -37155,6 +37656,7 @@ addcmd("nopush", {}, function(args, speaker)
 end)
 
 
+
 addcmd("leaderboard", {"lb"}, function(args, speaker)
     local LawEnforcement = game:GetService("StarterGui")
     local ConstantPulse = game:GetService("RunService")
@@ -37485,7 +37987,52 @@ addcmd("grapple", {}, function(args, speaker)
 	end)
 end)
 
+addcmd("nocrash", {}, function(args, speaker)
+    local theSacredDirt = workspace
+    local discoLamps = game:GetService("Lighting")
+    local bigBrainSettings = settings().Rendering
+    local zoomZoomService = game:GetService("RunService")
 
+    bigBrainSettings.QualityLevel = Enum.QualityLevel.Level01
+    bigBrainSettings.EditQualityLevel = Enum.QualityLevel.Level01
+
+    discoLamps.GlobalShadows = false
+    discoLamps.FogEnd = 9e9
+    discoLamps.Brightness = 1
+
+    local function deleteUselessGunk(vibeKiller)
+    	if vibeKiller:IsA("Decal") or vibeKiller:IsA("Texture") then
+    		vibeKiller:Destroy()
+    	elseif vibeKiller:IsA("ParticleEmitter") or vibeKiller:IsA("Trail") or vibeKiller:IsA("Sparkles") then
+    		vibeKiller.Enabled = false
+    	elseif
+    		vibeKiller:IsA("PostEffect")
+    		or vibeKiller:IsA("BloomEffect")
+    		or vibeKiller:IsA("BlurEffect")
+    		or vibeKiller:IsA("SunRaysEffect")
+    	then
+    		vibeKiller.Enabled = false
+    	elseif vibeKiller:IsA("MeshPart") then
+    		vibeKiller.RenderFidelity = Enum.RenderFidelity.Performance
+    		vibeKiller.CastShadow = false
+    	end
+    end
+
+    for _, trash in pairs(theSacredDirt:GetDescendants()) do
+    	deleteUselessGunk(trash)
+    end
+
+    theSacredDirt.DescendantAdded:Connect(function(newTrash)
+    	zoomZoomService.Heartbeat:Wait()
+    	deleteUselessGunk(newTrash)
+    end)
+
+    for _, lightRuiner in pairs(discoLamps:GetChildren()) do
+    	deleteUselessGunk(lightRuiner)
+    end
+
+    DoNotif("Your PC might actually survive now.")
+end)
 
 --
 -- end of addcmd section --
@@ -37499,14 +38046,21 @@ addcmd("shrek", {}, function(args, speaker)
     loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/shrekinbackrooms.lua"))()
 end)
 
-
 addcmd("unanchored", {}, function(args, speaker)
     loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/unanchorednoclip.lua"))()
 end)
 
-
 addcmd("guimaker", {}, function(args, speaker)
     loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/random/GUI.lua"))()
+end)
+
+addcmd("tpautogui", {"autotp"}, function(args, speaker)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/random/TPToFolder.lua"))()
+end)
+
+
+addcmd("worldofshit", {"wos2"}, function(args, speaker)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/dashspam.lua"))()
 end)
 
 
@@ -37523,9 +38077,9 @@ local function loadAimbotGUI(args)
 	local CoreGui = game:GetService("CoreGui")
 	if CoreGui:FindFirstChild("aim_addon") and not args then
 		if DoNotif then
-			DoNotif("Aimbot GUI is already open.", 2)
+			DoNotif("aimbot on.", 2)
 		else
-			warn("Aimbot GUI is already open.")
+			warn("dude it's already on are you retarded.")
 		end
 		return
 	end
@@ -38892,14 +39446,14 @@ end) --end of commands
 
 
 -- Logo
-do
+--[[do
 	task.wait(2)
     
 	loadstring(
 		game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/random/misc/tm.lua")
 	)()
     DoNotif("Welcome back degen.", 5)
-end
+end]]
 --
 
 --commands never go below this
