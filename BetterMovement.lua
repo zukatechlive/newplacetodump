@@ -62,7 +62,7 @@ local ShiftLock = {
 		},
 		CameraOffset = Vector3.new(2.2, 0, 0),
 		Smoothing = 0.1,
-		ToggleKey = Enum.KeyCode.LeftAlt,
+		ToggleKey = Enum.KeyCode.RShift,
 	},
 }
 function ShiftLock:_makeDraggable(guiObject, dragHandle)
