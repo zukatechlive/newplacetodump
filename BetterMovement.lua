@@ -296,7 +296,7 @@ end
 _BM_trackConn(LocalPlayer.CharacterAdded:Connect(applyMovementStats))
 local Dash = {
 	Config = {
-		Key = Enum.KeyCode.Q,
+		Key = Enum.KeyCode.P,
 		SpeedMultiplier = 5.5,
 		DecaySteps = 10,
 		DecayInterval = 0.1,
@@ -2583,7 +2583,7 @@ function _MouseLockController()
 		self.isMouseLocked = false
 		self.savedMouseCursor = nil
 		self.boundKeys = {
-			Enum.KeyCode.LeftShift,
+			Enum.KeyCode.LeftCtrl,
 			Enum.KeyCode.RightShift,
 		}
 		self.mouseLockToggledEvent = Instance.new("BindableEvent")
