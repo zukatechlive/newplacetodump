@@ -1,7 +1,7 @@
 local function main()
 	local ZukDecompile
---	local prettyPrint
---	local cleanOutput
+	--local prettyPrint
+	--local cleanOutput
 	task.defer(function()
 		local FLOAT_PRECISION = 7
 		local Reader = {}
@@ -12,7 +12,15 @@ local function main()
 			local self = {}
 			local function guard(n)
 				if cursor + n > blen then
-					error(string.format("Reader OOB: need %d byte(s) at offset %d (buf len %d)", n, cursor, blen), 2)
+					error(
+						string.format(
+							"Uh oh! OOB: it needs %d byte(s) at offset %d (buf len %d)  maybe an opcode issue?",
+							n,
+							cursor,
+							blen
+						),
+						2
+					)
 				end
 			end
 			function self:len()
@@ -1241,6 +1249,286 @@ local function main()
 							end
 							return "upv_" .. tostring(r)
 						end
+						local function getSourceRegisters(opName, ur2)
+							if opName == "CALL" or opName == "CALLFB" then
+								local srcs = {}
+								if ur2 then
+									for k = 1, #ur2 do
+										srcs[#srcs + 1] = ur2[k]
+									end
+								end
+								return srcs
+							end
+							if opName == "NAMECALL" then
+								if ur2 and ur2[1] ~= nil then
+									return { ur2[1] }
+								end
+								return {}
+							end
+							if opName == "MOVE" then
+								if ur2 and ur2[2] ~= nil then
+									return { ur2[2] }
+								end
+								return {}
+							end
+							local srcs = {}
+							if ur2 then
+								for k = 2, #ur2 do
+									srcs[#srcs + 1] = ur2[k]
+								end
+							end
+							return srcs
+						end
+						local NO_DEF_OPS = {
+							SETTABLE = true,
+							SETTABLEKS = true,
+							SETTABLEN = true,
+							SETGLOBAL = true,
+							SETUPVAL = true,
+							SETUDATAKS = true,
+							RETURN = true,
+							JUMP = true,
+							JUMPBACK = true,
+							JUMPIF = true,
+							JUMPIFNOT = true,
+							JUMPIFEQ = true,
+							JUMPIFLE = true,
+							JUMPIFLT = true,
+							JUMPIFNOTEQ = true,
+							JUMPIFNOTLE = true,
+							JUMPIFNOTLT = true,
+							JUMPXEQKNIL = true,
+							JUMPXEQKB = true,
+							JUMPXEQKN = true,
+							JUMPXEQKS = true,
+							NAMECALL = true,
+							NAMECALLUDATA = true,
+							CLOSEUPVALS = true,
+							SETLIST = true,
+							FORNLOOP = true,
+							FORGLOOP = true,
+							COVERAGE = true,
+							CAPTURE = true,
+							NOP = true,
+							BREAK = true,
+							PREPVARARGS = true,
+							CMPPROTO = true,
+							FASTCALL = true,
+							FASTCALL1 = true,
+							FASTCALL2 = true,
+							FASTCALL2K = true,
+							FASTCALL3 = true,
+							JUMPX = true,
+							NEWCLASSMEMBER = true,
+						}
+						local function getDefinedRegisters(opName, ur2, ed2)
+							if NO_DEF_OPS[opName] then
+								return {}
+							end
+							if opName == "CALL" or opName == "CALLFB" then
+								local baseR = ur2[1]
+								local nRes = (ed2 and ed2[2] or 1) - 1
+								if nRes == -1 then
+									return { baseR }
+								elseif nRes == 0 then
+									return {}
+								end
+								local defs = {}
+								for k = 1, nRes do
+									defs[#defs + 1] = baseR + k - 1
+								end
+								return defs
+							end
+							if opName == "GETVARARGS" then
+								local baseR = ur2[1]
+								local vc = (ed2 and ed2[1] or 1) - 1
+								if vc == -1 then
+									return { baseR }
+								end
+								local defs = {}
+								for k = 1, vc do
+									defs[#defs + 1] = baseR + k - 1
+								end
+								return defs
+							end
+							if ur2 and ur2[1] ~= nil then
+								return { ur2[1] }
+							end
+							return {}
+						end
+						local function isChainedRedefine(opName, ur2, ed2, defR, priorAct)
+							local srcs = getSourceRegisters(opName, ur2)
+							for k = 1, #srcs do
+								if srcs[k] == defR then
+									return true
+								end
+							end
+							if priorAct and priorAct.opCode and priorAct.opCode.name == "NAMECALL" then
+								if priorAct.usedRegisters and priorAct.usedRegisters[1] == defR then
+									return true
+								end
+							end
+							return false
+						end
+						local regGeneration = {}
+						local regGenTimeline = {}
+						local function ensureRegTimeline(r)
+							if not regGenTimeline[r] then
+								regGenTimeline[r] = {}
+								regGeneration[r] = 0
+							end
+						end
+						for ai, act in ipairs(actions) do
+							local actOpn = act.opCode and act.opCode.name
+							if actOpn then
+								local aur, aed = act.usedRegisters, act.extraData
+								local srcs = getSourceRegisters(actOpn, aur)
+								for k = 1, #srcs do
+									local r = srcs[k]
+									ensureRegTimeline(r)
+									local g = regGeneration[r]
+									local tl = regGenTimeline[r]
+									if tl[#tl] and tl[#tl].gen == g then
+										tl[#tl].endIdx = ai
+									end
+								end
+								local defs = getDefinedRegisters(actOpn, aur, aed)
+								local priorAct = actions[ai - 1]
+								for k = 1, #defs do
+									local r = defs[k]
+									ensureRegTimeline(r)
+									local chained = isChainedRedefine(actOpn, aur, aed, r, priorAct)
+									local tl = regGenTimeline[r]
+									if chained and tl[#tl] then
+										tl[#tl].endIdx = ai
+										tl[#tl].defAi = ai
+									else
+										regGeneration[r] += 1
+										tl[#tl + 1] = { gen = regGeneration[r], startIdx = ai, endIdx = ai, defAi = ai }
+									end
+								end
+							end
+						end
+						local regNeedsSuffix = {}
+						for r, tl in pairs(regGenTimeline) do
+							if #tl > 1 then
+								regNeedsSuffix[r] = true
+							end
+						end
+						local function regGenAt(r, instrIdx)
+							local tl = regGenTimeline[r]
+							if not tl then
+								return 0
+							end
+							local best = 0
+							for k = 1, #tl do
+								local entry = tl[k]
+								if entry.startIdx <= instrIdx then
+									best = entry.gen
+								else
+									break
+								end
+							end
+							return best
+						end
+
+						local function constStr(idx)
+							local c = consts[idx + 1]
+							if c and type(c.value) == "string" then
+								return c.value
+							end
+							return nil
+						end
+						local function findRecentStringLiteral(r, beforeAi)
+							for j = beforeAi - 1, math.max(1, beforeAi - 6), -1 do
+								local a = actions[j]
+								if not a or not a.opCode then
+									continue
+								end
+								local an = a.opCode.name
+								local au = a.usedRegisters
+								if au and au[1] == r then
+									if an == "LOADK" then
+										return constStr(a.extraData[1])
+									end
+									return nil
+								end
+							end
+							return nil
+						end
+						local SERVICE_LIKE_METHODS = { GetService = true }
+						local CHILD_LOOKUP_METHODS = {
+							WaitForChild = true,
+							FindFirstChild = true,
+							FindFirstChildOfClass = true,
+							FindFirstChildWhichIsA = true,
+						}
+						local KNOWN_GLOBAL_NAMES = {
+							game = false,
+							workspace = true,
+							script = true,
+							shared = false,
+						}
+						local function sanitizeName(s)
+							if not s or s == "" then
+								return nil
+							end
+							if not s:match("^[%a_][%w_]*$") then
+								return nil
+							end
+							return s
+						end
+						local regInferredName = {}
+						for r, tl in pairs(regGenTimeline) do
+							for _, entry in ipairs(tl) do
+								local defAi = entry.defAi
+								local act = actions[defAi]
+								if act and act.opCode then
+									local opn2 = act.opCode.name
+									local ed2 = act.extraData
+									local name = nil
+									if opn2 == "CALL" then
+										local prevAct = actions[defAi - 1]
+										if prevAct and prevAct.opCode and prevAct.opCode.name == "NAMECALL" then
+											local method = constStr(prevAct.extraData[2])
+											if
+												method
+												and (SERVICE_LIKE_METHODS[method] or CHILD_LOOKUP_METHODS[method])
+											then
+												local argReg = act.usedRegisters[1] + 1
+												local lit = findRecentStringLiteral(argReg, defAi)
+												name = sanitizeName(lit)
+											end
+										end
+									elseif opn2 == "GETGLOBAL" or opn2 == "GETIMPORT" then
+										local gname = constStr(ed2[1])
+										if gname and KNOWN_GLOBAL_NAMES[gname] == true then
+											name = gname
+										end
+									end
+									if name then
+										regInferredName[r .. ":" .. entry.gen] = name
+									end
+								end
+							end
+						end
+						do
+							local seenNames = {}
+							for r, tl in pairs(regGenTimeline) do
+								for _, entry in ipairs(tl) do
+									local key = r .. ":" .. entry.gen
+									local nm = regInferredName[key]
+									if nm then
+										if seenNames[nm] then
+											regInferredName[key] = nil
+										else
+											seenNames[nm] = true
+										end
+									end
+								end
+							end
+						end
+
 						local regNameCache = {}
 						local function fmtReg(r, instrIdx)
 							if r == nil then
@@ -1261,7 +1549,21 @@ local function main()
 							if pr < safeNumParams + 1 then
 								return "p" .. tostring((totalParameters - safeNumParams) + pr)
 							end
-							return "v" .. tostring(r - safeNumParams)
+							if instrIdx then
+								local g = regGenAt(r, instrIdx)
+								local inferred = regInferredName[r .. ":" .. g]
+								if inferred then
+									return inferred
+								end
+							end
+							local baseName = "v" .. tostring(r - safeNumParams)
+							if instrIdx and regNeedsSuffix[r] then
+								local g = regGenAt(r, instrIdx)
+								if g > 1 then
+									return baseName .. "_" .. g
+								end
+							end
+							return baseName
 						end
 						local function paramName(j)
 							if proto.debugLocals then
@@ -1822,10 +2124,9 @@ local function main()
 								local name = consts[(ed[1] or 0) + 1] and consts[(ed[1] or 0) + 1].value or "?"
 								emit(ind() .. R(ur[1]) .. "." .. tostring(name) .. " = " .. R(ur[2]))
 							elseif opn == "CALLFB" then
-								-- CALLFB is like CALL but with a feedback slot; render identically to CALL
 								local baseR = ur[1]
 								local nArgs = (ed[1] or 1) - 1
-								local nRes  = (ed[2] or 1) - 1
+								local nRes = (ed[2] or 1) - 1
 								local callBody = ""
 								if nRes == -1 then
 									callBody = "... = "
@@ -1833,7 +2134,9 @@ local function main()
 									local rb = ""
 									for k = 1, nRes do
 										rb ..= R(baseR + k - 1)
-										if k ~= nRes then rb ..= ", " end
+										if k ~= nRes then
+											rb ..= ", "
+										end
 									end
 									callBody = rb .. " = "
 								end
@@ -1844,7 +2147,9 @@ local function main()
 									local ab = ""
 									for k = 1, nArgs do
 										ab ..= R(baseR + k)
-										if k ~= nArgs then ab ..= ", " end
+										if k ~= nArgs then
+											ab ..= ", "
+										end
 									end
 									callBody ..= ab
 								end
@@ -1853,7 +2158,14 @@ local function main()
 							elseif opn == "CMPPROTO" then
 								local ei = i + (ed[1] or 0)
 								makeJump(ei)
-								emit("if not proto_match(" .. R(ur[1]) .. ", proto#" .. tostring(ed[2] or "?") .. ") then -- goto #" .. ei)
+								emit(
+									"if not proto_match("
+										.. R(ur[1])
+										.. ", proto#"
+										.. tostring(ed[2] or "?")
+										.. ") then -- goto #"
+										.. ei
+								)
 							elseif opn == "FASTCALL" then
 								emit("-- FASTCALL; " .. Luau:GetBuiltinInfo(ed[1]) .. "()")
 							elseif opn == "FASTCALL1" then
@@ -2101,16 +2413,13 @@ local function main()
 			local function w(s)
 				table.insert(lines, s or "")
 			end
-			w("_zukatechzukatech_zukatechzukatechhzukatech_")
 			w("  code reconstructor — " .. (scriptName or "unknown"))
-			w("_zukatechzukatech_zukatechzukatechhzukatech_")
 			w("  Luau version : " .. parsed.version)
 			w("  Types version: " .. parsed.typesVersion)
 			w("  Proto count  : " .. #parsed.protos)
 			w("  Entry proto  : #" .. parsed.entryProto)
 			w("  Strings total: " .. #parsed.stringTable)
-			w("")
-			w(" STRING TABLE ")
+			w("  STRING TABLE ")
 			for i, s in ipairs(parsed.stringTable) do
 				w(string.format("  [%3d] %q", i, s))
 			end
@@ -2695,8 +3004,8 @@ local function main()
 			return table.concat(final, "\n")
 		end
 		ZukDecompile = Decompile
-	--	prettyPrint = _ppImpl
-	--	cleanOutput = _coImpl
+		prettyPrint = _ppImpl
+		cleanOutput = _coImpl
 		getgenv()._ZUK_DECOMPILE = Decompile
 	--	getgenv()._ZUK_PRETTYPRINT = _ppImpl
 	--	getgenv()._ZUK_CLEANOUTPUT = _coImpl
