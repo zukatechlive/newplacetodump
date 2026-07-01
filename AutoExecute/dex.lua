@@ -7834,7 +7834,7 @@ local EmbeddedModules = {
 				})
 
 				context:Register("GENERATE_POISON_PATCH2", {
-					Name = "[ZEX] Poison!",
+					Name = "[S+] Module Fucker!",
 					IconMap = Explorer.MiscIcons,
 					Icon = "CallFunction",
 					OnClick = function()
@@ -7869,8 +7869,8 @@ local EmbeddedModules = {
 								return true
 							elseif n == "Lifesteal" then
 								return 99999
-							--	elseif n == "ShotgunEnabled" then
-							--		return true
+								elseif n == "ShotgunEnabled" then
+									return true
 							elseif n == "ChargedShotEnabled" then
 								return false
 							elseif n == "ChargingTime" then
@@ -7879,8 +7879,8 @@ local EmbeddedModules = {
 								return false
 							elseif n == "DelayBeforeFiring" then
 								return 0
-							--elseif n == "Auto" then
-							--	return false
+							elseif n == "Auto" then
+								return false
 							elseif n == "CriticalDamageEnabled" then
 								return 999999
 							elseif n == "HoldDownEnabled" then
@@ -8593,7 +8593,7 @@ local EmbeddedModules = {
 							end
 							if source == "" then
 								source = "-- [PROTECTED] Could not extract source via any method\n"
-								method = "none"
+								method = "ZukDecompile"
 							end
 							return source, method
 						end
@@ -31083,7 +31083,7 @@ local function main()
 		local getupvalues = (debug and debug.getupvalues) or getupvalues or getupvals
 		local getconstants = (debug and debug.getconstants) or getconstants or getconsts
 		local getinfo = (debug and (debug.getinfo or debug.info)) or getinfo
-		local original = ("\n-- // [zukv2] Function Dump\n-- // Script: %s\n\n--[["):format(getPath(scr))
+		local original = ("\n // [zukv2] Function Dump\n-- // Script: %s\n\n "):format(getPath(scr))
 		local dump = original
 		local functions, function_count, data_base = {}, 0, {}
 		function functions:add_to_dump(str, indentation, new_line)
@@ -31180,7 +31180,7 @@ local function main()
 		local source = codeFrame:GetText()
 
 		if dump ~= original then
-			source = source .. dump .. "]]"
+			source = source .. dump .. "-- We lit "
 		end
 		codeFrame:SetText(source)
 
@@ -31344,14 +31344,14 @@ local function main()
 				DecompilerTimeout = 20,
 				CleanMode = true,
 				ReaderFloatPrecision = 10,
-				ShowDebugInformation = false,
-				ShowTrivialOperations = false,
+				ShowDebugInformation = true,
+				ShowTrivialOperations = true,
 				ShowInstructionLines = true,
 				ShowOperationIndex = false,
-				ShowOperationNames = true,
-				ListUsedGlobals = false,
+				ShowOperationNames = false,
+				ListUsedGlobals = true,
 				UseTypeInfo = true,
-				EnabledRemarks = { ColdRemark = false, InlineRemark = false },
+				EnabledRemarks = { ColdRemark = true, InlineRemark = true },
 				ReturnElapsedTime = true,
 			}
 			local okD, result, elapsed = pcall(ZukDecompile, bytecode, opts)
@@ -31368,7 +31368,7 @@ local function main()
 				local elapsed_s = elapsed and tostring(math.floor(elapsed * 100) / 100)
 					or tostring(math.floor((tick() - oldtick) * 100) / 100)
 				source = "-- Script Path: " .. getPath(scr) .. "\n"
-				source = source .. "-- Decompiled in " .. elapsed_s .. "s\n"
+				source = source .. "-- Decompiled with zukv2: " .. elapsed_s .. "s\n"
 				source = source .. out
 				PreviousScr = scr
 				dumpbtn.TextColor3 = Color3.new(1, 1, 1)
