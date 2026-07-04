@@ -1,9 +1,17 @@
 --[[
+
+
+
  _____     _            ____  
 |__  /   _| | __ __   _| ___| 
   / / | | | |/ / \ \ / /___ \ 
  / /| |_| |   <   \ V / ___) |
 /____\__,_|_|\_\   \_/ |____/ 
+
+
+
+Added ScreenGui to Script Support. 
+Might be buggy.
                               
 ]]
 
@@ -24,7 +32,7 @@ local function main()
 				if cursor + n > blen then
 					error(
 						string.format(
-							"Uh oh! OOB: it needs %d byte(s) at offset %d (buf len %d)  maybe an opcode issue?",
+							"-- Failure at :  %d byte(s) at offset %d (buf len %d)",
 							n,
 							cursor,
 							blen
@@ -3021,6 +3029,16 @@ local function main()
 		getgenv()._ZUK_CLEANOUTPUT = _coImpl
 	end)
 end
+local env = env
+	or {
+		getscriptbytecode = getscriptbytecode,
+		decompile = decompile,
+		getscriptclosure = getscriptclosure,
+		getupvalues = getupvalues,
+		getconstants = getconstants,
+		setclipboard = setclipboard,
+	}
+
 main()
 if not (env.ZukDecompile or getgenv()._ZUK_DECOMPILE) then
 	task.wait()
@@ -3444,34 +3462,56 @@ end
 local ZUK_OPTS = {
 	DecompilerMode = "disasm",
 	DecompilerTimeout = 20,
-	CleanMode = false,
+	CleanMode = true,
 	ReaderFloatPrecision = 7,
-	ShowDebugInformation = false,
+	ShowDebugInformation = true,
 	ShowTrivialOperations = true,
 	ShowInstructionLines = true,
 	ShowOperationIndex = false,
-	ShowOperationNames = true,
+	ShowOperationNames = false,
 	ListUsedGlobals = true,
 	UseTypeInfo = true,
-	EnabledRemarks = { ColdRemark = false, InlineRemark = true },
+	EnabledRemarks = { ColdRemark = true, InlineRemark = true },
 	ReturnElapsedTime = true,
-	prettyPrint = true,
+	prettyPrint = false,
 }
 
 local function decompileObj(obj)
 	local source, method = "", "unknown"
+	local diag = {}
+
 	local zuk = env.ZukDecompile or getgenv()._ZUK_DECOMPILE
-	if zuk and env.getscriptbytecode then
-		local okBC, bc = pcall(env.getscriptbytecode, obj)
-		if okBC and bc and bc ~= "" then
+	local getbc = env.getscriptbytecode or rawget(_G, "getscriptbytecode") or rawget(_G, "get_script_bytecode")
+
+	if not zuk then
+		diag[#diag + 1] =
+			"no disassembler registered (getgenv()._ZUK_DECOMPILE / env.ZukDecompile is nil — main() may not have finished its task.defer yet)"
+	end
+	if not getbc then
+		diag[#diag + 1] =
+			"no bytecode primitive found (env.getscriptbytecode / getscriptbytecode / get_script_bytecode all nil)"
+	end
+
+	if zuk and getbc then
+		local okBC, bc = pcall(getbc, obj)
+		if not okBC then
+			diag[#diag + 1] = "getscriptbytecode(obj) errored: " .. tostring(bc)
+		elseif not bc or bc == "" then
+			diag[#diag + 1] = "getscriptbytecode(obj) returned empty bytecode"
+		else
 			local okD, res = pcall(zuk, bc, ZUK_OPTS)
-			if okD and res and res ~= "" then
+			if not okD then
+				diag[#diag + 1] = "disassembler errored: " .. tostring(res)
+			elseif not res or res == "" then
+				diag[#diag + 1] = "disassembler returned empty output"
+			else
 				local pp = getgenv()._ZUK_PRETTYPRINT
 				source = (pp and pp(res)) or res
 				method = "zukv2"
 			end
 		end
 	end
+
 	if source == "" then
 		local ok, src = pcall(function()
 			return obj.Source
@@ -3479,6 +3519,8 @@ local function decompileObj(obj)
 		if ok and src and src ~= "" then
 			source = src
 			method = "Source"
+		else
+			diag[#diag + 1] = "obj.Source unavailable (protected/compiled-out, as expected for a live game script)"
 		end
 	end
 	if source == "" and env.decompile then
@@ -3486,6 +3528,8 @@ local function decompileObj(obj)
 		if ok and res and res ~= "" then
 			source = res
 			method = "decompile"
+		else
+			diag[#diag + 1] = "env.decompile(obj) failed: " .. tostring(res)
 		end
 	end
 	if source == "" and env.getscriptclosure then
@@ -3498,11 +3542,18 @@ local function decompileObj(obj)
 					.. #bc
 					.. " bytes\n"
 				method = "dump"
+			else
+				diag[#diag + 1] = "string.dump on script closure failed: " .. tostring(bc)
 			end
+		else
+			diag[#diag + 1] = "env.getscriptclosure(obj) failed: " .. tostring(fn)
 		end
 	end
 	if source == "" then
 		source = "-- [PROTECTED] Could not extract source via any method\n"
+		for _, line in ipairs(diag) do
+			source = source .. "-- " .. line .. "\n"
+		end
 		method = "ZukDecompile"
 	end
 	return source, method
@@ -4015,9 +4066,9 @@ local function buildScreenGuiExport(gui)
 		emitRaw(
 			"  ╔══════════════════════════════════════════════════════╗"
 		)
-		emitRaw("  ║              EXTRACTION WARNINGS  (v5)              ║")
+		emitRaw("              EXTRACTION WARNINGS  (v5)              ")
 		emitRaw(
-			"  ╚══════════════════════════════════════════════════════╝"
+			"  ╚══════════════════════════════════════════════════════╝]]"
 		)
 
 		if #remoteRefs > 0 then
@@ -4103,7 +4154,7 @@ local function buildScreenGuiExport(gui)
 
 	local header = table.concat({
 		"--[[",
-		"GUI -> SCRIPT CONVERTER  v5  (zukv2)",
+		"GUI DECOMPILER",
 		"",
 		"ScreenGui : " .. gui.Name,
 		"Extracted : " .. dateStr,
