@@ -7,7 +7,7 @@ local State = {
     Enabled = false,
     Target = nil,
     Offset = CFrame.new(0, 0, 3),
-    BlinkFrequency = 1.5,
+    BlinkFrequency = 2,
 }
 
 local frameCount = 0
