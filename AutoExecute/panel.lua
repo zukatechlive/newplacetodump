@@ -20781,6 +20781,35 @@ RegisterCommand({
 			end
 		end)
 	end
+	Modules.UnlockMouse = { State = { Enabled = false, Connection = nil } }
+    RegisterCommand(
+	{
+		Name = "unlockMouse",
+		Aliases = {"um"},
+		Description = "Unlocks the mouse, use again to disable.",
+	},
+	function()
+		local State = Modules.UnlockMouse.State
+		State.Enabled = not State.Enabled
+		if State.Enabled then
+			if State.Connection then
+				State.Connection:Disconnect()
+			end
+			State.Connection = RunService.RenderStepped:Connect(function()
+				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+				UserInputService.MouseIconEnabled = true
+			end)
+			DoNotif("Mouse Unlock Enabled", 2)
+		else
+			if State.Connection then
+				State.Connection:Disconnect()
+				State.Connection = nil
+			end
+			DoNotif("Mouse Unlock Disabled", 2)
+		end
+	end
+)
+
 	local NetworkClaim = {
 		State = {
 			IsEnabled = false,
@@ -24309,6 +24338,73 @@ RegisterCommand({
 	end
 	notify("Shield Fully Charged. Explode and Fling protections are ACTIVE.")
 end)
+RegisterCommand({
+	Name = "mine",
+	Aliases = {},
+	Description = "Claims ownership of unanchored parts",
+	ArgsDesc = {},
+	Permissions = {},
+}, function(args, speaker)
+	if not _G.MyCoolScriptSettings then
+		_G.MyCoolScriptSettings = {
+			IsOn = true,
+			BigRange = 1e10,
+			KeepAwake = true,
+			FastMoving = true,
+		}
+	end
+
+	local theRunService = game:GetService("RunService")
+	local thePlayers = game:GetService("Players")
+	local theLocalPlayer = thePlayers.LocalPlayer
+	local theSettings = settings()
+
+	local function makePartsMine()
+		sethiddenproperty(theLocalPlayer, "SimulationRadius", _G.MyCoolScriptSettings.BigRange)
+		sethiddenproperty(theLocalPlayer, "MaxSimulationRadius", _G.MyCoolScriptSettings.BigRange)
+
+		if _G.MyCoolScriptSettings.KeepAwake then
+			theSettings.Physics.AllowSleep = false
+		end
+
+		for _, theThing in ipairs(workspace:GetDescendants()) do
+			if theThing:IsA("BasePart") and not theThing.Anchored then
+				theThing.Velocity = Vector3.new(25.01, 0, 0)
+				if theThing.Parent:FindFirstChildOfClass("Humanoid") == nil then
+					theThing.CanCollide = true
+				end
+			end
+		end
+	end
+
+	theRunService.Stepped:Connect(function()
+		if not _G.MyCoolScriptSettings.IsOn then
+			return
+		end
+
+		makePartsMine()
+
+		local theChar = theLocalPlayer.Character
+		if theChar then
+			local theRoot = theChar:FindFirstChild("HumanoidRootPart")
+			if theRoot then
+				theRoot.Anchored = false
+				theRoot.Velocity = theRoot.Velocity + Vector3.new(0, 0.05, 0)
+			end
+		end
+	end)
+
+	local theOldIndex
+	theOldIndex = hookmetamethod(game, "__index", function(self, theKey)
+		if not checkcaller() and _G.MyCoolScriptSettings.IsOn then
+			if theKey == "SimulationRadius" and self == theLocalPlayer then
+				return 1e10
+			end
+		end
+		return theOldIndex(self, theKey)
+	end)
+end)
+
 Modules.PlayerLookup = {
 	State = {
 		UI = nil,
@@ -26964,7 +27060,7 @@ RegisterCommand({
     Aliases     = {},
     Description = "pthfm",
 }, function(args)
-    local targetModule = require(game:GetService("ReplicatedStorage").Modules.WeaponSettings.Gun.PumpkinLauncher.Setting["1"])
+    local targetModule = require(game:GetService("ReplicatedStorage").Modules.WeaponSettings.Gun.PumpkinLauncher.Setting["FAMAS"])
     if setreadonly then setreadonly(targetModule, false) end
 
     targetModule.Spread = 0 -- [PATCHED]
@@ -26977,7 +27073,7 @@ RegisterCommand({
     targetModule.DamageableLaserTrail = 999999 -- [PATCHED]
     targetModule.ReloadTime = 0 -- [PATCHED]
     targetModule.BulletPerShot = 2 -- [PATCHED]
-    targetModule.ExplosionRadius = 35
+   -- targetModule.ExplosionRadius = 35
 
 
     if setreadonly then setreadonly(targetModule, true) end
@@ -34075,64 +34171,84 @@ Modules.AntiAttach = {
 		IsEnabled = false,
 		DetectionLoop = nil,
 		Countering = false,
+		OriginalFPDH = workspace.FallenPartsDestroyHeight,
 	},
 	Config = {
-		VoidVelocity = -50000,
+		VoidVelocity = -9e6,
 		CheckInterval = 0.1,
+		ReturnDelay = 0.5,
 	},
 }
+
 function Modules.AntiAttach:_isBeingAttached()
-	local character = LocalPlayer.Character
-	if not character then
-		return false, nil
-	end
-	local hrp = character:FindFirstChild("HumanoidRootPart")
+	local char = LocalPlayer.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 	if not hrp then
 		return false, nil
 	end
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer then
-			local theirChar = player.Character
-			if theirChar then
-				local theirHRP = theirChar:FindFirstChild("HumanoidRootPart")
-				if theirHRP then
-					local success, repRoot = pcall(function()
-						return gethiddenproperty(theirHRP, "PhysicsRepRootPart")
-					end)
-					if success and repRoot == hrp then
-						return true, player
-					end
+
+	for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+		if player ~= LocalPlayer and player.Character then
+			local tHRP = player.Character:FindFirstChild("HumanoidRootPart")
+			if tHRP then
+				local success, repRoot = pcall(function()
+					return gethiddenproperty(tHRP, "PhysicsRepRootPart")
+				end)
+
+				if success and repRoot == hrp then
+					return true, player
 				end
 			end
 		end
 	end
 	return false, nil
 end
+
 function Modules.AntiAttach:_voidAttacker(attacker)
 	if self.State.Countering then
 		return
 	end
+
+	local char = LocalPlayer.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if not (hrp and hum) then
+		return
+	end
+
 	self.State.Countering = true
-	DoNotif("ATTACHER DETECTED: " .. attacker.DisplayName .. " - SENDING TO VOID", 3)
+	local oldPos = hrp.CFrame
+
+	DoNotif("PHYSICS ATTACH DETECTED: " .. attacker.DisplayName:upper(), 3)
+
 	task.spawn(function()
+		workspace.FallenPartsDestroyHeight = 0 / 0
+		hum:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+
 		for i = 1, 30 do
-			local character = LocalPlayer.Character
-			local hrp = character and character:FindFirstChild("HumanoidRootPart")
-			if hrp then
-				hrp.AssemblyLinearVelocity = Vector3.new(0, self.Config.VoidVelocity, 0)
-				hrp.AssemblyAngularVelocity = Vector3.zero
-			else
-				break
-			end
-			task.wait(0.05)
+			hrp.AssemblyLinearVelocity = Vector3.new(0, self.Config.VoidVelocity, 0)
+			hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+			game:GetService("RunService").Stepped:Wait()
 		end
+
+		task.wait(self.Config.ReturnDelay)
+		hrp.AssemblyLinearVelocity = Vector3.zero
+		hrp.CFrame = oldPos
+		workspace.FallenPartsDestroyHeight = self.State.OriginalFPDH
+		hum:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+
+		task.wait(0.5)
 		self.State.Countering = false
 	end)
 end
+
 function Modules.AntiAttach:Toggle()
 	self.State.IsEnabled = not self.State.IsEnabled
+
 	if self.State.IsEnabled then
-		DoNotif("Anti-Attach: ACTIVE", 2)
+		DoNotif("Anti-Attach: SHIELD ACTIVE", 2)
+		self.State.OriginalFPDH = workspace.FallenPartsDestroyHeight
+
 		self.State.DetectionLoop = game:GetService("RunService").Heartbeat:Connect(function()
 			if not self.State.Countering then
 				local isAttached, attacker = self:_isBeingAttached()
@@ -34142,7 +34258,7 @@ function Modules.AntiAttach:Toggle()
 			end
 		end)
 	else
-		DoNotif("Anti-Attach: OFFLINE", 2)
+		DoNotif("Anti-Attach: SHIELD OFFLINE", 2)
 		if self.State.DetectionLoop then
 			self.State.DetectionLoop:Disconnect()
 			self.State.DetectionLoop = nil
@@ -34150,13 +34266,15 @@ function Modules.AntiAttach:Toggle()
 		self.State.Countering = false
 	end
 end
+
 RegisterCommand({
-	Name = "sendtothevoid",
-	Aliases = { "voidkill" },
-	Description = "Detects when someone attaches to you and drags them into the void",
+	Name = "killflinger",
+	Aliases = {"kf"},
+	Description = "Automatically voids anyone trying to attach/fling you",
 }, function()
 	Modules.AntiAttach:Toggle()
 end)
+
 RegisterCommand({
 	Name = "lights",
 	Aliases = { "lig" },
@@ -34269,8 +34387,8 @@ RegisterCommand({
 	end)
 end)
 RegisterCommand({
-	Name = "newantia",
-	Aliases = { "naa" },
+	Name = "noaimbot",
+	Aliases = { "noaa" },
 	Description = "anti aimbot",
 }, function(args)
 	local Config = {
@@ -34449,13 +34567,13 @@ RegisterCommand({
 end)
 RegisterCommand({
 	Name = "noadminabuse",
-	Aliases = { "naab" },
+	Aliases = {},
 	Description = "tries to protect against ss admins",
 }, function(args)
 	local SETTINGS = {
 		KICK_IMMUNITY = true,
 		BLOCK_SERVER_TP = true,
-		ANTI_CFRAME_TP = false,
+		ANTI_CFRAME_TP = true,
 		ANTI_FLING = true,
 		ANTI_ANCHOR = true,
 		NOTIFY = true,
@@ -35525,7 +35643,7 @@ RegisterCommand({
 				module.Recoil = 0
 				module.ShotgunEnabled = true
 				module.AmmoPerMag = 999999
-				module.FireRate = 0.085
+				module.FireRate = 0.1
 				module.TacticalReloadTime = 0
 				module.DelayAfterFiring = 0
 				module.DelayBeforeFiring = 0
@@ -35534,7 +35652,7 @@ RegisterCommand({
 				module.ReloadTime = 0
 				module.SwitchTime = 0
 				module.FriendlyFire = true
-				module.BulletPerShot = 100
+				module.BulletPerShot = 64
 				module.FullDamageDistance = 999999
 				module.HeadshotDamageMultiplier = 999999
 				module.Accuracy = 0
@@ -38034,6 +38152,136 @@ addcmd("nocrash", {}, function(args, speaker)
     DoNotif("Your PC might actually survive now.")
 end)
 
+
+
+
+
+
+addcmd("flingtool", {"ft"}, function(args, speaker)
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local StarterGui = game:GetService("StarterGui")
+
+    local Player = Players.LocalPlayer
+    local Mouse = Player:GetMouse()
+
+    getgenv().FPDH = workspace.FallenPartsDestroyHeight
+    local ToolName = "Fling Tool"
+
+    local function Notify(title, text)
+    	StarterGui:SetCore("SendNotification", {
+    		Title = title,
+    		Text = text,
+    		Duration = 3,
+    	})
+    end
+
+    local function SkidFling(TargetPlayer)
+    	local Character = Player.Character
+    	local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+    	local RootPart = Humanoid and Humanoid.RootPart
+
+    	local TCharacter = TargetPlayer.Character
+    	if not TCharacter then
+    		return
+    	end
+
+    	local THumanoid = TCharacter:FindFirstChildOfClass("Humanoid")
+    	local TRootPart = THumanoid and THumanoid.RootPart
+    	local THead = TCharacter:FindFirstChild("Head")
+
+    	if not (Character and Humanoid and RootPart) then
+    		return
+    	end
+    	if not (THumanoid and TRootPart) then
+    		return
+    	end
+
+    	getgenv().OldPos = RootPart.CFrame
+
+    	workspace.CurrentCamera.CameraSubject = THead or TRootPart
+
+    	workspace.FallenPartsDestroyHeight = 0 / 0
+    	Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+
+    	local function FPos(BasePart, Pos, Ang)
+    		RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
+    		RootPart.Velocity = Vector3.new(9e7, 9e7 * 10, 9e7)
+    		RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+    	end
+
+    	local function SFBasePart(BasePart)
+    		local TimeToWait = 2
+    		local Time = tick()
+    		local Angle = 0
+    		repeat
+    			if RootPart and THumanoid then
+    				Angle = Angle + 100
+    				FPos(
+    					BasePart,
+    					CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25,
+    					CFrame.Angles(math.rad(Angle), 0, 0)
+    				)
+    				task.wait()
+    				FPos(
+    					BasePart,
+    					CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25,
+    					CFrame.Angles(math.rad(Angle), 0, 0)
+    				)
+    				task.wait()
+    			else
+    				break
+    			end
+    		until BasePart.Velocity.Magnitude > 500 or not TargetPlayer.Character or tick() > Time + TimeToWait
+    	end
+
+    	if THead then
+    		SFBasePart(THead)
+    	else
+    		SFBasePart(TRootPart)
+    	end
+
+    	Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+    	workspace.CurrentCamera.CameraSubject = Humanoid
+
+    	local ReturnTime = tick()
+    	repeat
+    		RootPart.CFrame = getgenv().OldPos * CFrame.new(0, 0.5, 0)
+    		RootPart.Velocity = Vector3.new(0, 0, 0)
+    		RootPart.RotVelocity = Vector3.new(0, 0, 0)
+    		Humanoid:ChangeState("GettingUp")
+    		task.wait()
+    	until (RootPart.Position - getgenv().OldPos.p).Magnitude < 25 or tick() > ReturnTime + 2
+
+    	workspace.FallenPartsDestroyHeight = getgenv().FPDH
+    	Notify("Fling Complete", "Target: " .. TargetPlayer.DisplayName)
+    end
+
+    local Tool = Instance.new("Tool")
+    Tool.Name = ToolName
+    Tool.RequiresHandle = false
+    Tool.Parent = Player.Backpack
+
+    Tool.Activated:Connect(function()
+    	local Target = Mouse.Target
+    	if Target and Target.Parent then
+    		local TargetChar = Target.Parent:IsA("Accessory") and Target.Parent.Parent or Target.Parent
+    		local TargetPlayer = Players:GetPlayerFromCharacter(TargetChar)
+
+    		if TargetPlayer and TargetPlayer ~= Player then
+    			Notify("Flinging...", "Targeting: " .. TargetPlayer.DisplayName)
+    			SkidFling(TargetPlayer)
+    		elseif TargetPlayer == Player then
+    			Notify("Error", "You cannot fling yourself.")
+    		else
+    			Notify("Error", "Click a player to fling them.")
+    		end
+    	end
+    end)
+
+    Notify("Tool Loaded", "Equip the tool and click a player to fling.")
+end)
+
 --
 -- end of addcmd section --
 --
@@ -38041,6 +38289,20 @@ end)
 --
 -- addcmd loadstrings --
 --
+
+addcmd("illumina", {"gi"}, function(args, speaker)
+    loadstring(game:HttpGet("https://github.com/zukatechlive/newplacetodump/blob/main/AutoExecute/IlluminaGiver.lua"))()
+end)
+
+addcmd("noclient", {}, function(args, speaker)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/random/invis.lua"))()
+end)
+
+
+addcmd("crosshair", {"c"}, function(args, speaker)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/crosshair.lua"))()
+end)
+
 
 addcmd("shrek", {}, function(args, speaker)
     loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/shrekinbackrooms.lua"))()
@@ -38064,13 +38326,23 @@ addcmd("worldofshit", {"wos2"}, function(args, speaker)
 end)
 
 
+addcmd("verified", {}, function(args, speaker)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/random/ra.lua"))()
+end)
+
+
+addcmd("g2l", {"g2"}, function(args, speaker)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/random/bytecodestuff/zukv5.lua"))()
+end)
+
+
+addcmd("toolkill", {}, function(args, speaker)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/toolkill.lua"))()
+end)
 
 --
 -- loadstring end --
 --
-
-
-
 
 -- aimbot core/gui 
 local function loadAimbotGUI(args)
@@ -39688,14 +39960,14 @@ local function detectEnvironment() -- env scanner
 	elseif env.level >= 10 then
 		env.rating = "C-Tier (Limited)"
 	else
-		env.rating = "F-Tier (LOL HEL NAH)"
+		env.rating = "F-Tier (LOL HELL NAH)"
 	end
 	return env
 end
 
 local envInfo = detectEnvironment()
 print(string.rep("-", 40))
-print("  [ENV DETECT]")
+print("  [sUNC Check]")
 print(string.rep("-", 40))
 print("Executor     :", envInfo.executor)
 print("Weighted Score:", envInfo.level)
