@@ -14877,11 +14877,10 @@ function Modules.ApexCounter:Initialize()
 	RegisterCommand({
 		Name = "zcounter",
 		Aliases = { "zc" },
-		Description = "Toggles the counter-exploit suite (APEX Edition).",
+		Description = "Toggles the counter-exploit.",
 	}, function(args)
 		module.State.IsEnabled = not module.State.IsEnabled
 		if module.State.IsEnabled then
-			DoNotif(" APEX SUITE: INITIALIZING...", 1.5)
 			task.wait(0.5)
 			module:ToggleLagShield(true)
 			module:ToggleGhost(true)
@@ -14891,7 +14890,6 @@ function Modules.ApexCounter:Initialize()
 			module:CleanVisualEffects()
 			module:EnableNetworkProtection()
 			task.wait(0.5)
-			DoNotif(" APEX SUITE: FULLY OPERATIONAL", 3)
 			DoNotif(" All Protections: ACTIVE", 2)
 		else
 			module:ToggleLagShield(false)
@@ -15060,7 +15058,7 @@ function Modules.ScriptExecutor2:Minimize()
 	btnText.Position = UDim2.new(0, 8, 0, 0)
 	btnText.BackgroundTransparency = 1
 	btnText.Font = T.UIFont
-	btnText.Text = "Script Exec"
+	btnText.Text = "Synapse X"
 	btnText.TextColor3 = T.TEXT_TAB
 	btnText.TextSize = 11
 	btnText.TextXAlignment = Enum.TextXAlignment.Left
