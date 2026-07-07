@@ -364,6 +364,16 @@ local _OBFUSC_PATTERNS = {
 	{ pattern = "readfile", label = "readfile FS access" },
 	{ pattern = "loadfile", label = "loadfile FS access" },
 	{ pattern = "require%s*%(%s*%-?%d+", label = "require(id) module load" },
+	{ pattern = "cache%s*%.%s*replace", label = "cache.replace identity-swap" },
+	{ pattern = "cache%s*%.%s*invalidate", label = "cache.invalidate identity-swap" },
+	{ pattern = "cloneref", label = "cloneref reference-swap" },
+	{ pattern = "getreg%s*%(%s*%)", label = "getreg() registry dump" },
+	{ pattern = "debug%.getregistry", label = "debug.getregistry() registry dump" },
+	{ pattern = "websocket%s*%.%s*connect", label = "WebSocket.connect exfil channel" },
+	{ pattern = "setclipboard", label = "setclipboard exfil/hijack" },
+	{ pattern = "identifyexecutor", label = "identifyexecutor fingerprinting" },
+	{ pattern = "gethwid", label = "gethwid fingerprinting" },
+	{ pattern = "queue_on_teleport", label = "queue_on_teleport persistence" },
 }
 local function detectObfuscation(source)
 	local lower = source:lower()
@@ -582,10 +592,50 @@ local function buildEnv(fakeGame, fakeWs)
 		"Oxygen",
 		"cachedWS",
 		"SandboxEnv",
+		-- identity-cache / reference-swap escape vectors
+		"cloneref",
+		"getreg",
+		"getregistry",
+		-- exfil / persistence side-channels commonly used by loggers & RATs
+		"setclipboard",
+		"getclipboard",
+		"queue_on_teleport",
+		-- fingerprinting used to tag or route stolen data
+		"identifyexecutor",
+		"getexecutorname",
+		"gethwid",
+		"getspecialinfo",
+		-- debug-console side channel
+		"rconsoleprint",
+		"rconsolewarn",
+		"rconsoleclear",
+		"rconsolesettitle",
+		"rconsoleinput",
 	}
 	for _, g in ipairs(_poisonedGlobals) do
 		env[g] = nil
 	end
+	-- logging decoys: these are common exfil / sandbox-escape channels used by
+	-- loggers & RATs, so instead of leaving them nil (which just errors quietly)
+	-- we record the attempt in the audit log and then fail closed.
+	env.WebSocket = {
+		connect = function(_, url)
+			_log("EXFIL_BLOCKED", "WebSocket.connect(" .. tostring(url) .. ") blocked by SHIELD")
+			error("WebSocket blocked by SHIELD")
+		end,
+	}
+	env.cache = {
+		invalidate = function(...)
+			_log("CACHE_ESCAPE", "cache.invalidate() blocked by SHIELD")
+		end,
+		replace = function(...)
+			_log("CACHE_ESCAPE", "cache.replace() blocked by SHIELD")
+		end,
+		iscached = function(...)
+			_log("CACHE_ESCAPE", "cache.iscached() blocked by SHIELD")
+			return false
+		end,
+	}
 	env.tostring = function(v)
 		if v == fakeGame then
 			return "DataModel"
