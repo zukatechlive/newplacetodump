@@ -33429,54 +33429,62 @@ function Modules.TeamChanger:Initialize()
 	end)
 end
 RegisterCommand({
-	Name = "cords",
-	Aliases = { "cord" },
-	Description = "logs your cords to console and copies to clipboard",
-	ArgsDesc = {},
-	Permissions = {},
+    Name = "cords",
+    Aliases = { "cord" },
+    Description = "logs your cords to console and copies to clipboard",
+    ArgsDesc = {},
+    Permissions = {},
 }, function(args, speaker)
-	local Players = game:GetService("Players")
-	local StarterGui = game:GetService("StarterGui")
+    local Players = game:GetService("Players")
+    local StarterGui = game:GetService("StarterGui")
+    local MarketplaceService = game:GetService("MarketplaceService")
 
-	local function ExtractData()
-		local lp = Players.LocalPlayer
-		local char = lp.Character
-		local root = char and char:FindFirstChild("HumanoidRootPart")
-		if not root then
-			StarterGui:SetCore("SendNotification", {
-				Title = "Extraction Error",
-				Text = "HumanoidRootPart not found. Wait for character load.",
-				Duration = 5,
-			})
-			return
-		end
-		local placeId = game.PlaceId
-		local jobId = game.JobId
-		local pos = root.Position
-		local cf = root.CFrame
-		local output = string.format(
-			"Place ID: %d\nJob ID: %s\nVector3: %.2f, %.2f, %.2f\nCFrame: %s",
-			placeId,
-			jobId,
-			pos.X,
-			pos.Y,
-			pos.Z,
-			tostring(cf)
-		)
-		if setclipboard then
-			setclipboard(output)
-			StarterGui:SetCore("SendNotification", {
-				Title = "cord saver",
-				Text = "copied",
-				Icon = "rbxthumb://type=Asset&id=5107182114&w=150&h=150",
-				Duration = 5,
-			})
-		else
-			warn("Environment Error: 'setclipboard' global not found.")
-			print(output)
-		end
-	end
-	ExtractData()
+    local function ExtractData()
+        local lp = Players.LocalPlayer
+        local char = lp.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        
+        if not root then
+            StarterGui:SetCore("SendNotification", {
+                Title = "Extraction Error",
+                Text = "HumanoidRootPart not found.",
+                Duration = 5,
+            })
+            return
+        end
+
+        local placeId = game.PlaceId
+        local pos = root.Position
+        
+        local success, gameName = pcall(function() 
+            return MarketplaceService:GetProductInfo(placeId).Name 
+        end)
+        gameName = success and gameName or "Unknown Game"
+
+        local output = string.format(
+            ' [%d] = Vector3.new(%.3f, %.3f, %.3f), -- "%s"',
+            placeId, 
+            pos.X,
+            pos.Y,
+            pos.Z,
+            gameName
+        )
+
+        if setclipboard then
+            setclipboard(output)
+            StarterGui:SetCore("SendNotification", {
+                Title = "Cord Saver",
+                Text = "Formatted string copied!",
+                Icon = "rbxthumb://type=Asset&id=5107182114&w=150&h=150",
+                Duration = 5,
+            })
+        else
+            warn("Environment Error: 'setclipboard' not supported by this executor.")
+            print(output)
+        end
+    end
+
+    ExtractData()
 end)
 RegisterCommand({
 	Name = "antikick",
