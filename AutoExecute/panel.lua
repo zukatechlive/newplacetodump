@@ -3418,7 +3418,6 @@ RegisterCommand({ Name = "altlock", Aliases = { "al" }, Description = "Lock alti
 	Fly:ToggleAltitudeLock()
 end)
 
-
 Modules.NoClip = {
 	State = {
 		IsEnabled = false,
@@ -3515,80 +3514,110 @@ function Modules.NoClip:Toggle()
 		self:Enable()
 	end
 end
-RegisterCommand({ Name = "noclip", Aliases = {}, Description = "Allows you to walk through walls" }, function()
+RegisterCommand({
+	Name = "noclip",
+	Aliases = {},
+	Description = "Allows you to walk through walls",
+}, function()
 	Modules.NoClip:Toggle()
 end)
+
+
 Modules.RespawnAtDeath = {
-	State = {
-		Enabled = false,
-		LastDeathCFrame = nil,
-		DiedConnection = nil,
-		CharacterConnection = nil,
-	},
+	Enabled = false,
+	_lastDeathCFrame = nil,
+	_connections = {},
 }
+
+local function CleanupConnections()
+	for key, connection in pairs(Modules.RespawnAtDeath._connections) do
+		if connection then
+			connection:Disconnect()
+			Modules.RespawnAtDeath._connections[key] = nil
+		end
+	end
+end
+
+local function PerformTeleport(character, targetCFrame)
+	local root = character:WaitForChild("HumanoidRootPart", 5)
+	local humanoid = character:WaitForChild("Humanoid", 5)
+
+	if not root or not humanoid then
+		return
+	end
+
+	root.Anchored = true
+
+	root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+	root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+
+	character:PivotTo(targetCFrame)
+
+	RunService.Heartbeat:Wait()
+
+	root.Anchored = false
+	print("[RespawnAtDeath] Reverted to death location.")
+end
+
 function Modules.RespawnAtDeath.OnDied()
-	local character = Players.LocalPlayer.Character
+	local character = LocalPlayer.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
+
 	if root then
-		Modules.RespawnAtDeath.State.LastDeathCFrame = root.CFrame
-		print("Death location saved.")
+		Modules.RespawnAtDeath._lastDeathCFrame = root.CFrame
+		print("[RespawnAtDeath] Position cached.")
 	end
 end
+
 function Modules.RespawnAtDeath.OnCharacterAdded(character)
-	local humanoid = character:WaitForChild("Humanoid")
-	if Modules.RespawnAtDeath.State.DiedConnection then
-		Modules.RespawnAtDeath.State.DiedConnection:Disconnect()
+	local humanoid = character:WaitForChild("Humanoid", 10)
+	if humanoid then
+		if Modules.RespawnAtDeath._connections["Died"] then
+			Modules.RespawnAtDeath._connections["Died"]:Disconnect()
+		end
+
+		Modules.RespawnAtDeath._connections["Died"] = humanoid.Died:Connect(Modules.RespawnAtDeath.OnDied)
 	end
-	Modules.RespawnAtDeath.State.DiedConnection = humanoid.Died:Connect(Modules.RespawnAtDeath.OnDied)
-	local deathCFrame = Modules.RespawnAtDeath.State.LastDeathCFrame
-	if deathCFrame then
-		coroutine.wrap(function()
-			print("Teleporting to saved death location...")
-			task.wait(0.1)
-			local root = character:WaitForChild("HumanoidRootPart")
-			if not root then
-				return
-			end
-			local originalAnchored = root.Anchored
-			root.Anchored = true
-			root.CFrame = deathCFrame
-			RunService.Heartbeat:Wait()
-			root.Anchored = originalAnchored
-			Modules.RespawnAtDeath.State.LastDeathCFrame = nil
-			print("Teleport successful.")
-		end)()
+
+	local deathPos = Modules.RespawnAtDeath._lastDeathCFrame
+	if deathPos then
+		task.spawn(PerformTeleport, character, deathPos)
+		Modules.RespawnAtDeath._lastDeathCFrame = nil
 	end
 end
-function Modules.RespawnAtDeath.Toggle()
-	local localPlayer = Players.LocalPlayer
-	Modules.RespawnAtDeath.State.Enabled = not Modules.RespawnAtDeath.State.Enabled
-	if Modules.RespawnAtDeath.State.Enabled then
-		print("revert: ENABLED")
-		Modules.RespawnAtDeath.State.CharacterConnection =
-			localPlayer.CharacterAdded:Connect(Modules.RespawnAtDeath.OnCharacterAdded)
-		if localPlayer.Character then
-			Modules.RespawnAtDeath.OnCharacterAdded(localPlayer.Character)
+
+function Modules.RespawnAtDeath.Toggle(state)
+	if state ~= nil then
+		Modules.RespawnAtDeath.Enabled = state
+	else
+		Modules.RespawnAtDeath.Enabled = not Modules.RespawnAtDeath.Enabled
+	end
+
+	CleanupConnections()
+
+	if Modules.RespawnAtDeath.Enabled then
+		print("RespawnAtDeath: ENABLED")
+
+		Modules.RespawnAtDeath._connections["CharAdded"] =
+			LocalPlayer.CharacterAdded:Connect(Modules.RespawnAtDeath.OnCharacterAdded)
+
+		if LocalPlayer.Character then
+			task.spawn(Modules.RespawnAtDeath.OnCharacterAdded, LocalPlayer.Character)
 		end
 	else
-		print("revert: DISABLED")
-		if Modules.RespawnAtDeath.State.DiedConnection then
-			Modules.RespawnAtDeath.State.DiedConnection:Disconnect()
-			Modules.RespawnAtDeath.State.DiedConnection = nil
-		end
-		if Modules.RespawnAtDeath.State.CharacterConnection then
-			Modules.RespawnAtDeath.State.CharacterConnection:Disconnect()
-			Modules.RespawnAtDeath.State.CharacterConnection = nil
-		end
-		Modules.RespawnAtDeath.State.LastDeathCFrame = nil
+		print("RespawnAtDeath: DISABLED")
+		Modules.RespawnAtDeath._lastDeathCFrame = nil
 	end
 end
+
 RegisterCommand({
 	Name = "revert",
-	Aliases = {},
+	Aliases = { "deathpos", "rd" },
 	Description = "Toggles respawning at your last death location.",
 }, function(args)
 	Modules.RespawnAtDeath.Toggle()
 end)
+
 Modules.BypassDevProduct = {
 	State = {
 		Enabled = false,
