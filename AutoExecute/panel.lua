@@ -38430,6 +38430,12 @@ addcmd("toolkill", {}, function(args, speaker)
     loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/toolkill.lua"))()
 end)
 
+
+addcmd("Wintool", {}, function(args, speaker)
+	loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/random/universaltouchpart.lua"))()
+end)
+
+
 --
 -- loadstring end --
 --
