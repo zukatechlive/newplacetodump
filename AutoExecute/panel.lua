@@ -37977,7 +37977,167 @@ addcmd("nocrash", {}, function(args, speaker)
 end)
 
 
+addcmd("killgui", {}, function(args, speaker)
+    local Players: Players = game:GetService("Players")
+    local ReplicatedStorage: ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local CoreGui = game:GetService("CoreGui")
 
+    local localPlayer: Player = Players.LocalPlayer
+    local events: Folder = ReplicatedStorage:WaitForChild("Events")
+    local damageRemote: RemoteEvent = events:WaitForChild("GunDamage")
+
+    local RESEARCH_CONFIG = {
+    	ENABLED = false,
+    	DAMAGE_VALUE = 900,
+    	ITERATION_DELAY = 0.1,
+    }
+
+    local targetList = {}
+
+    local ScreenGui = Instance.new("ScreenGui")
+    local MainFrame = Instance.new("Frame")
+    local Title = Instance.new("TextLabel")
+    local ToggleBtn = Instance.new("TextButton")
+    local PlayerList = Instance.new("ScrollingFrame")
+    local UIListLayout = Instance.new("UIListLayout")
+
+    ScreenGui.Name = "TargetSystem_V2"
+    ScreenGui.Parent = CoreGui
+    ScreenGui.ResetOnSpawn = false
+
+    MainFrame.Name = "MainFrame"
+    MainFrame.Size = UDim2.new(0, 220, 0, 350)
+    MainFrame.Position = UDim2.new(0.05, 0, 0.3, 0)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    MainFrame.BorderSizePixel = 0
+    MainFrame.Active = true
+    MainFrame.Draggable = true
+    MainFrame.Parent = ScreenGui
+
+    Title.Size = UDim2.new(1, 0, 0, 30)
+    Title.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    Title.TextColor3 = Color3.new(1, 1, 1)
+    Title.Text = "TARGET HITLIST"
+    Title.Font = Enum.Font.SourceSansBold
+    Title.TextSize = 16
+    Title.Parent = MainFrame
+
+    ToggleBtn.Size = UDim2.new(0.9, 0, 0, 40)
+    ToggleBtn.Position = UDim2.new(0.05, 0, 0.1, 0)
+    ToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    ToggleBtn.Text = "STATUS: IDLE"
+    ToggleBtn.TextColor3 = Color3.new(1, 1, 1)
+    ToggleBtn.Font = Enum.Font.SourceSansBold
+    ToggleBtn.Parent = MainFrame
+
+    PlayerList.Size = UDim2.new(0.9, 0, 0.72, 0)
+    PlayerList.Position = UDim2.new(0.05, 0, 0.25, 0)
+    PlayerList.BackgroundTransparency = 1
+    PlayerList.ScrollBarThickness = 4
+    PlayerList.Parent = MainFrame
+
+    UIListLayout.Parent = PlayerList
+    UIListLayout.Padding = UDim.new(0, 5)
+
+    local function updatePlayerList()
+    	for _, item in ipairs(PlayerList:GetChildren()) do
+    		if item:IsA("TextButton") then
+    			item:Destroy()
+    		end
+    	end
+
+    	for _, player in ipairs(Players:GetPlayers()) do
+    		if player ~= localPlayer then
+    			local pBtn = Instance.new("TextButton")
+    			pBtn.Name = tostring(player.UserId)
+    			pBtn.Size = UDim2.new(1, -5, 0, 25)
+
+    			if targetList[player.UserId] then
+    				pBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+    			else
+    				pBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    			end
+
+    			pBtn.TextColor3 = Color3.new(1, 1, 1)
+    			pBtn.Text = " " .. player.DisplayName
+    			pBtn.TextXAlignment = Enum.TextXAlignment.Left
+    			pBtn.Font = Enum.Font.SourceSans
+    			pBtn.BorderSizePixel = 0
+    			pBtn.Parent = PlayerList
+
+    			pBtn.MouseButton1Click:Connect(function()
+    				if targetList[player.UserId] then
+    					targetList[player.UserId] = nil
+    					pBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    				else
+    					targetList[player.UserId] = true
+    					pBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+    				end
+    			end)
+    		end
+    	end
+    	PlayerList.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y)
+    end
+
+    ToggleBtn.MouseButton1Click:Connect(function()
+    	RESEARCH_CONFIG.ENABLED = not RESEARCH_CONFIG.ENABLED
+    	if RESEARCH_CONFIG.ENABLED then
+    		ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+    		ToggleBtn.Text = "STATUS: KILLING TARGETS"
+    	else
+    		ToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    		ToggleBtn.Text = "STATUS: IDLE"
+    	end
+    end)
+
+    local function executeKillLoop()
+    	while true do
+    		if RESEARCH_CONFIG.ENABLED then
+    			for userId, isTargeted in pairs(targetList) do
+    				if isTargeted then
+    					local targetPlayer = Players:GetPlayerByUserId(userId)
+    					if targetPlayer and targetPlayer.Character then
+    						local hum = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
+    						if hum and hum.Health > 0 then
+    							pcall(function()
+    								damageRemote:FireServer(targetPlayer, RESEARCH_CONFIG.DAMAGE_VALUE)
+    							end)
+    						end
+    					end
+    				end
+    			end
+    		end
+    		task.wait(RESEARCH_CONFIG.ITERATION_DELAY)
+    	end
+    end
+
+    Players.PlayerAdded:Connect(updatePlayerList)
+    Players.PlayerRemoving:Connect(function(player)
+    	targetList[player.UserId] = nil
+    	updatePlayerList()
+    end)
+
+    updatePlayerList()
+    task.spawn(executeKillLoop)
+end)
+
+
+addcmd("godhook", {}, function(args, speaker)
+    local mt = getrawmetatable(game)
+    local oldIndex = mt.__index
+    local oldNewIndex = mt.__newindex
+    setreadonly(mt, false)
+
+    mt.__newindex = newcclosure(function(t, k, v)
+    	if tostring(t) == "Humanoid" and k == "Health" then
+    		return
+    	end
+    	return oldNewIndex(t, k, v)
+    end)
+
+    setreadonly(mt, true)
+    print("Metatable God Mode: Active")
+end)
 
 
 
