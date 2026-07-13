@@ -7883,6 +7883,8 @@ local EmbeddedModules = {
 								return false
 							elseif n == "CriticalDamageEnabled" then
 								return 999999
+							elseif n == "FriendlyFire" then
+								return true
 							elseif n == "HoldDownEnabled" then
 								return false
 							elseif n == "RicochetAmount" then
