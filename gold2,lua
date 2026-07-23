@@ -1,0 +1,18 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local GoldenSwordHit = ReplicatedStorage:WaitForChild("PlayerEvents"):WaitForChild("WeaponEvents"):WaitForChild("Melee"):WaitForChild("GoldenSwordHit")
+local LocalPlayer = game:GetService("Players").LocalPlayer
+
+-- Fire every frame (60 tps)
+game:GetService("RunService").RenderStepped:Connect(function()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    GoldenSwordHit:FireServer(root.CFrame)
+end)
+
+-- OR fire every heartbeat (for consistency)
+-- game:GetService("RunService").Heartbeat:Connect(function()
+--     ...
+-- end)
