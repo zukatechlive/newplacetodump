@@ -1,6 +1,6 @@
-local REACH = 45
+local REACH = 15
 local HIT_MULTI = 5
-local SCAN_DELAY = 0.1
+local SCAN_DELAY = 0.5
 
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
@@ -8,7 +8,7 @@ local RunService = game:GetService("RunService")
 local LP = Players.LocalPlayer
 
 local HitRemote =
-	RS:WaitForChild("PlayerEvents"):WaitForChild("WeaponEvents"):WaitForChild("Melee"):WaitForChild("ClassicSwordHit")
+	RS:WaitForChild("PlayerEvents"):WaitForChild("WeaponEvents"):WaitForChild("Melee"):WaitForChild("GoldenSwordHit")
 
 local currentTargets = {}
 
@@ -37,7 +37,7 @@ task.spawn(function()
 end)
 
 RunService.Heartbeat:Connect(function()
-	local tool = LP.Character and LP.Character:FindFirstChild("ClassicSword")
+	local tool = LP.Character and LP.Character:FindFirstChild("GoldenSword")
 
 	if tool then
 		for _, targetRoot in ipairs(currentTargets) do
