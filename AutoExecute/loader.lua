@@ -11,7 +11,7 @@ SandboxEnv.trust("panel")
 local BASE = "https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/AutoExecute/"
 local scripts = {
 	{ file = "dex.lua", chunkname = "dex", delay = 10 },
-	{ file = "panel.lua", chunkname = "panel", delay = 15 },
+	{ file = "panel.lua", chunkname = "panel", delay = 5 },
 }
 
 for _, entry in ipairs(scripts) do
