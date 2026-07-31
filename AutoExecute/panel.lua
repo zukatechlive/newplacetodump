@@ -38,7 +38,7 @@ task.wait(3)
 
 local genv = getgenv()
 
-local SPOOF_NAME, SPOOF_VER = "zukv2", "zukatech" -- funny name
+local SPOOF_NAME, SPOOF_VER = "GoonSploit", "Goonexecutor" -- funny name
 
 genv.identifyexecutor = function()
 	return SPOOF_NAME, SPOOF_VER
@@ -1344,7 +1344,7 @@ end
 -- Uses the `Modules`, `Prefix`, `processCommand`, `CoreGui`, `TweenService`,
 -- and `UserInputService` that already exist in the outer script.
 
-local MAX_SUGGESTIONS = 5
+local MAX_SUGGESTIONS = 8
 local HISTORY_LIMIT = 50
 
 Modules.CommandBar = {
@@ -1361,7 +1361,7 @@ Modules.CommandBar = {
 		SuggestionsFrame = nil,
 		KeybindConnection = nil,
 		NavConnection = nil,
-		PrefixKey = Enum.KeyCode.Semicolon,
+		PrefixKey = Enum.KeyCode.Comma,
 		IsAnimating = false,
 		IsEnabled = false,
 		IsScriptUpdatingText = false,
@@ -35326,7 +35326,114 @@ local function InitializeAntiCFrame()
 
 	return State
 end
+zukacmd({
+    Name        = "feanim",
+    Aliases     = {},
+    Description = "animation changer",
+}, function(args)
+    task.wait(10)
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    getgenv().ChosenBundleName = "Levitation"   -- Change this to whatever pack you want
+    getgenv().EnableHybridCustom = true
 
+    print("Animation Changer loaded! Pack: " .. getgenv().ChosenBundleName)
+
+    local function ApplyAnimations()
+        local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        local humanoid = character:WaitForChild("Humanoid")
+        local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator")
+        animator.Parent = humanoid
+
+        local animate = ReplicatedStorage:FindFirstChild("Animate") or character:FindFirstChild("Animate")
+        if not animate then return end
+
+        if getgenv().ChosenBundleName:lower() == "levitation" then
+            print("🔄 Applying Anim Pack")
+
+            local function setAnim(folderName, id)
+                local folder = animate:FindFirstChild(folderName)
+                if folder then
+                    for _, old in ipairs(folder:GetChildren()) do
+                        if old:IsA("Animation") then old:Destroy() end
+                    end
+                    local newAnim = Instance.new("Animation")
+                    newAnim.AnimationId = id
+                    newAnim.Name = folderName .. "Anim"
+                    newAnim.Parent = folder
+                end
+            end
+
+            setAnim("idle",   "https://www.roblox.com/asset/?id=616006778")   -- keep the original idle feel
+            setAnim("walk",   "https://www.roblox.com/asset/?id=616013216")   -- official new walk
+            setAnim("run",    "https://www.roblox.com/asset/?id=616010382")   -- official new run
+            setAnim("jump",   "https://www.roblox.com/asset/?id=616008936")
+            setAnim("fall",   "https://www.roblox.com/asset/?id=616005863")
+            setAnim("climb",  "https://www.roblox.com/asset/?id=616003713")
+            setAnim("swim",   "https://www.roblox.com/asset/?id=616011509")
+            setAnim("swimidle", "https://www.roblox.com/asset/?id=616012453")
+
+            print("Anim was succesfuly applied (smooth & premium!)")
+            return
+        end
+
+        local anims = animate:GetChildren()
+        local bundle = ReplicatedStorage:FindFirstChild(getgenv().ChosenBundleName)
+        if not bundle then
+            print("Bundle not found: " .. getgenv().ChosenBundleName)
+            return
+        end
+
+        local bundleAnims = bundle:GetChildren()
+        for _, bundleAnim in ipairs(bundleAnims) do
+            if bundleAnim:IsA("Animation") then
+                local matched = false
+                for _, charAnim in ipairs(anims) do
+                    if charAnim:IsA("Animation") and charAnim.Name == bundleAnim.Name then
+                        charAnim.AnimationId = bundleAnim.AnimationId
+                        matched = true
+                        break
+                    end
+                end
+                if not matched then
+                    local newAnim = Instance.new("Animation")
+                    newAnim.AnimationId = bundleAnim.AnimationId
+                    newAnim.Name = bundleAnim.Name
+                    newAnim.Parent = animate
+                end
+            end
+        end
+
+        if getgenv().EnableHybridCustom then
+            local HybridSettings = {
+                run      = "Robot",
+                walk     = "Catwalk",
+                jump     = "Ninja",
+                idle1    = "Stylish",
+                idle2    = "Stylish",
+                fall     = "Ghost",
+                climb    = "Default",
+                swim     = "Pirate",
+                swimidle = "Pirate"
+            }
+            for _, child in ipairs(animate:GetChildren()) do
+                if child:IsA("Animation") then
+                    local name = child.Name:lower()
+                    for key, bundleName in pairs(HybridSettings) do
+                        if name:find(key) then
+                            child.AnimationId = ReplicatedStorage:FindFirstChild(bundleName) and ReplicatedStorage[bundleName].AnimationId or child.AnimationId
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    ApplyAnimations()
+    LocalPlayer.CharacterAdded:Connect(ApplyAnimations)
+end)
 zukacmd({
 	Name = "anticframetp",
 	Aliases = { "antic" },
