@@ -35331,7 +35331,6 @@ zukacmd({
     Aliases     = {},
     Description = "animation changer",
 }, function(args)
-    task.wait(10)
     local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -35350,7 +35349,7 @@ zukacmd({
         if not animate then return end
 
         if getgenv().ChosenBundleName:lower() == "levitation" then
-            print("🔄 Applying Anim Pack")
+            print("Applying Anim Pack")
 
             local function setAnim(folderName, id)
                 local folder = animate:FindFirstChild(folderName)
@@ -36621,10 +36620,10 @@ addcmd("verified", {}, function(args, speaker)
 	)()
 end)
 
-addcmd("g2l", { "g2" }, function(args, speaker)
+addcmd("zfuckerr", { "Zfck" }, function(args, speaker)
 	loadstring(
 		game:HttpGet(
-			"https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/random/bytecodestuff/zukv5.lua"
+			"https://raw.githubusercontent.com/osukfcdays/zlfucker/refs/heads/main/main.luau"
 		)
 	)()
 end)
