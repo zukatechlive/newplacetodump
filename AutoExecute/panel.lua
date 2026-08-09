@@ -12477,6 +12477,13 @@ Modules.AntiAim = {
 		PendingSnap = nil,
 		AttachedPlayers = {},
 		CurrentAttachTarget = nil,
+		LockCandidates = {},
+		DisruptionActive = false,
+		DisruptionTarget = nil,
+		LastLockSeenTime = 0,
+		BaseMinStrength = nil,
+		BaseMaxStrength = nil,
+		BaseJitterStrength = nil,
 	},
 	Config = {
 		VelocityStrength = 12000,
@@ -12498,6 +12505,15 @@ Modules.AntiAim = {
 		CounterAttachMode = "reverse",
 		CounterAttachDistance = 5,
 		CounterAttachNotify = false,
+		DisruptionEnabled = true,
+		DisruptionAngleThreshold = 15,
+		DisruptionMinDistance = 4,
+		DisruptionMaxDistance = 80,
+		DisruptionConfirmTime = 0.35,
+		DisruptionCooldown = 1.2,
+		DisruptionStrengthMult = 1.8,
+		DisruptionJitterMult = 2.5,
+		DisruptionNotify = true,
 	},
 }
 
@@ -12615,6 +12631,9 @@ function Modules.AntiAim:_onHeartbeat()
 	if not root then
 		return
 	end
+
+	self:_detectLockOn()
+	self:_updateDisruption()
 
 	if self.Config.CounterAttachEnabled and self.State.CurrentAttachTarget then
 		self:_detectAttachers()
@@ -12792,6 +12811,110 @@ function Modules.AntiAim:_applyCounterAttach(myRoot)
 	end
 end
 
+function Modules.AntiAim:_detectLockOn()
+	if not self.Config.DisruptionEnabled then
+		return
+	end
+	local myRoot = self:_getRoot()
+	if not myRoot then
+		return
+	end
+
+	local now = tick()
+	local bestCandidate, bestAngle = nil, math.huge
+
+	for _, player in pairs(game.Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character then
+			local theirRoot = player.Character:FindFirstChild("HumanoidRootPart")
+			local theirHum = player.Character:FindFirstChildOfClass("Humanoid")
+			if theirRoot and theirHum and theirHum.Health > 0 then
+				local toMe = (myRoot.Position - theirRoot.Position)
+				local dist = toMe.Magnitude
+				if dist > self.Config.DisruptionMinDistance and dist < self.Config.DisruptionMaxDistance then
+					local dir = toMe.Unit
+					local facing = theirRoot.CFrame.LookVector
+					local dot = math.clamp(dir:Dot(facing), -1, 1)
+					local angle = math.deg(math.acos(dot))
+
+					if angle <= self.Config.DisruptionAngleThreshold then
+						local entry = self.State.LockCandidates[player.UserId]
+						if not entry then
+							self.State.LockCandidates[player.UserId] =
+								{ Player = player, FirstSeen = now, LastSeen = now }
+						else
+							entry.LastSeen = now
+						end
+						if angle < bestAngle then
+							bestAngle = angle
+							bestCandidate = player
+						end
+					end
+				end
+			end
+		end
+	end
+
+	for userId, entry in pairs(self.State.LockCandidates) do
+		if now - entry.LastSeen > self.Config.DisruptionCooldown then
+			self.State.LockCandidates[userId] = nil
+		end
+	end
+
+	if bestCandidate then
+		local entry = self.State.LockCandidates[bestCandidate.UserId]
+		if entry and (now - entry.FirstSeen) >= self.Config.DisruptionConfirmTime then
+			self.State.LastLockSeenTime = now
+			if not self.State.DisruptionActive then
+				self:_engageDisruption(bestCandidate)
+			else
+				self.State.DisruptionTarget = bestCandidate
+			end
+		end
+	end
+end
+
+function Modules.AntiAim:_engageDisruption(target)
+	self.State.DisruptionActive = true
+	self.State.DisruptionTarget = target
+	self.State.LastLockSeenTime = tick()
+
+	if not self.State.BaseMinStrength then
+		self.State.BaseMinStrength = self.Config.MinStrength
+		self.State.BaseMaxStrength = self.Config.MaxStrength
+		self.State.BaseJitterStrength = self.Config.JitterStrength
+	end
+
+	self.Config.MinStrength = math.floor(self.State.BaseMinStrength * self.Config.DisruptionStrengthMult)
+	self.Config.MaxStrength = math.floor(self.State.BaseMaxStrength * self.Config.DisruptionStrengthMult)
+	self.Config.JitterStrength = math.floor(self.State.BaseJitterStrength * self.Config.DisruptionJitterMult)
+
+	if self.Config.DisruptionNotify then
+		DoNotif("LOCK DETECTED (" .. target.Name .. ") — DISRUPTION ENGAGED", 1.5)
+	end
+end
+
+function Modules.AntiAim:_updateDisruption()
+	if not self.State.DisruptionActive then
+		return
+	end
+	local now = tick()
+	if now - self.State.LastLockSeenTime > self.Config.DisruptionCooldown then
+		if self.State.BaseMinStrength then
+			self.Config.MinStrength = self.State.BaseMinStrength
+			self.Config.MaxStrength = self.State.BaseMaxStrength
+			self.Config.JitterStrength = self.State.BaseJitterStrength
+		end
+		self.State.DisruptionActive = false
+		self.State.DisruptionTarget = nil
+		self.State.BaseMinStrength = nil
+		self.State.BaseMaxStrength = nil
+		self.State.BaseJitterStrength = nil
+		if self.Config.DisruptionNotify then
+			DoNotif("Disruption: [RESET]", 1.5)
+		end
+	end
+end
+
 function Modules.AntiAim:_updateVisualizer()
 	local root = self:_getRoot()
 
@@ -12920,6 +13043,18 @@ function Modules.AntiAim:Disable(silent)
 	self.State.CurrentAttachTarget = nil
 	self.State.CurrentPattern = nil
 
+	if self.State.DisruptionActive and self.State.BaseMinStrength then
+		self.Config.MinStrength = self.State.BaseMinStrength
+		self.Config.MaxStrength = self.State.BaseMaxStrength
+		self.Config.JitterStrength = self.State.BaseJitterStrength
+	end
+	self.State.DisruptionActive = false
+	self.State.DisruptionTarget = nil
+	self.State.LockCandidates = {}
+	self.State.BaseMinStrength = nil
+	self.State.BaseMaxStrength = nil
+	self.State.BaseJitterStrength = nil
+
 	self:_updateVisualizer()
 	if not silent then
 		DoNotif("Anti-Aim: [DISABLED]", 2)
@@ -12937,7 +13072,7 @@ end
 function Modules.AntiAim:Initialize()
 	local m = self
 
-	zukacmd({ Name = "antiaim", Aliases = { "aa" }, Description = "Toggles Anti-Aim." }, function(args)
+	RegisterCommand({ Name = "antiaim", Aliases = { "aa" }, Description = "Toggles Anti-Aim." }, function(args)
 		local s = tonumber(args[1])
 		if s then
 			m.Config.VelocityStrength = s
@@ -12946,51 +13081,60 @@ function Modules.AntiAim:Initialize()
 		m:Toggle()
 	end)
 
-	zukacmd({ Name = "aasnap", Aliases = { "snapback" }, Description = "Toggles CFrame snapback." }, function()
+	RegisterCommand({ Name = "aasnap", Aliases = { "snapback" }, Description = "Toggles CFrame snapback." }, function()
 		m.Config.SnapBack = not m.Config.SnapBack
 		DoNotif("Snapback: " .. (m.Config.SnapBack and "ON" or "OFF"), 2)
 	end)
 
-	zukacmd({ Name = "aavis", Description = "Toggles AA hitbox visuals." }, function()
+	RegisterCommand({ Name = "aavis", Description = "Toggles AA hitbox visuals." }, function()
 		m.Config.Visuals = not m.Config.Visuals
 		m:_updateVisualizer()
 		DoNotif("AA Visuals: " .. (m.Config.Visuals and "ON" or "OFF"), 2)
 	end)
 
-	zukacmd({ Name = "aamode", Description = "Sets snapback mode: instant, delayed, partial, random" }, function(args)
-		local valid = { instant = true, delayed = true, partial = true, random = true }
-		local mode = string.lower(args[1] or "")
-		if valid[mode] then
-			m.Config.SnapBackMode = mode
-			DoNotif("AA Mode: " .. mode:upper(), 2)
-		else
-			DoNotif("Valid modes: instant, delayed, partial, random", 2)
+	RegisterCommand(
+		{ Name = "aamode", Description = "Sets snapback mode: instant, delayed, partial, random" },
+		function(args)
+			local valid = { instant = true, delayed = true, partial = true, random = true }
+			local mode = string.lower(args[1] or "")
+			if valid[mode] then
+				m.Config.SnapBackMode = mode
+				DoNotif("AA Mode: " .. mode:upper(), 2)
+			else
+				DoNotif("Valid modes: instant, delayed, partial, random", 2)
+			end
 		end
-	end)
+	)
 
-	zukacmd({ Name = "aavary", Aliases = { "aavariation" }, Description = "Toggles strength variation." }, function()
-		m.Config.StrengthVariation = not m.Config.StrengthVariation
-		DoNotif("Strength Variation: " .. (m.Config.StrengthVariation and "ON" or "OFF"), 2)
-	end)
+	RegisterCommand(
+		{ Name = "aavary", Aliases = { "aavariation" }, Description = "Toggles strength variation." },
+		function()
+			m.Config.StrengthVariation = not m.Config.StrengthVariation
+			DoNotif("Strength Variation: " .. (m.Config.StrengthVariation and "ON" or "OFF"), 2)
+		end
+	)
 
-	zukacmd({ Name = "aamulti", Description = "Toggles multi-part desync." }, function()
+	RegisterCommand({ Name = "aamulti", Description = "Toggles multi-part desync." }, function()
 		m.Config.MultiPartDesync = not m.Config.MultiPartDesync
 		DoNotif("Multi-Part Desync: " .. (m.Config.MultiPartDesync and "ON" or "OFF"), 2)
 	end)
 
-	zukacmd({ Name = "aajitter", Description = "Toggles micro-jitter." }, function()
+	RegisterCommand({ Name = "aajitter", Description = "Toggles micro-jitter." }, function()
 		m.Config.JitterEnabled = not m.Config.JitterEnabled
 		DoNotif("Jitter: " .. (m.Config.JitterEnabled and "ON" or "OFF"), 2)
 	end)
 
-	zukacmd({ Name = "aainvert", Aliases = { "aaflip" }, Description = "Toggles character inversion." }, function()
-		m.Config.InversionEnabled = not m.Config.InversionEnabled
-		m.State.InversionActive = m.Config.InversionEnabled
-		m:_setupCameraCorrection()
-		DoNotif("Inversion: " .. (m.Config.InversionEnabled and "ON" or "OFF"), 2)
-	end)
+	RegisterCommand(
+		{ Name = "aainvert", Aliases = { "aaflip" }, Description = "Toggles character inversion." },
+		function()
+			m.Config.InversionEnabled = not m.Config.InversionEnabled
+			m.State.InversionActive = m.Config.InversionEnabled
+			m:_setupCameraCorrection()
+			DoNotif("Inversion: " .. (m.Config.InversionEnabled and "ON" or "OFF"), 2)
+		end
+	)
 
-	zukacmd({ Name = "aaoffset", Description = "Sets inversion ground offset." }, function(args)
+	RegisterCommand({ Name = "aaoffset", Description = "Sets inversion ground offset." }, function(args)
 		local v = tonumber(args[1])
 		if v then
 			m.Config.InversionOffset = v
@@ -13000,38 +13144,44 @@ function Modules.AntiAim:Initialize()
 		end
 	end)
 
-	zukacmd({ Name = "aarandom", Description = "Toggles random inversion flipping." }, function()
+	RegisterCommand({ Name = "aarandom", Description = "Toggles random inversion flipping." }, function()
 		m.Config.RandomInversion = not m.Config.RandomInversion
 		DoNotif("Random Inversion: " .. (m.Config.RandomInversion and "ON" or "OFF"), 2)
 	end)
 
-	zukacmd({ Name = "aacamera", Description = "Toggles camera correction for inversion." }, function()
+	RegisterCommand({ Name = "aacamera", Description = "Toggles camera correction for inversion." }, function()
 		m.Config.CameraCorrection = not m.Config.CameraCorrection
 		m:_setupCameraCorrection()
 		DoNotif("Camera Correction: " .. (m.Config.CameraCorrection and "ON" or "OFF"), 2)
 	end)
 
-	zukacmd({ Name = "aacounter", Aliases = { "aaca" }, Description = "Toggles counter-attach system." }, function()
-		m.Config.CounterAttachEnabled = not m.Config.CounterAttachEnabled
-		if not m.Config.CounterAttachEnabled then
-			m.State.AttachedPlayers = {}
-			m.State.CurrentAttachTarget = nil
+	RegisterCommand(
+		{ Name = "aacounter", Aliases = { "aaca" }, Description = "Toggles counter-attach system." },
+		function()
+			m.Config.CounterAttachEnabled = not m.Config.CounterAttachEnabled
+			if not m.Config.CounterAttachEnabled then
+				m.State.AttachedPlayers = {}
+				m.State.CurrentAttachTarget = nil
+			end
+			DoNotif("Counter-Attach: " .. (m.Config.CounterAttachEnabled and "ON" or "OFF"), 2)
 		end
-		DoNotif("Counter-Attach: " .. (m.Config.CounterAttachEnabled and "ON" or "OFF"), 2)
-	end)
+	)
 
-	zukacmd({ Name = "aacamode", Description = "Sets counter-attach mode: reverse, orbit, spinattack" }, function(args)
-		local valid = { reverse = true, orbit = true, spinattack = true }
-		local mode = string.lower(args[1] or "")
-		if valid[mode] then
-			m.Config.CounterAttachMode = mode
-			DoNotif("CA Mode: " .. mode:upper(), 2)
-		else
-			DoNotif("Valid modes: reverse, orbit, spinattack", 2)
+	RegisterCommand(
+		{ Name = "aacamode", Description = "Sets counter-attach mode: reverse, orbit, spinattack" },
+		function(args)
+			local valid = { reverse = true, orbit = true, spinattack = true }
+			local mode = string.lower(args[1] or "")
+			if valid[mode] then
+				m.Config.CounterAttachMode = mode
+				DoNotif("CA Mode: " .. mode:upper(), 2)
+			else
+				DoNotif("Valid modes: reverse, orbit, spinattack", 2)
+			end
 		end
-	end)
+	)
 
-	zukacmd({ Name = "aacadist", Description = "Sets counter-attach distance." }, function(args)
+	RegisterCommand({ Name = "aacadist", Description = "Sets counter-attach distance." }, function(args)
 		local v = tonumber(args[1])
 		if v then
 			m.Config.CounterAttachDistance = v
@@ -13041,33 +13191,107 @@ function Modules.AntiAim:Initialize()
 		end
 	end)
 
-	zukacmd({ Name = "aacatarget", Description = "Shows current counter-attach target." }, function()
+	RegisterCommand({ Name = "aacatarget", Description = "Shows current counter-attach target." }, function()
 		DoNotif(
 			m.State.CurrentAttachTarget and ("Target: " .. m.State.CurrentAttachTarget.Name) or "No active target",
 			2
 		)
 	end)
 
-	zukacmd({ Name = "aaconfig", Aliases = { "aastatus" }, Description = "Shows current AA config." }, function()
-		DoNotif(
-			string.format(
-				"AA CONFIG:\nStrength: %d (%d-%d)\nMode: %s\nVariation: %s | Multi: %s | Jitter: %s\nInversion: %s\nCamera: %s | Counter-Attach: %s (%s)",
-				m.Config.VelocityStrength,
-				m.Config.MinStrength,
-				m.Config.MaxStrength,
-				m.Config.SnapBackMode:upper(),
-				m.Config.StrengthVariation and "ON" or "OFF",
-				m.Config.MultiPartDesync and "ON" or "OFF",
-				m.Config.JitterEnabled and "ON" or "OFF",
-				m.Config.InversionEnabled and "ON" or "OFF",
-				m.Config.CameraCorrection and "ON" or "OFF",
-				m.Config.CounterAttachEnabled and "ON" or "OFF",
-				m.Config.CounterAttachMode:upper()
-			),
-			7
-		)
+	RegisterCommand(
+		{ Name = "aadisrupt", Aliases = { "aad" }, Description = "Toggles disruption mode (lock-on detection)." },
+		function()
+			m.Config.DisruptionEnabled = not m.Config.DisruptionEnabled
+			if not m.Config.DisruptionEnabled and m.State.DisruptionActive then
+				if m.State.BaseMinStrength then
+					m.Config.MinStrength = m.State.BaseMinStrength
+					m.Config.MaxStrength = m.State.BaseMaxStrength
+					m.Config.JitterStrength = m.State.BaseJitterStrength
+				end
+				m.State.DisruptionActive = false
+				m.State.DisruptionTarget = nil
+				m.State.BaseMinStrength = nil
+				m.State.BaseMaxStrength = nil
+				m.State.BaseJitterStrength = nil
+			end
+			m.State.LockCandidates = {}
+			DoNotif("Disruption Mode: " .. (m.Config.DisruptionEnabled and "ON" or "OFF"), 2)
+		end
+	)
+
+	RegisterCommand(
+		{ Name = "aadangle", Description = "Sets disruption lock angle threshold (degrees)." },
+		function(args)
+			local v = tonumber(args[1])
+			if v then
+				m.Config.DisruptionAngleThreshold = v
+				DoNotif("Disruption Angle: " .. v .. "°", 2)
+			else
+				DoNotif("Current Angle: " .. m.Config.DisruptionAngleThreshold .. "°", 2)
+			end
+		end
+	)
+
+	RegisterCommand(
+		{ Name = "aadmult", Description = "Sets disruption strength/jitter multipliers: <strength> <jitter>" },
+		function(args)
+			local s, j = tonumber(args[1]), tonumber(args[2])
+			if s then
+				m.Config.DisruptionStrengthMult = s
+			end
+			if j then
+				m.Config.DisruptionJitterMult = j
+			end
+			DoNotif(
+				string.format(
+					"Disruption Mult: Strength x%.1f | Jitter x%.1f",
+					m.Config.DisruptionStrengthMult,
+					m.Config.DisruptionJitterMult
+				),
+				2
+			)
+		end
+	)
+
+	RegisterCommand({ Name = "aadstatus", Description = "Shows current disruption state." }, function()
+		if m.State.DisruptionActive then
+			DoNotif(
+				"Disruption ACTIVE — Target: " .. (m.State.DisruptionTarget and m.State.DisruptionTarget.Name or "?"),
+				2
+			)
+		else
+			DoNotif("Disruption idle. No lock detected.", 2)
+		end
 	end)
+
+	RegisterCommand(
+		{ Name = "aaconfig", Aliases = { "aastatus" }, Description = "Shows current AA config." },
+		function()
+			DoNotif(
+				string.format(
+					"AA CONFIG:\nStrength: %d (%d-%d)\nMode: %s\nVariation: %s | Multi: %s | Jitter: %s\nInversion: %s\nCamera: %s | Counter-Attach: %s (%s)\nDisruption: %s (angle<%d° x%.1fstr/x%.1fjit)",
+					m.Config.VelocityStrength,
+					m.Config.MinStrength,
+					m.Config.MaxStrength,
+					m.Config.SnapBackMode:upper(),
+					m.Config.StrengthVariation and "ON" or "OFF",
+					m.Config.MultiPartDesync and "ON" or "OFF",
+					m.Config.JitterEnabled and "ON" or "OFF",
+					m.Config.InversionEnabled and "ON" or "OFF",
+					m.Config.CameraCorrection and "ON" or "OFF",
+					m.Config.CounterAttachEnabled and "ON" or "OFF",
+					m.Config.CounterAttachMode:upper(),
+					m.Config.DisruptionEnabled and (m.State.DisruptionActive and "ACTIVE" or "ON") or "OFF",
+					m.Config.DisruptionAngleThreshold,
+					m.Config.DisruptionStrengthMult,
+					m.Config.DisruptionJitterMult
+				),
+				7
+			)
+		end
+	)
 end
+
 
 Modules.ModelBring = {
 	State = {
@@ -34848,7 +35072,7 @@ function Modules.AdminOrb:_ask(userMessage, callback)
 			})
 			callback(result)
 		else
-			callback("...the void consumed my words. try again, mortal.")
+			callback("...Eh??! What?!  Zuka..! They stole my hearing! .")
 			warn("[AdminOrb] Gemini error: " .. tostring(result))
 		end
 	end)
@@ -36941,7 +37165,7 @@ local function loadAimbotGUI(args)
 			btn.Text = initText or items[1] or ""
 			btn.TextColor3 = P.FG
 			btn.Font = Enum.Font.Code
-			btn.TextSize = 11
+			btn.TextSize = 13
 			btn.TextXAlignment = Enum.TextXAlignment.Left
 			local bp = Instance.new("UIPadding", btn)
 			bp.PaddingLeft = UDim.new(0, 5)
@@ -37371,7 +37595,7 @@ local function loadAimbotGUI(args)
 		selectLabel.TextColor3 = P.FG_MUT
 		selectLabel.Font = Enum.Font.Code
 		selectLabel.TextSize = 9
-		selectLabel.Text = "[V] delete under mouse"
+		selectLabel.Text = "[P] delete under mouse"
 		selectLabel.TextXAlignment = Enum.TextXAlignment.Left
 		sectionDiv(scroll, "GENERAL", 10)
 		local toggleKeyRow, toggleKeyBox = makeInputRow(scroll, "Toggle Key", "key", "MouseButton2", 11)
@@ -37466,19 +37690,19 @@ local function loadAimbotGUI(args)
 		spacer.LayoutOrder = 99
 		spacer.Size = UDim2.new(1, 0, 0, 4)
 		spacer.BackgroundTransparency = 1
-		local fovRadius = 75
+		local fovRadius = 50
 		local smoothingEnabled = true
-		local smoothingFactor = 0.2
+		local smoothingFactor = 1
 		local PROJECTILE_SPEED = 4500
 		local gravityEnabled = false
 		local playerTargetEnabled = false
 		local aiming = false
 		local ignoreTeamEnabled = false
-		local wallCheckEnabled = true
+		local wallCheckEnabled = false
 		local wallCheckParams = RaycastParams.new()
 		wallCheckParams.FilterType = Enum.RaycastFilterType.Exclude
 		local activeESPs = {}
-		local velResolverEnabled = false
+		local velResolverEnabled = true
 		local SPOOF_CAP = 120
 		local partPrevPos = {}
 		local partObservedVel = {}
@@ -37638,7 +37862,7 @@ local function loadAimbotGUI(args)
 				if processed or toggleKeyBox:IsFocused() then
 					return
 				end
-				if input.KeyCode == Enum.KeyCode.V then
+				if input.KeyCode == Enum.KeyCode.P then
 					local target = LocalPlayer:GetMouse().Target
 					if target and target.Parent then
 						if target:IsDescendantOf(LocalPlayer.Character) then
@@ -38025,16 +38249,20 @@ zukacmd({
 	end
 end) --end of cmds
 
+
+
+
 -- Logo
---[[do
+do
 	task.wait(2)
     
 	loadstring(
 		game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/random/misc/tm.lua")
 	)()
     DoNotif("Welcome back degen.", 5)
-end]]
---
+end
+
+
 
 --cmds never go below this
 function processCommand(message)
