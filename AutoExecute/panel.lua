@@ -13072,7 +13072,7 @@ end
 function Modules.AntiAim:Initialize()
 	local m = self
 
-	RegisterCommand({ Name = "antiaim", Aliases = { "aa" }, Description = "Toggles Anti-Aim." }, function(args)
+	zukacmd({ Name = "antiaim", Aliases = { "aa" }, Description = "Toggles Anti-Aim." }, function(args)
 		local s = tonumber(args[1])
 		if s then
 			m.Config.VelocityStrength = s
@@ -13081,18 +13081,18 @@ function Modules.AntiAim:Initialize()
 		m:Toggle()
 	end)
 
-	RegisterCommand({ Name = "aasnap", Aliases = { "snapback" }, Description = "Toggles CFrame snapback." }, function()
+	zukacmd({ Name = "aasnap", Aliases = { "snapback" }, Description = "Toggles CFrame snapback." }, function()
 		m.Config.SnapBack = not m.Config.SnapBack
 		DoNotif("Snapback: " .. (m.Config.SnapBack and "ON" or "OFF"), 2)
 	end)
 
-	RegisterCommand({ Name = "aavis", Description = "Toggles AA hitbox visuals." }, function()
+	zukacmd({ Name = "aavis", Description = "Toggles AA hitbox visuals." }, function()
 		m.Config.Visuals = not m.Config.Visuals
 		m:_updateVisualizer()
 		DoNotif("AA Visuals: " .. (m.Config.Visuals and "ON" or "OFF"), 2)
 	end)
 
-	RegisterCommand(
+	zukacmd(
 		{ Name = "aamode", Description = "Sets snapback mode: instant, delayed, partial, random" },
 		function(args)
 			local valid = { instant = true, delayed = true, partial = true, random = true }
@@ -13106,7 +13106,7 @@ function Modules.AntiAim:Initialize()
 		end
 	)
 
-	RegisterCommand(
+	zukacmd(
 		{ Name = "aavary", Aliases = { "aavariation" }, Description = "Toggles strength variation." },
 		function()
 			m.Config.StrengthVariation = not m.Config.StrengthVariation
@@ -13114,17 +13114,17 @@ function Modules.AntiAim:Initialize()
 		end
 	)
 
-	RegisterCommand({ Name = "aamulti", Description = "Toggles multi-part desync." }, function()
+	zukacmd({ Name = "aamulti", Description = "Toggles multi-part desync." }, function()
 		m.Config.MultiPartDesync = not m.Config.MultiPartDesync
 		DoNotif("Multi-Part Desync: " .. (m.Config.MultiPartDesync and "ON" or "OFF"), 2)
 	end)
 
-	RegisterCommand({ Name = "aajitter", Description = "Toggles micro-jitter." }, function()
+	zukacmd({ Name = "aajitter", Description = "Toggles micro-jitter." }, function()
 		m.Config.JitterEnabled = not m.Config.JitterEnabled
 		DoNotif("Jitter: " .. (m.Config.JitterEnabled and "ON" or "OFF"), 2)
 	end)
 
-	RegisterCommand(
+	zukacmd(
 		{ Name = "aainvert", Aliases = { "aaflip" }, Description = "Toggles character inversion." },
 		function()
 			m.Config.InversionEnabled = not m.Config.InversionEnabled
@@ -13134,7 +13134,7 @@ function Modules.AntiAim:Initialize()
 		end
 	)
 
-	RegisterCommand({ Name = "aaoffset", Description = "Sets inversion ground offset." }, function(args)
+	zukacmd({ Name = "aaoffset", Description = "Sets inversion ground offset." }, function(args)
 		local v = tonumber(args[1])
 		if v then
 			m.Config.InversionOffset = v
@@ -13144,18 +13144,18 @@ function Modules.AntiAim:Initialize()
 		end
 	end)
 
-	RegisterCommand({ Name = "aarandom", Description = "Toggles random inversion flipping." }, function()
+	zukacmd({ Name = "aarandom", Description = "Toggles random inversion flipping." }, function()
 		m.Config.RandomInversion = not m.Config.RandomInversion
 		DoNotif("Random Inversion: " .. (m.Config.RandomInversion and "ON" or "OFF"), 2)
 	end)
 
-	RegisterCommand({ Name = "aacamera", Description = "Toggles camera correction for inversion." }, function()
+	zukacmd({ Name = "aacamera", Description = "Toggles camera correction for inversion." }, function()
 		m.Config.CameraCorrection = not m.Config.CameraCorrection
 		m:_setupCameraCorrection()
 		DoNotif("Camera Correction: " .. (m.Config.CameraCorrection and "ON" or "OFF"), 2)
 	end)
 
-	RegisterCommand(
+	zukacmd(
 		{ Name = "aacounter", Aliases = { "aaca" }, Description = "Toggles counter-attach system." },
 		function()
 			m.Config.CounterAttachEnabled = not m.Config.CounterAttachEnabled
@@ -13167,7 +13167,7 @@ function Modules.AntiAim:Initialize()
 		end
 	)
 
-	RegisterCommand(
+	zukacmd(
 		{ Name = "aacamode", Description = "Sets counter-attach mode: reverse, orbit, spinattack" },
 		function(args)
 			local valid = { reverse = true, orbit = true, spinattack = true }
@@ -13181,7 +13181,7 @@ function Modules.AntiAim:Initialize()
 		end
 	)
 
-	RegisterCommand({ Name = "aacadist", Description = "Sets counter-attach distance." }, function(args)
+	zukacmd({ Name = "aacadist", Description = "Sets counter-attach distance." }, function(args)
 		local v = tonumber(args[1])
 		if v then
 			m.Config.CounterAttachDistance = v
@@ -13191,14 +13191,14 @@ function Modules.AntiAim:Initialize()
 		end
 	end)
 
-	RegisterCommand({ Name = "aacatarget", Description = "Shows current counter-attach target." }, function()
+	zukacmd({ Name = "aacatarget", Description = "Shows current counter-attach target." }, function()
 		DoNotif(
 			m.State.CurrentAttachTarget and ("Target: " .. m.State.CurrentAttachTarget.Name) or "No active target",
 			2
 		)
 	end)
 
-	RegisterCommand(
+	zukacmd(
 		{ Name = "aadisrupt", Aliases = { "aad" }, Description = "Toggles disruption mode (lock-on detection)." },
 		function()
 			m.Config.DisruptionEnabled = not m.Config.DisruptionEnabled
@@ -13219,7 +13219,7 @@ function Modules.AntiAim:Initialize()
 		end
 	)
 
-	RegisterCommand(
+	zukacmd(
 		{ Name = "aadangle", Description = "Sets disruption lock angle threshold (degrees)." },
 		function(args)
 			local v = tonumber(args[1])
@@ -13232,7 +13232,7 @@ function Modules.AntiAim:Initialize()
 		end
 	)
 
-	RegisterCommand(
+	zukacmd(
 		{ Name = "aadmult", Description = "Sets disruption strength/jitter multipliers: <strength> <jitter>" },
 		function(args)
 			local s, j = tonumber(args[1]), tonumber(args[2])
@@ -13253,7 +13253,7 @@ function Modules.AntiAim:Initialize()
 		end
 	)
 
-	RegisterCommand({ Name = "aadstatus", Description = "Shows current disruption state." }, function()
+	zukacmd({ Name = "aadstatus", Description = "Shows current disruption state." }, function()
 		if m.State.DisruptionActive then
 			DoNotif(
 				"Disruption ACTIVE — Target: " .. (m.State.DisruptionTarget and m.State.DisruptionTarget.Name or "?"),
@@ -13264,7 +13264,7 @@ function Modules.AntiAim:Initialize()
 		end
 	end)
 
-	RegisterCommand(
+	zukacmd(
 		{ Name = "aaconfig", Aliases = { "aastatus" }, Description = "Shows current AA config." },
 		function()
 			DoNotif(
