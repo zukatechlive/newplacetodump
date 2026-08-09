@@ -15907,7 +15907,7 @@ function Modules.NPCShield:Initialize()
 	end)
 	zukacmd({
 		Name = "npcrelease",
-		Aliases = { "nr" },
+		Aliases = {},
 		Description = "Releases a specific NPC from the shield.",
 	}, function(args)
 		if not module.State.IsEnabled then
