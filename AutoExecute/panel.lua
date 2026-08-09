@@ -24483,7 +24483,8 @@ function Modules.HeuristicRemoteBruteforcer:_getHeuristicPayloads(remote: Instan
 	table.insert(payloads, { false })
 	table.insert(payloads, { 1 })
 	table.insert(payloads, { 0 })
-	table.insert(payloads, { "" })
+	table.insert(payloads, { "Sword" })
+	table.insert(payloads, { "Darkheart" })
 	table.insert(payloads, { nil })
 	table.insert(payloads, { localPlayer })
 	table.insert(payloads, { remote.Name })
@@ -24491,18 +24492,8 @@ function Modules.HeuristicRemoteBruteforcer:_getHeuristicPayloads(remote: Instan
 		table.insert(payloads, { root.Position })
 		table.insert(payloads, { root.CFrame })
 	end
-	if remoteName:find("buy") then
-		table.insert(payloads, { "Gems", 100 })
-		table.insert(payloads, { "Sword", 0 })
-	end
-	if remoteName:find("sell") then
-		table.insert(payloads, { "Rock", 999 })
-	end
 	if remoteName:find("equip") then
-		table.insert(payloads, { "Sword" })
-	end
-	if remoteName:find("teleport") or remoteName:find("tp") then
-		table.insert(payloads, { Vector3.new(0, 100, 0) })
+		table.insert(payloads, { "Classic Sword" })
 	end
 	return payloads
 end
@@ -26064,34 +26055,6 @@ zukacmd({
 	warn("removed, give em hell soldier")
 end)
 zukacmd({
-	Name = "pum",
-	Aliases = {},
-	Description = "pthfm",
-}, function(args)
-	local targetModule =
-		require(game:GetService("ReplicatedStorage").Modules.WeaponSettings.Gun.PumpkinLauncher.Setting["FAMAS"])
-	if setreadonly then
-		setreadonly(targetModule, false)
-	end
-
-	targetModule.Spread = 0 -- [PATCHED]
-	targetModule.EquipTime = 0 -- [PATCHED]
-	targetModule.Recoil = 0 -- [PATCHED]
-	targetModule.ShotgunEnabled = true -- [PATCHED]
-	targetModule.AmmoPerMag = 999999 -- [PATCHED]
-	targetModule.FireRate = 0.4 -- [PATCHED]
-	targetModule.Range = 90000 -- [PATCHED]
-	targetModule.DamageableLaserTrail = 999999 -- [PATCHED]
-	targetModule.ReloadTime = 0 -- [PATCHED]
-	targetModule.BulletPerShot = 2 -- [PATCHED]
-	-- targetModule.ExplosionRadius = 35
-
-	if setreadonly then
-		setreadonly(targetModule, true)
-	end
-	print("--> done.")
-end)
-zukacmd({
 	Name = "nonetworkgui",
 	Aliases = { "netgui" },
 	Description = "removes the network pause gui",
@@ -26161,7 +26124,7 @@ function Modules.InfiniteJump:Disable()
 end
 zukacmd({
 	Name = "infinitejump",
-	Aliases = { "infj" },
+	Aliases = { "infjumpj" },
 	Description = "Toggles the ability to jump infinitely in the air.",
 }, function()
 	if Modules.InfiniteJump.State.IsEnabled then
@@ -26532,7 +26495,7 @@ function Modules.NPCEsp:_createESP(model)
 	nameLabel.Size = UDim2.new(1, 0, 0, 18)
 	nameLabel.BackgroundTransparency = 1
 	nameLabel.Font = Enum.Font.Code
-	nameLabel.TextSize = 14
+	nameLabel.TextSize = 11
 	nameLabel.TextStrokeTransparency = 0.4
 	nameLabel.Text = model.Name
 	local distLabel = Instance.new("TextLabel", billboard)
@@ -26824,664 +26787,6 @@ zukacmd({
 	Description = "Toggles a client-side FPS meter.",
 }, function()
 	Modules.FpsMeter:Toggle()
-end)
-Modules.HitboxESP = {
-	State = {
-		IsEnabled = false,
-		EspEnabled = false,
-		HitboxSize = 15,
-		IsMinimized = false,
-		CurrentTheme = "dark",
-		IsDragging = false,
-		EspLabels = {},
-		EspBoxes = {},
-		Connections = {},
-		UI = nil,
-		LastAnimTime = 0,
-		AnimCooldown = 0.15,
-	},
-	Services = {
-		Players = game:GetService("Players"),
-		RunService = game:GetService("RunService"),
-		TweenService = game:GetService("TweenService"),
-		UserInputService = game:GetService("UserInputService"),
-		CoreGui = game:GetService("CoreGui"),
-	},
-}
-function Modules.HitboxESP:AnimateButton(button)
-	local currentTime = tick()
-	if currentTime - self.State.LastAnimTime < self.State.AnimCooldown then
-		return
-	end
-	self.State.LastAnimTime = currentTime
-	local originalSize = button.Size
-	local tweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	self.Services.TweenService:Create(button, tweenInfo, { Size = originalSize + UDim2.new(0, 4, 0, 4) }):Play()
-	task.wait(0.1)
-	self.Services.TweenService:Create(button, tweenInfo, { Size = originalSize }):Play()
-end
-function Modules.HitboxESP:ApplyTheme(theme)
-	self.State.CurrentTheme = theme
-	local ui = self.State.UI
-	if not ui then
-		return
-	end
-	local tweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	local TS = self.Services.TweenService
-	if theme == "light" then
-		TS:Create(ui.MainFrame, tweenInfo, { BackgroundColor3 = Color3.fromRGB(255, 255, 255) }):Play()
-		TS:Create(ui.ContentFrame, tweenInfo, { BackgroundColor3 = Color3.fromRGB(255, 255, 255) }):Play()
-		TS:Create(ui.MainStroke, tweenInfo, { Color = Color3.fromRGB(200, 200, 210) }):Play()
-		TS:Create(ui.TitleBar, tweenInfo, { BackgroundColor3 = Color3.fromRGB(245, 245, 250) }):Play()
-		TS:Create(ui.TitleFix, tweenInfo, { BackgroundColor3 = Color3.fromRGB(245, 245, 250) }):Play()
-		TS:Create(ui.TitleLabel, tweenInfo, { TextColor3 = Color3.fromRGB(30, 30, 40) }):Play()
-		TS:Create(ui.SizeLabel, tweenInfo, { TextColor3 = Color3.fromRGB(60, 60, 70) }):Play()
-		TS:Create(
-			ui.TextBox,
-			tweenInfo,
-			{ BackgroundColor3 = Color3.fromRGB(235, 235, 245), TextColor3 = Color3.fromRGB(30, 30, 40) }
-		):Play()
-		TS:Create(ui.TextBoxStroke, tweenInfo, { Color = Color3.fromRGB(200, 200, 210) }):Play()
-		TS:Create(ui.FooterLabel, tweenInfo, { TextColor3 = Color3.fromRGB(100, 100, 110) }):Play()
-		TS:Create(ui.FooterLabelMinimized, tweenInfo, { TextColor3 = Color3.fromRGB(100, 100, 110) }):Play()
-		TS:Create(ui.ConfirmFrame, tweenInfo, { BackgroundColor3 = Color3.fromRGB(255, 255, 255) }):Play()
-		TS:Create(ui.ConfirmText, tweenInfo, { TextColor3 = Color3.fromRGB(30, 30, 40) }):Play()
-		TS:Create(ui.SettingsFrame, tweenInfo, { BackgroundColor3 = Color3.fromRGB(255, 255, 255) }):Play()
-		TS:Create(ui.SettingsTitleBar, tweenInfo, { BackgroundColor3 = Color3.fromRGB(245, 245, 250) }):Play()
-		TS:Create(ui.SettingsTitleFix, tweenInfo, { BackgroundColor3 = Color3.fromRGB(245, 245, 250) }):Play()
-		TS:Create(ui.SettingsTitleLabel, tweenInfo, { TextColor3 = Color3.fromRGB(30, 30, 40) }):Play()
-		TS:Create(ui.ThemeLabel, tweenInfo, { TextColor3 = Color3.fromRGB(60, 60, 70) }):Play()
-		TS:Create(
-			ui.SettingsButtonTop,
-			tweenInfo,
-			{ BackgroundColor3 = Color3.fromRGB(200, 200, 220), TextColor3 = Color3.fromRGB(30, 30, 40) }
-		):Play()
-		TS:Create(ui.DarkStroke, tweenInfo, { Color = Color3.fromRGB(200, 200, 210) }):Play()
-		if not ui.LightButton:FindFirstChild("UIStroke") then
-			local lightStroke = Instance.new("UIStroke")
-			lightStroke.Color = Color3.fromRGB(80, 150, 255)
-			lightStroke.Thickness = 3
-			lightStroke.Transparency = 1
-			lightStroke.ZIndex = 11
-			lightStroke.Parent = ui.LightButton
-			TS:Create(lightStroke, tweenInfo, { Transparency = 0 }):Play()
-		end
-	else
-		TS:Create(ui.MainFrame, tweenInfo, { BackgroundColor3 = Color3.fromRGB(20, 20, 25) }):Play()
-		TS:Create(ui.ContentFrame, tweenInfo, { BackgroundColor3 = Color3.fromRGB(20, 20, 25) }):Play()
-		TS:Create(ui.MainStroke, tweenInfo, { Color = Color3.fromRGB(60, 60, 70) }):Play()
-		TS:Create(ui.TitleBar, tweenInfo, { BackgroundColor3 = Color3.fromRGB(30, 30, 40) }):Play()
-		TS:Create(ui.TitleFix, tweenInfo, { BackgroundColor3 = Color3.fromRGB(30, 30, 40) }):Play()
-		TS:Create(ui.TitleLabel, tweenInfo, { TextColor3 = Color3.fromRGB(255, 255, 255) }):Play()
-		TS:Create(ui.SizeLabel, tweenInfo, { TextColor3 = Color3.fromRGB(200, 200, 210) }):Play()
-		TS:Create(
-			ui.TextBox,
-			tweenInfo,
-			{ BackgroundColor3 = Color3.fromRGB(40, 40, 50), TextColor3 = Color3.fromRGB(255, 255, 255) }
-		):Play()
-		TS:Create(ui.TextBoxStroke, tweenInfo, { Color = Color3.fromRGB(80, 80, 90) }):Play()
-		TS:Create(ui.FooterLabel, tweenInfo, { TextColor3 = Color3.fromRGB(120, 120, 130) }):Play()
-		TS:Create(ui.FooterLabelMinimized, tweenInfo, { TextColor3 = Color3.fromRGB(120, 120, 130) }):Play()
-		TS:Create(ui.ConfirmFrame, tweenInfo, { BackgroundColor3 = Color3.fromRGB(15, 15, 20) }):Play()
-		TS:Create(ui.ConfirmText, tweenInfo, { TextColor3 = Color3.fromRGB(255, 255, 255) }):Play()
-		TS:Create(ui.SettingsFrame, tweenInfo, { BackgroundColor3 = Color3.fromRGB(20, 20, 25) }):Play()
-		TS:Create(ui.SettingsTitleBar, tweenInfo, { BackgroundColor3 = Color3.fromRGB(30, 30, 40) }):Play()
-		TS:Create(ui.SettingsTitleFix, tweenInfo, { BackgroundColor3 = Color3.fromRGB(30, 30, 40) }):Play()
-		TS:Create(ui.SettingsTitleLabel, tweenInfo, { TextColor3 = Color3.fromRGB(255, 255, 255) }):Play()
-		TS:Create(ui.ThemeLabel, tweenInfo, { TextColor3 = Color3.fromRGB(200, 200, 210) }):Play()
-		TS:Create(
-			ui.SettingsButtonTop,
-			tweenInfo,
-			{ BackgroundColor3 = Color3.fromRGB(100, 100, 120), TextColor3 = Color3.fromRGB(255, 255, 255) }
-		):Play()
-		if ui.LightButton:FindFirstChild("UIStroke") then
-			local lightStroke = ui.LightButton:FindFirstChild("UIStroke")
-			TS:Create(lightStroke, tweenInfo, { Transparency = 1 }):Play()
-			task.wait(0.1)
-			lightStroke:Destroy()
-		end
-		TS:Create(ui.DarkStroke, tweenInfo, { Color = Color3.fromRGB(80, 150, 255) }):Play()
-	end
-end
-function Modules.HitboxESP:CreateESP(targetPlayer)
-	if self.State.EspLabels[targetPlayer] or self.State.EspBoxes[targetPlayer] then
-		return
-	end
-	local char = targetPlayer.Character
-	if not char then
-		return
-	end
-	local billboardGui = Instance.new("BillboardGui")
-	billboardGui.Name = "ZukaESP_" .. targetPlayer.Name
-	billboardGui.AlwaysOnTop = true
-	billboardGui.Size = UDim2.new(0, 200, 0, 50)
-	billboardGui.StudsOffset = Vector3.new(0, 3, 0)
-	billboardGui.Parent = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
-	local textLabel = Instance.new("TextLabel")
-	textLabel.Size = UDim2.new(1, 0, 1, 0)
-	textLabel.BackgroundTransparency = 1
-	textLabel.TextColor3 = Color3.fromRGB(80, 150, 255)
-	textLabel.TextStrokeTransparency = 0.5
-	textLabel.TextSize = 14
-	textLabel.Font = Enum.Font.GothamBold
-	textLabel.Parent = billboardGui
-	self.State.EspLabels[targetPlayer] = { gui = billboardGui, label = textLabel }
-	local hrp = char:FindFirstChild("HumanoidRootPart")
-	if hrp then
-		local highlight = Instance.new("Highlight")
-		highlight.Name = "ZukaHighlight_" .. targetPlayer.Name
-		highlight.Adornee = char
-		highlight.FillColor = Color3.fromRGB(80, 150, 255)
-		highlight.OutlineColor = Color3.fromRGB(80, 150, 255)
-		highlight.FillTransparency = 0.5
-		highlight.OutlineTransparency = 0
-		highlight.Parent = char
-		self.State.EspBoxes[targetPlayer] = highlight
-	end
-end
-function Modules.HitboxESP:RemoveESP(targetPlayer)
-	if self.State.EspLabels[targetPlayer] then
-		if self.State.EspLabels[targetPlayer].gui then
-			self.State.EspLabels[targetPlayer].gui:Destroy()
-		end
-		self.State.EspLabels[targetPlayer] = nil
-	end
-	if self.State.EspBoxes[targetPlayer] then
-		self.State.EspBoxes[targetPlayer]:Destroy()
-		self.State.EspBoxes[targetPlayer] = nil
-	end
-end
-function Modules.HitboxESP:UpdateESP()
-	if not self.State.EspEnabled then
-		return
-	end
-	local lp = self.Services.Players.LocalPlayer
-	for _, targetPlayer in pairs(self.Services.Players:GetPlayers()) do
-		if
-			targetPlayer ~= lp
-			and targetPlayer.Character
-			and targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-		then
-			if not self.State.EspLabels[targetPlayer] then
-				self:CreateESP(targetPlayer)
-			end
-			if self.State.EspLabels[targetPlayer] and self.State.EspLabels[targetPlayer].gui.Parent == nil then
-				local head = targetPlayer.Character:FindFirstChild("Head")
-				if head then
-					self.State.EspLabels[targetPlayer].gui.Parent = head
-				end
-			end
-			local hrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-			local targetHrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-			if hrp and targetHrp and self.State.EspLabels[targetPlayer] then
-				local distance = (hrp.Position - targetHrp.Position).Magnitude
-				local studs = math.floor(distance)
-				self.State.EspLabels[targetPlayer].label.Text = targetPlayer.Name .. "\n" .. studs .. " studs"
-			end
-		elseif self.State.EspLabels[targetPlayer] or self.State.EspBoxes[targetPlayer] then
-			self:RemoveESP(targetPlayer)
-		end
-	end
-end
-function Modules.HitboxESP:UpdateHitboxes()
-	if not self.State.IsEnabled then
-		return
-	end
-	local lp = self.Services.Players.LocalPlayer
-	for _, v in pairs(self.Services.Players:GetPlayers()) do
-		if v ~= lp and v.Character then
-			local hrp = v.Character:FindFirstChild("HumanoidRootPart")
-			if hrp then
-				hrp.Size = Vector3.new(self.State.HitboxSize, self.State.HitboxSize, self.State.HitboxSize)
-				hrp.Transparency = 0.7
-				hrp.CanCollide = false
-			end
-		end
-	end
-end
-function Modules.HitboxESP:Initialize()
-	local module = self
-	local Players = self.Services.Players
-	local TS = self.Services.TweenService
-	zukacmd({
-		Name = "hitboxchanger",
-		Aliases = { "hrpsize" },
-		Description = "Opens the Hitbox Changer & ESP GUI.",
-	}, function()
-		module:CreateUI()
-	end)
-	self.State.Connections.PlayerAdded = Players.PlayerAdded:Connect(function(newPlayer)
-		newPlayer.CharacterAdded:Connect(function()
-			task.wait(0.1)
-			module:UpdateHitboxes()
-			if module.State.EspEnabled then
-				module:CreateESP(newPlayer)
-			end
-		end)
-	end)
-	self.State.Connections.PlayerRemoving = Players.PlayerRemoving:Connect(function(removedPlayer)
-		module:RemoveESP(removedPlayer)
-	end)
-	self.State.Connections.Loop = self.Services.RunService.Heartbeat:Connect(function()
-		module:UpdateHitboxes()
-		module:UpdateESP()
-	end)
-end
-function Modules.HitboxESP:CreateUI()
-	if self.State.UI then
-		self.State.UI.ScreenGui.Enabled = true
-		return
-	end
-	local module = self
-	local TS = self.Services.TweenService
-	local UIS = self.Services.UserInputService
-	local lp = self.Services.Players.LocalPlayer
-	local ui = {}
-	local screenGui = Instance.new("ScreenGui")
-	screenGui.Name = "HitboxChanger_Zuka"
-	screenGui.ResetOnSpawn = false
-	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	screenGui.Parent = self.Services.CoreGui
-	ui.ScreenGui = screenGui
-	local mainFrame = Instance.new("Frame")
-	mainFrame.Name = "MainFrame"
-	mainFrame.Size = UDim2.new(0, 260, 0, 180)
-	mainFrame.Position = UDim2.new(0.5, -130, 0.5, -90)
-	mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-	mainFrame.BorderSizePixel = 0
-	mainFrame.Active = true
-	mainFrame.ClipsDescendants = true
-	mainFrame.Parent = screenGui
-	ui.MainFrame = mainFrame
-	Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12)
-	local mainStroke = Instance.new("UIStroke", mainFrame)
-	mainStroke.Color = Color3.fromRGB(60, 60, 70)
-	mainStroke.Thickness = 2
-	mainStroke.Transparency = 0.5
-	ui.MainStroke = mainStroke
-	local titleBar = Instance.new("Frame", mainFrame)
-	titleBar.Name = "TitleBar"
-	titleBar.Size = UDim2.new(1, 0, 0, 35)
-	titleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-	titleBar.BorderSizePixel = 0
-	ui.TitleBar = titleBar
-	Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 12)
-	local titleFix = Instance.new("Frame", titleBar)
-	titleFix.Size = UDim2.new(1, 0, 0, 12)
-	titleFix.Position = UDim2.new(0, 0, 1, -12)
-	titleFix.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-	titleFix.BorderSizePixel = 0
-	ui.TitleFix = titleFix
-	local titleLabel = Instance.new("TextLabel", titleBar)
-	titleLabel.Size = UDim2.new(1, -100, 1, 0)
-	titleLabel.Position = UDim2.new(0, 10, 0, 0)
-	titleLabel.BackgroundTransparency = 1
-	titleLabel.Text = "Hitbox changer & esp"
-	titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	titleLabel.TextSize = 15
-	titleLabel.Font = Enum.Font.GothamBold
-	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-	ui.TitleLabel = titleLabel
-	local settingsButtonTop = Instance.new("TextButton", titleBar)
-	settingsButtonTop.Name = "SettingsButtonTop"
-	settingsButtonTop.Size = UDim2.new(0, 26, 0, 26)
-	settingsButtonTop.Position = UDim2.new(1, -90, 0, 4)
-	settingsButtonTop.BackgroundColor3 = Color3.fromRGB(100, 100, 120)
-	settingsButtonTop.Text = ""
-	settingsButtonTop.TextColor3 = Color3.new(1, 1, 1)
-	settingsButtonTop.Font = Enum.Font.GothamBold
-	Instance.new("UICorner", settingsButtonTop).CornerRadius = UDim.new(0, 6)
-	ui.SettingsButtonTop = settingsButtonTop
-	local minimizeButton = Instance.new("TextButton", titleBar)
-	minimizeButton.Size = UDim2.new(0, 26, 0, 26)
-	minimizeButton.Position = UDim2.new(1, -58, 0, 4)
-	minimizeButton.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
-	minimizeButton.Text = "_"
-	minimizeButton.TextColor3 = Color3.new(0, 0, 0)
-	minimizeButton.Font = Enum.Font.GothamBold
-	Instance.new("UICorner", minimizeButton).CornerRadius = UDim.new(0, 6)
-	local closeButton = Instance.new("TextButton", titleBar)
-	closeButton.Size = UDim2.new(0, 26, 0, 26)
-	closeButton.Position = UDim2.new(1, -28, 0, 4)
-	closeButton.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
-	closeButton.Text = "X"
-	closeButton.TextColor3 = Color3.new(1, 1, 1)
-	closeButton.Font = Enum.Font.GothamBold
-	Instance.new("UICorner", closeButton).CornerRadius = UDim.new(0, 6)
-	local contentFrame = Instance.new("Frame", mainFrame)
-	contentFrame.Name = "ContentFrame"
-	contentFrame.Size = UDim2.new(1, 0, 1, -35)
-	contentFrame.Position = UDim2.new(0, 0, 0, 35)
-	contentFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-	contentFrame.BorderSizePixel = 0
-	ui.ContentFrame = contentFrame
-	local sizeLabel = Instance.new("TextLabel", contentFrame)
-	sizeLabel.Size = UDim2.new(0, 75, 0, 22)
-	sizeLabel.Position = UDim2.new(0, 12, 0, 8)
-	sizeLabel.BackgroundTransparency = 1
-	sizeLabel.Text = "Hitbox Size:"
-	sizeLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
-	sizeLabel.TextSize = 12
-	sizeLabel.Font = Enum.Font.Gotham
-	sizeLabel.TextXAlignment = Enum.TextXAlignment.Left
-	ui.SizeLabel = sizeLabel
-	local textBox = Instance.new("TextBox", contentFrame)
-	textBox.Size = UDim2.new(0, 80, 0, 28)
-	textBox.Position = UDim2.new(0, 90, 0, 6)
-	textBox.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-	textBox.Text = tostring(self.State.HitboxSize)
-	textBox.PlaceholderText = "Size"
-	textBox.TextColor3 = Color3.new(1, 1, 1)
-	textBox.Font = Enum.Font.Gotham
-	Instance.new("UICorner", textBox).CornerRadius = UDim.new(0, 7)
-	local textBoxStroke = Instance.new("UIStroke", textBox)
-	textBoxStroke.Color = Color3.fromRGB(80, 80, 90)
-	ui.TextBoxStroke = textBoxStroke
-	ui.TextBox = textBox
-	local applyButton = Instance.new("TextButton", contentFrame)
-	applyButton.Size = UDim2.new(0, 50, 0, 28)
-	applyButton.Position = UDim2.new(0, 178, 0, 6)
-	applyButton.BackgroundColor3 = Color3.fromRGB(80, 150, 255)
-	applyButton.Text = "Apply"
-	applyButton.TextColor3 = Color3.new(1, 1, 1)
-	applyButton.Font = Enum.Font.GothamBold
-	Instance.new("UICorner", applyButton).CornerRadius = UDim.new(0, 7)
-	local toggleButton = Instance.new("TextButton", contentFrame)
-	toggleButton.Size = UDim2.new(0, 236, 0, 32)
-	toggleButton.Position = UDim2.new(0, 12, 0, 42)
-	toggleButton.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
-	toggleButton.Text = "Hitbox: OFF"
-	toggleButton.TextColor3 = Color3.new(1, 1, 1)
-	toggleButton.Font = Enum.Font.GothamBold
-	Instance.new("UICorner", toggleButton).CornerRadius = UDim.new(0, 7)
-	local espToggleButton = Instance.new("TextButton", contentFrame)
-	espToggleButton.Size = UDim2.new(0, 236, 0, 32)
-	espToggleButton.Position = UDim2.new(0, 12, 0, 80)
-	espToggleButton.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
-	espToggleButton.Text = "ESP: OFF"
-	espToggleButton.TextColor3 = Color3.new(1, 1, 1)
-	espToggleButton.Font = Enum.Font.GothamBold
-	Instance.new("UICorner", espToggleButton).CornerRadius = UDim.new(0, 7)
-	local footerLabel = Instance.new("TextButton", contentFrame)
-	footerLabel.Size = UDim2.new(1, 0, 0, 25)
-	footerLabel.Position = UDim2.new(0, 0, 1, -25)
-	footerLabel.BackgroundTransparency = 1
-	footerLabel.Text = "by: romokaso"
-	footerLabel.TextColor3 = Color3.fromRGB(120, 120, 130)
-	footerLabel.TextSize = 10
-	footerLabel.Font = Enum.Font.GothamBold
-	ui.FooterLabel = footerLabel
-	local footerLabelMinimized = Instance.new("TextButton", mainFrame)
-	footerLabelMinimized.Size = UDim2.new(1, 0, 0, 25)
-	footerLabelMinimized.Position = UDim2.new(0, 0, 1, -25)
-	footerLabelMinimized.BackgroundTransparency = 1
-	footerLabelMinimized.Text = "by: romokaso"
-	footerLabelMinimized.TextColor3 = Color3.fromRGB(120, 120, 130)
-	footerLabelMinimized.TextSize = 10
-	footerLabelMinimized.Visible = false
-	ui.FooterLabelMinimized = footerLabelMinimized
-	local confirmFrame = Instance.new("Frame", mainFrame)
-	confirmFrame.Size = UDim2.new(1, 0, 1, 0)
-	confirmFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-	confirmFrame.BackgroundTransparency = 1
-	confirmFrame.Visible = false
-	confirmFrame.ZIndex = 10
-	Instance.new("UICorner", confirmFrame)
-	ui.ConfirmFrame = confirmFrame
-	local confirmText = Instance.new("TextLabel", confirmFrame)
-	confirmText.Size = UDim2.new(1, -24, 0, 40)
-	confirmText.Position = UDim2.new(0, 12, 0, 45)
-	confirmText.BackgroundTransparency = 1
-	confirmText.Text = "Are you sure you want\nto close the GUI?"
-	confirmText.TextColor3 = Color3.new(1, 1, 1)
-	confirmText.ZIndex = 11
-	ui.ConfirmText = confirmText
-	local yesButton = Instance.new("TextButton", confirmFrame)
-	yesButton.Size = UDim2.new(0, 105, 0, 32)
-	yesButton.Position = UDim2.new(0, 20, 0, 100)
-	yesButton.BackgroundColor3 = Color3.fromRGB(50, 200, 100)
-	yesButton.Text = "Yes"
-	yesButton.TextColor3 = Color3.new(1, 1, 1)
-	yesButton.ZIndex = 11
-	Instance.new("UICorner", yesButton)
-	local noButton = Instance.new("TextButton", confirmFrame)
-	noButton.Size = UDim2.new(0, 105, 0, 32)
-	noButton.Position = UDim2.new(0, 135, 0, 100)
-	noButton.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
-	noButton.Text = "No"
-	noButton.TextColor3 = Color3.new(1, 1, 1)
-	noButton.ZIndex = 11
-	Instance.new("UICorner", noButton)
-	local settingsFrame = Instance.new("Frame", mainFrame)
-	settingsFrame.Size = UDim2.new(1, 0, 1, 0)
-	settingsFrame.Position = UDim2.new(1, 0, 0, 0)
-	settingsFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-	settingsFrame.Visible = false
-	settingsFrame.ZIndex = 10
-	Instance.new("UICorner", settingsFrame)
-	ui.SettingsFrame = settingsFrame
-	local settingsTitleBar = Instance.new("Frame", settingsFrame)
-	settingsTitleBar.Size = UDim2.new(1, 0, 0, 35)
-	settingsTitleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-	settingsTitleBar.ZIndex = 11
-	Instance.new("UICorner", settingsTitleBar)
-	ui.SettingsTitleBar = settingsTitleBar
-	local settingsTitleFix = Instance.new("Frame", settingsTitleBar)
-	settingsTitleFix.Size = UDim2.new(1, 0, 0, 12)
-	settingsTitleFix.Position = UDim2.new(0, 0, 1, -12)
-	settingsTitleFix.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-	settingsTitleFix.ZIndex = 11
-	ui.SettingsTitleFix = settingsTitleFix
-	local settingsTitleLabel = Instance.new("TextLabel", settingsTitleBar)
-	settingsTitleLabel.Size = UDim2.new(1, -50, 1, 0)
-	settingsTitleLabel.Position = UDim2.new(0, 10, 0, 0)
-	settingsTitleLabel.BackgroundTransparency = 1
-	settingsTitleLabel.Text = "Settings"
-	settingsTitleLabel.TextColor3 = Color3.new(1, 1, 1)
-	settingsTitleLabel.ZIndex = 11
-	ui.SettingsTitleLabel = settingsTitleLabel
-	local backButton = Instance.new("TextButton", settingsTitleBar)
-	backButton.Size = UDim2.new(0, 26, 0, 26)
-	backButton.Position = UDim2.new(1, -28, 0, 4)
-	backButton.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
-	backButton.Text = "←"
-	backButton.TextColor3 = Color3.new(1, 1, 1)
-	backButton.ZIndex = 11
-	Instance.new("UICorner", backButton)
-	local settingsContentFrame = Instance.new("Frame", settingsFrame)
-	settingsContentFrame.Size = UDim2.new(1, 0, 1, -35)
-	settingsContentFrame.Position = UDim2.new(0, 0, 0, 35)
-	settingsContentFrame.BackgroundTransparency = 1
-	settingsContentFrame.ZIndex = 11
-	local themeLabel = Instance.new("TextLabel", settingsContentFrame)
-	themeLabel.Size = UDim2.new(1, -24, 0, 22)
-	themeLabel.Position = UDim2.new(0, 12, 0, 15)
-	themeLabel.BackgroundTransparency = 1
-	themeLabel.Text = "Theme:"
-	themeLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
-	themeLabel.ZIndex = 11
-	ui.ThemeLabel = themeLabel
-	local darkButton = Instance.new("TextButton", settingsContentFrame)
-	darkButton.Size = UDim2.new(0, 110, 0, 38)
-	darkButton.Position = UDim2.new(0, 12, 0, 45)
-	darkButton.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-	darkButton.Text = "Dark"
-	darkButton.TextColor3 = Color3.new(1, 1, 1)
-	darkButton.ZIndex = 11
-	Instance.new("UICorner", darkButton)
-	local darkStroke = Instance.new("UIStroke", darkButton)
-	darkStroke.Color = Color3.fromRGB(80, 150, 255)
-	darkStroke.Thickness = 3
-	ui.DarkStroke = darkStroke
-	local lightButton = Instance.new("TextButton", settingsContentFrame)
-	lightButton.Size = UDim2.new(0, 110, 0, 38)
-	lightButton.Position = UDim2.new(0, 138, 0, 45)
-	lightButton.BackgroundColor3 = Color3.fromRGB(240, 240, 250)
-	lightButton.Text = "Light"
-	lightButton.TextColor3 = Color3.fromRGB(30, 30, 40)
-	lightButton.ZIndex = 11
-	Instance.new("UICorner", lightButton)
-	ui.LightButton = lightButton
-	applyButton.MouseButton1Click:Connect(function()
-		module:AnimateButton(applyButton)
-		local val = tonumber(textBox.Text)
-		if val then
-			module.State.HitboxSize = val
-		end
-	end)
-	toggleButton.MouseButton1Click:Connect(function()
-		module:AnimateButton(toggleButton)
-		module.State.IsEnabled = not module.State.IsEnabled
-		if module.State.IsEnabled then
-			TS:Create(
-				toggleButton,
-				TweenInfo.new(0.1, Enum.EasingStyle.Quad),
-				{ BackgroundColor3 = Color3.fromRGB(50, 200, 100) }
-			):Play()
-			toggleButton.Text = "Hitbox: ON"
-		else
-			TS:Create(
-				toggleButton,
-				TweenInfo.new(0.1, Enum.EasingStyle.Quad),
-				{ BackgroundColor3 = Color3.fromRGB(220, 50, 50) }
-			):Play()
-			toggleButton.Text = "Hitbox: OFF"
-			for _, v in pairs(module.Services.Players:GetPlayers()) do
-				if v ~= lp and v.Character then
-					local hrp = v.Character:FindFirstChild("HumanoidRootPart")
-					if hrp then
-						hrp.Size = Vector3.new(2, 2, 1)
-						hrp.Transparency = 1
-					end
-				end
-			end
-		end
-	end)
-	espToggleButton.MouseButton1Click:Connect(function()
-		module:AnimateButton(espToggleButton)
-		module.State.EspEnabled = not module.State.EspEnabled
-		if module.State.EspEnabled then
-			TS:Create(
-				espToggleButton,
-				TweenInfo.new(0.1, Enum.EasingStyle.Quad),
-				{ BackgroundColor3 = Color3.fromRGB(50, 200, 100) }
-			):Play()
-			espToggleButton.Text = "ESP: ON"
-		else
-			TS:Create(
-				espToggleButton,
-				TweenInfo.new(0.1, Enum.EasingStyle.Quad),
-				{ BackgroundColor3 = Color3.fromRGB(220, 50, 50) }
-			):Play()
-			espToggleButton.Text = "ESP: OFF"
-			for p, _ in pairs(module.State.EspLabels) do
-				module:RemoveESP(p)
-			end
-		end
-	end)
-	minimizeButton.MouseButton1Click:Connect(function()
-		if confirmFrame.Visible or settingsFrame.Visible then
-			return
-		end
-		module:AnimateButton(minimizeButton)
-		module.State.IsMinimized = not module.State.IsMinimized
-		if module.State.IsMinimized then
-			TS:Create(mainFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), { Size = UDim2.new(0, 260, 0, 60) }):Play()
-			contentFrame.Visible = false
-			footerLabel.Visible = false
-			footerLabelMinimized.Visible = true
-		else
-			TS:Create(mainFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), { Size = UDim2.new(0, 260, 0, 180) }):Play()
-			contentFrame.Visible = true
-			footerLabel.Visible = true
-			footerLabelMinimized.Visible = false
-		end
-	end)
-	closeButton.MouseButton1Click:Connect(function()
-		if confirmFrame.Visible or settingsFrame.Visible then
-			return
-		end
-		module:AnimateButton(closeButton)
-		confirmFrame.Visible = true
-		TS:Create(confirmFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), { BackgroundTransparency = 0.05 }):Play()
-	end)
-	yesButton.MouseButton1Click:Connect(function()
-		module:AnimateButton(yesButton)
-		TS:Create(
-			mainFrame,
-			TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
-			{ Size = UDim2.new(0, 0, 0, 0) }
-		):Play()
-		task.wait(0.3)
-		screenGui.Enabled = false
-	end)
-	noButton.MouseButton1Click:Connect(function()
-		module:AnimateButton(noButton)
-		TS:Create(confirmFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), { BackgroundTransparency = 1 }):Play()
-		task.wait(0.1)
-		confirmFrame.Visible = false
-	end)
-	settingsButtonTop.MouseButton1Click:Connect(function()
-		module:AnimateButton(settingsButtonTop)
-		settingsFrame.Visible = true
-		TS:Create(settingsFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), { Position = UDim2.new(0, 0, 0, 0) }):Play()
-	end)
-	backButton.MouseButton1Click:Connect(function()
-		module:AnimateButton(backButton)
-		TS:Create(settingsFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), { Position = UDim2.new(1, 0, 0, 0) }):Play()
-		task.wait(0.1)
-		settingsFrame.Visible = false
-	end)
-	darkButton.MouseButton1Click:Connect(function()
-		module:AnimateButton(darkButton)
-		module:ApplyTheme("dark")
-	end)
-	lightButton.MouseButton1Click:Connect(function()
-		module:AnimateButton(lightButton)
-		module:ApplyTheme("light")
-	end)
-	local dragStart, startPos
-	titleBar.InputBegan:Connect(function(input)
-		if
-			input.UserInputType == Enum.UserInputType.MouseButton1
-			or input.UserInputType == Enum.UserInputType.Touch
-		then
-			module.State.IsDragging = true
-			dragStart = input.Position
-			startPos = mainFrame.Position
-			input.Changed:Connect(function()
-				if input.UserInputState == Enum.UserInputState.End then
-					module.State.IsDragging = false
-				end
-			end)
-		end
-	end)
-	UIS.InputChanged:Connect(function(input)
-		if
-			module.State.IsDragging
-			and (
-				input.UserInputType == Enum.UserInputType.MouseMovement
-				or input.UserInputType == Enum.UserInputType.Touch
-			)
-		then
-			local delta = input.Position - dragStart
-			mainFrame.Position =
-				UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-		end
-	end)
-	self.State.UI = ui
-	DoNotif("Hitbox & ESP Panel: INITIALIZED", 2)
-end
-zukacmd({
-	Name = "hitboxgui",
-	Aliases = {},
-	Description = "Toggles the advanced Hitbox Changer and ESP interface.",
-}, function()
-	if not Modules.HitboxESP.State.UI then
-		Modules.HitboxESP:CreateUI()
-	else
-		Modules.HitboxESP.State.UI.ScreenGui.Enabled = not Modules.HitboxESP.State.UI.ScreenGui.Enabled
-	end
 end)
 Modules.AntiSit = {
 	State = {
@@ -31039,1064 +30344,6 @@ end)
 	end)
 	setStatus("idle")
 end)]]
-
-zukacmd({
-	Name = "gamepassforfree",
-	Aliases = { "gpff" },
-	Description = "spoofs the pompt for gamepasses",
-}, function(args)
-	local CoreGui = game:GetService("CoreGui")
-	local MarketplaceService = game:GetService("MarketplaceService")
-	local TweenService = game:GetService("TweenService")
-	local Players = game:GetService("Players")
-	local GuiService = game:GetService("GuiService")
-	local UIS = game:GetService("UserInputService")
-	local LocalPlayer = Players.LocalPlayer
-	while not LocalPlayer do
-		task.wait()
-		LocalPlayer = Players.LocalPlayer
-	end
-	local COLORS = {
-		IDLE = Color3.fromRGB(34, 214, 78),
-		HOVER = Color3.fromRGB(42, 232, 90),
-	}
-	local COPY_COLORS = {
-		IDLE = Color3.fromRGB(255, 154, 46),
-		HOVER = Color3.fromRGB(255, 176, 84),
-	}
-	local AUTO_COLORS = {
-		IDLE = Color3.fromRGB(210, 72, 72),
-		HOVER = Color3.fromRGB(232, 98, 98),
-	}
-	local TWEEN_SPEED = TweenInfo.new(0.045, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	local SECONDARY_BUTTON_DELAY = 0.03
-	local NEW_OVERLAY_BUTTON_INJECT_DELAY = 0
-	local INSTANT_STATE_WATCH_INTERVAL = 0.03
-	local OVERLAY_RESCAN_INTERVAL = 0.03
-	local LastPrompt = { Id = nil, Type = nil, Nonce = 0 }
-	local LastInstant = { PromptNonce = -1 }
-	local SETTINGS_DEFAULTS = {
-		CopyButton = false,
-		AutoButton = false,
-		AutoInterval = 0.3,
-		InstantPurchase = true,
-		AutoMassPurchase = true,
-		Debug = false,
-	}
-	local function getSettings()
-		local resolved = table.clone(SETTINGS_DEFAULTS)
-		local ok, envSettings = pcall(function()
-			if type(getgenv) ~= "function" then
-				return false
-			end
-			local env = getgenv()
-			if type(env) ~= "table" then
-				return false
-			end
-			local settings = env.Settings
-			if type(settings) ~= "table" then
-				return false
-			end
-			return settings
-		end)
-		if not ok or envSettings == false then
-			return resolved
-		end
-		for key, defaultValue in pairs(SETTINGS_DEFAULTS) do
-			local expectedType = type(defaultValue)
-			if type(envSettings[key]) == expectedType then
-				resolved[key] = envSettings[key]
-			else
-				resolved[key] = defaultValue
-			end
-		end
-		return resolved
-	end
-	local function isSettingEnabled(name)
-		return getSettings()[name] == true
-	end
-	local RuntimeState = nil
-	pcall(function()
-		local env = type(getgenv) == "function" and getgenv() or nil
-		if type(env) == "table" then
-			env.__FreeGamepassRuntime = env.__FreeGamepassRuntime or { runId = 0 }
-			if type(env.__FreeGamepassRuntime.connections) == "table" then
-				for _, conn in ipairs(env.__FreeGamepassRuntime.connections) do
-					pcall(function()
-						if conn and conn.Disconnect then
-							conn:Disconnect()
-						end
-					end)
-				end
-			end
-			env.__FreeGamepassRuntime.connections = {}
-			env.__FreeGamepassRuntime.runId = env.__FreeGamepassRuntime.runId + 1
-			RuntimeState = env.__FreeGamepassRuntime
-		end
-	end)
-	local CURRENT_RUN_ID = RuntimeState and RuntimeState.runId or os.clock()
-	local AutoLoopState = { Running = false, ThreadId = 0, StopGui = nil }
-	local ParentButtonState = setmetatable({}, { __mode = "k" })
-	local ScriptConnections = RuntimeState and RuntimeState.connections or {}
-	local HiddenOverlays = setmetatable({}, { __mode = "k" })
-	local function isCurrentRun()
-		return not RuntimeState or RuntimeState.runId == CURRENT_RUN_ID
-	end
-	local function trackConnection(conn)
-		if conn then
-			table.insert(ScriptConnections, conn)
-		end
-		return conn
-	end
-	local function toggleRobloxMenu()
-		pcall(function()
-			local foundOverlay = false
-			for _, child in ipairs(CoreGui:GetChildren()) do
-				if child:IsA("ScreenGui") and child.Name == "FoundationOverlay" and child.Enabled then
-					local saf = child:FindFirstChild("SafeAreaFrame")
-					local portal = saf and saf:FindFirstChild("OverlayPortal")
-					local backdrop = portal and portal:FindFirstChild("Backdrop")
-					local sheet = portal and portal:FindFirstChild("SheetContainer")
-					if backdrop and sheet then
-						foundOverlay = true
-						local info = TweenInfo.new(0.1, Enum.EasingStyle.Cubic, Enum.EasingDirection.In)
-						TweenService:Create(backdrop, info, { BackgroundTransparency = 1 }):Play()
-						local t = TweenService:Create(sheet, info, { Position = UDim2.new(0.5, 0, 0.5, 32) })
-						t:Play()
-						t.Completed:Connect(function()
-							GuiService:SetMenuIsOpen(true)
-							GuiService:SetMenuIsOpen(false)
-						end)
-						break
-					end
-				end
-			end
-			if not foundOverlay then
-				GuiService:SetMenuIsOpen(true)
-				GuiService:SetMenuIsOpen(false)
-			end
-		end)
-	end
-	pcall(function()
-		local oldStopGui = CoreGui:FindFirstChild("AutoStopButton")
-		if oldStopGui then
-			oldStopGui:Destroy()
-		end
-	end)
-	local function trySet(obj, prop, value)
-		pcall(function()
-			obj[prop] = value
-		end)
-	end
-	local function tweenColor(target, color)
-		if not target or not target.Parent then
-			return
-		end
-		local props = {}
-		if target:IsA("GuiObject") then
-			props.BackgroundColor3 = color
-		end
-		if target:IsA("ImageButton") or target:IsA("ImageLabel") then
-			props.ImageColor3 = color
-		end
-		if next(props) then
-			TweenService:Create(target, TWEEN_SPEED, props):Play()
-		end
-	end
-	local function applyVisualState(root, color)
-		tweenColor(root, color)
-		for _, desc in ipairs(root:GetDescendants()) do
-			if desc:IsA("ImageLabel") or desc:IsA("ImageButton") or desc:IsA("Frame") then
-				tweenColor(desc, color)
-			end
-		end
-	end
-	local function fireEventFallback(event, ...)
-		if type(firesignal) == "function" then
-			pcall(firesignal, event, ...)
-		end
-	end
-	local function finishPurchase(id)
-		if LastPrompt.Type == "GamePass" then
-			local success = pcall(function()
-				MarketplaceService:SignalPromptGamePassPurchaseFinished(LocalPlayer.UserId, id, true)
-			end)
-			if not success then
-				fireEventFallback(MarketplaceService.PromptGamePassPurchaseFinished, LocalPlayer, id, true)
-			end
-		elseif LastPrompt.Type == "Product" then
-			local success = pcall(function()
-				MarketplaceService:SignalPromptProductPurchaseFinished(LocalPlayer.UserId, id, true)
-			end)
-			if not success then
-				fireEventFallback(MarketplaceService.PromptProductPurchaseFinished, LocalPlayer.UserId, id, true)
-			end
-		elseif LastPrompt.Type == "Asset" then
-			local success = pcall(function()
-				MarketplaceService:SignalPromptPurchaseFinished(LocalPlayer.UserId, id, true)
-			end)
-			if not success then
-				fireEventFallback(MarketplaceService.PromptPurchaseFinished, LocalPlayer, id, true)
-			end
-		elseif LastPrompt.Type == "Bundle" then
-			local success = pcall(function()
-				MarketplaceService:SignalPromptBundlePurchaseFinished(LocalPlayer.UserId, id, true)
-			end)
-			if not success then
-				fireEventFallback(MarketplaceService.PromptBundlePurchaseFinished, LocalPlayer, id, true)
-			end
-		elseif LastPrompt.Type == "Premium" then
-			local success = pcall(function()
-				MarketplaceService:SignalPromptPremiumPurchaseFinished(true)
-			end)
-			if not success then
-				fireEventFallback(MarketplaceService.PromptPremiumPurchaseFinished, true)
-			end
-		end
-	end
-	local function restoreHiddenOverlays()
-		for overlay in pairs(HiddenOverlays) do
-			pcall(function()
-				if overlay and overlay.Parent and overlay:IsA("ScreenGui") then
-					overlay.Enabled = true
-				end
-			end)
-			HiddenOverlays[overlay] = nil
-		end
-	end
-	local function restoreFoundationOverlayVisibility()
-		for _, child in ipairs(CoreGui:GetDescendants()) do
-			if child:IsA("ScreenGui") and child.Name == "FoundationOverlay" then
-				pcall(function()
-					child.Enabled = true
-				end)
-			end
-		end
-	end
-	local function runInstantPurchase(id, options)
-		if not isCurrentRun() or not isSettingEnabled("InstantPurchase") then
-			return
-		end
-		local opts = options or {}
-		if opts.hideOverlay and opts.overlay then
-			pcall(function()
-				if opts.overlay:IsA("ScreenGui") then
-					opts.overlay.Enabled = false
-					HiddenOverlays[opts.overlay] = true
-				end
-			end)
-		end
-		if opts.forceMenuToggle then
-			toggleRobloxMenu()
-		end
-		if not id then
-			return
-		end
-		if id ~= LastPrompt.Id then
-			return
-		end
-		local promptNonce = LastPrompt.Nonce or 0
-		if LastInstant.PromptNonce == promptNonce then
-			return
-		end
-		LastInstant.PromptNonce = promptNonce
-		finishPurchase(id)
-		if not opts.forceMenuToggle then
-			return
-		end
-	end
-	local function capturePrompt(player, id, promptType)
-		if not isCurrentRun() then
-			return
-		end
-		if player == LocalPlayer then
-			LastPrompt.Nonce = (LastPrompt.Nonce or 0) + 1
-			LastPrompt.Id = id
-			LastPrompt.Type = promptType
-			if isSettingEnabled("Debug") then
-				task.spawn(function()
-					local infoType
-					if promptType == "GamePass" then
-						infoType = Enum.InfoType.GamePass
-					elseif promptType == "Product" then
-						infoType = Enum.InfoType.Product
-					elseif promptType == "Asset" then
-						infoType = Enum.InfoType.Asset
-					elseif promptType == "Bundle" then
-						infoType = Enum.InfoType.Bundle
-					end
-					if infoType then
-						local success, info = pcall(function()
-							return MarketplaceService:GetProductInfo(id, infoType)
-						end)
-						if success and info then
-							print(
-								string.format(
-									"%s | %s | %s",
-									tostring(info.Name),
-									tostring(id),
-									tostring(info.PriceInRobux or 0)
-								)
-							)
-						else
-							print(string.format("Unknown | %s | 0", tostring(id)))
-						end
-					else
-						print(string.format("Unknown | %s | 0", tostring(id)))
-					end
-				end)
-			end
-			if isSettingEnabled("InstantPurchase") then
-				task.spawn(function()
-					runInstantPurchase(id, { forceMenuToggle = false })
-				end)
-			end
-		end
-	end
-	trackConnection(MarketplaceService.PromptGamePassPurchaseRequested:Connect(function(player, id)
-		capturePrompt(player, id, "GamePass")
-	end))
-	trackConnection(MarketplaceService.PromptProductPurchaseRequested:Connect(function(player, id)
-		capturePrompt(player, id, "Product")
-	end))
-	trackConnection(MarketplaceService.PromptPurchaseRequested:Connect(function(player, id)
-		capturePrompt(player, id, "Asset")
-	end))
-	trackConnection(MarketplaceService.PromptBundlePurchaseRequested:Connect(function(player, id)
-		capturePrompt(player, id, "Bundle")
-	end))
-	trackConnection(MarketplaceService.PromptPremiumPurchaseRequested:Connect(function(player)
-		capturePrompt(player, 0, "Premium")
-	end))
-	local function buildPurchaseOperation(id)
-		local code = 'local MarketplaceService = game:GetService("MarketplaceService")\n\n'
-		if LastPrompt.Type == "GamePass" then
-			return code
-				.. string.format(
-					"MarketplaceService:SignalPromptGamePassPurchaseFinished(%d, %d, true)",
-					LocalPlayer.UserId,
-					id
-				)
-		elseif LastPrompt.Type == "Product" then
-			return code
-				.. string.format(
-					"MarketplaceService:SignalPromptProductPurchaseFinished(%d, %d, true)",
-					LocalPlayer.UserId,
-					id
-				)
-		elseif LastPrompt.Type == "Asset" then
-			return code
-				.. string.format(
-					"MarketplaceService:SignalPromptPurchaseFinished(%d, %d, true)",
-					LocalPlayer.UserId,
-					id
-				)
-		elseif LastPrompt.Type == "Bundle" then
-			return code
-				.. string.format(
-					"MarketplaceService:SignalPromptBundlePurchaseFinished(%d, %d, true)",
-					LocalPlayer.UserId,
-					id
-				)
-		elseif LastPrompt.Type == "Premium" then
-			return code .. "MarketplaceService:SignalPromptPremiumPurchaseFinished(true)"
-		end
-		return ""
-	end
-	local function settleButtonPosition(anchorBtn, btn, parent, offsetY)
-		if not anchorBtn or not btn or not parent then
-			return
-		end
-		local hasListLayout = parent:FindFirstChildOfClass("UIListLayout") ~= nil
-		if hasListLayout then
-			btn.LayoutOrder = (anchorBtn.LayoutOrder or 0) + 1
-			return
-		end
-		btn.Position = anchorBtn.Position + UDim2.fromOffset(0, offsetY or 0)
-		task.defer(function()
-			if btn.Parent ~= parent or anchorBtn.Parent ~= parent then
-				return
-			end
-			btn.Position = anchorBtn.Position + UDim2.fromOffset(0, offsetY or 0)
-			task.defer(function()
-				if btn.Parent ~= parent or anchorBtn.Parent ~= parent then
-					return
-				end
-				btn.Position = anchorBtn.Position + UDim2.fromOffset(0, offsetY or 0)
-			end)
-		end)
-	end
-	local function settleFreeButtonPosition(originalBtn, freeBtn, parent)
-		if not originalBtn or not freeBtn or not parent then
-			return
-		end
-		local hasListLayout = parent:FindFirstChildOfClass("UIListLayout") ~= nil
-		if hasListLayout then
-			freeBtn.LayoutOrder = (originalBtn.LayoutOrder or 0) + 1
-			return
-		end
-		freeBtn.Position = originalBtn.Position
-		task.defer(function()
-			if freeBtn.Parent ~= parent or originalBtn.Parent ~= parent then
-				return
-			end
-			freeBtn.Position = originalBtn.Position
-			task.defer(function()
-				if freeBtn.Parent ~= parent or originalBtn.Parent ~= parent then
-					return
-				end
-				freeBtn.Position = originalBtn.Position
-			end)
-		end)
-	end
-	local function getInjectedButtonsBaseOrder(parent)
-		local maxOrder = 0
-		for _, child in ipairs(parent:GetChildren()) do
-			if
-				child:IsA("GuiObject")
-				and child.Name ~= "FreeButton"
-				and child.Name ~= "CopyButton"
-				and child.Name ~= "AutoButton"
-			then
-				local order = child.LayoutOrder or 0
-				if order > maxOrder then
-					maxOrder = order
-				end
-			end
-		end
-		return maxOrder
-	end
-	local function getParentState(parent)
-		local state = ParentButtonState[parent]
-		if not state then
-			state = {}
-			ParentButtonState[parent] = state
-		end
-		return state
-	end
-	local function layoutInjectedButtons(parent)
-		if not parent then
-			return
-		end
-		local state = getParentState(parent)
-		local template = state.TemplateButton
-		if not (template and template.Parent == parent) then
-			template = nil
-			for _, child in ipairs(parent:GetChildren()) do
-				if
-					child:IsA("ImageButton")
-					and child.Name ~= "FreeButton"
-					and child.Name ~= "CopyButton"
-					and child.Name ~= "AutoButton"
-				then
-					template = child
-					break
-				end
-			end
-			state.TemplateButton = template
-		end
-		local freeBtn = parent:FindFirstChild("FreeButton")
-		local copyBtn = parent:FindFirstChild("CopyButton")
-		local autoBtn = parent:FindFirstChild("AutoButton")
-		local hasListLayout = parent:FindFirstChildOfClass("UIListLayout") ~= nil
-		if hasListLayout then
-			local baseOrder = getInjectedButtonsBaseOrder(parent)
-			if freeBtn then
-				freeBtn.LayoutOrder = baseOrder + 1
-			end
-			if copyBtn then
-				copyBtn.LayoutOrder = baseOrder + 2
-			end
-			if autoBtn then
-				autoBtn.LayoutOrder = baseOrder + 3
-			end
-			return
-		end
-		if freeBtn and template then
-			settleFreeButtonPosition(template, freeBtn, parent)
-		end
-		if copyBtn and freeBtn then
-			settleButtonPosition(freeBtn, copyBtn, parent, 42)
-		end
-		if autoBtn then
-			local anchorBtn = copyBtn or freeBtn
-			if anchorBtn then
-				settleButtonPosition(anchorBtn, autoBtn, parent, 42)
-			end
-		end
-	end
-	local function stopAutoLoop()
-		AutoLoopState.Running = false
-		AutoLoopState.ThreadId = AutoLoopState.ThreadId + 1
-	end
-	local function destroyAutoStopButton()
-		if AutoLoopState.StopGui and AutoLoopState.StopGui.Parent then
-			AutoLoopState.StopGui:Destroy()
-		end
-		AutoLoopState.StopGui = nil
-	end
-	local function startAutoLoop()
-		if AutoLoopState.Running then
-			return
-		end
-		AutoLoopState.Running = true
-		AutoLoopState.ThreadId = AutoLoopState.ThreadId + 1
-		local myThreadId = AutoLoopState.ThreadId
-		task.spawn(function()
-			while AutoLoopState.Running and AutoLoopState.ThreadId == myThreadId do
-				local id = LastPrompt.Id
-				if id then
-					finishPurchase(id)
-					toggleRobloxMenu()
-				end
-				local interval = getSettings().AutoInterval
-				if type(interval) ~= "number" or interval <= 0 then
-					interval = 0.3
-				end
-				task.wait(interval)
-			end
-		end)
-	end
-	local function makeDraggable(frame)
-		local dragging = false
-		local dragInput = nil
-		local dragStart = nil
-		local startPos = nil
-		local didDrag = false
-		local DRAG_THRESHOLD = 6
-		local function update(input)
-			local delta = input.Position - dragStart
-			if math.abs(delta.X) > DRAG_THRESHOLD or math.abs(delta.Y) > DRAG_THRESHOLD then
-				didDrag = true
-			end
-			frame.Position =
-				UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-		end
-		frame.InputBegan:Connect(function(input)
-			if
-				input.UserInputType == Enum.UserInputType.MouseButton1
-				or input.UserInputType == Enum.UserInputType.Touch
-			then
-				dragging = true
-				didDrag = false
-				dragStart = input.Position
-				startPos = frame.Position
-				input.Changed:Connect(function()
-					if input.UserInputState == Enum.UserInputState.End then
-						dragging = false
-					end
-				end)
-			end
-		end)
-		frame.InputChanged:Connect(function(input)
-			if
-				input.UserInputType == Enum.UserInputType.MouseMovement
-				or input.UserInputType == Enum.UserInputType.Touch
-			then
-				dragInput = input
-			end
-		end)
-		UIS.InputChanged:Connect(function(input)
-			if dragging and input == dragInput then
-				update(input)
-			end
-		end)
-		return function()
-			local wasDragged = didDrag
-			didDrag = false
-			return wasDragged
-		end
-	end
-	local function createAutoStopButton()
-		destroyAutoStopButton()
-		local gui = Instance.new("ScreenGui")
-		local button = Instance.new("TextButton")
-		local corner = Instance.new("UICorner")
-		local icon = Instance.new("ImageLabel")
-		local aspect = Instance.new("UIAspectRatioConstraint")
-		gui.Name = "AutoStopButton"
-		gui.IgnoreGuiInset = true
-		gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-		gui.Parent = CoreGui
-		button.Name = "Button"
-		button.Parent = gui
-		button.AnchorPoint = Vector2.new(0.5, 0.5)
-		button.Position = UDim2.new(0.5, 0, 0, 34)
-		button.Size = UDim2.new(0.039, 0, 0.069, 0)
-		button.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-		button.BackgroundTransparency = 0.4
-		button.BorderSizePixel = 0
-		button.AutoButtonColor = false
-		button.ZIndex = 99999999
-		button.Text = ""
-		corner.CornerRadius = UDim.new(0, 99999)
-		corner.Parent = button
-		icon.Parent = button
-		icon.BackgroundTransparency = 1
-		icon.Position = UDim2.new(0.1, 0, 0.1, 0)
-		icon.Size = UDim2.new(0.8, 0, 0.8, 0)
-		icon.Image = "rbxassetid://98003862321782"
-		icon.ImageColor3 = Color3.fromRGB(255, 90, 90)
-		aspect.Parent = button
-		aspect.AspectRatio = 1
-		local wasDragged = makeDraggable(button)
-		button.Activated:Connect(function()
-			if wasDragged() then
-				return
-			end
-			stopAutoLoop()
-			destroyAutoStopButton()
-		end)
-		AutoLoopState.StopGui = gui
-	end
-	local function decorateButton(btn, text, zIndex, palette)
-		local colors = palette or COLORS
-		btn.Visible = true
-		btn.Active = true
-		btn.Selectable = true
-		btn.AutoButtonColor = false
-		btn.ZIndex = zIndex
-		btn.BackgroundColor3 = colors.IDLE
-		btn.BackgroundTransparency = 0.1
-		trySet(btn, "Interactable", true)
-		if btn:IsA("ImageButton") then
-			btn.ImageColor3 = colors.IDLE
-		end
-		for _, desc in ipairs(btn:GetDescendants()) do
-			if desc:IsA("LocalScript") or desc:IsA("Script") or desc:IsA("ModuleScript") then
-				desc:Destroy()
-			elseif desc:IsA("GuiObject") then
-				desc.ZIndex = math.max(desc.ZIndex, btn.ZIndex)
-				desc.Active = true
-				trySet(desc, "Interactable", true)
-				if desc:IsA("TextLabel") or desc:IsA("TextButton") then
-					desc.Text = text
-					desc.TextTransparency = 0
-				end
-			end
-		end
-	end
-	local function wireHover(btn, palette)
-		local colors = palette or COLORS
-		btn.MouseEnter:Connect(function()
-			applyVisualState(btn, colors.HOVER)
-		end)
-		btn.MouseLeave:Connect(function()
-			applyVisualState(btn, colors.IDLE)
-		end)
-	end
-	local function processParentButtons(parent)
-		if not parent then
-			return
-		end
-		local state = getParentState(parent)
-		if state.Injecting then
-			state.Dirty = true
-			return
-		end
-		state.Injecting = true
-		task.spawn(function()
-			repeat
-				state.Dirty = false
-				local template = state.TemplateButton
-				if not (template and template.Parent == parent) then
-					state.Injecting = false
-					return
-				end
-				if not parent:FindFirstChild("FreeButton") then
-					local freeBtn = template:Clone()
-					freeBtn.Name = "FreeButton"
-					freeBtn.Parent = parent
-					decorateButton(freeBtn, "Free", (template.ZIndex or 1) + 10)
-					settleFreeButtonPosition(template, freeBtn, parent)
-					wireHover(freeBtn, COLORS)
-					freeBtn.Activated:Connect(function()
-						local id = LastPrompt.Id
-						if not id then
-							return
-						end
-						applyVisualState(freeBtn, COLORS.HOVER)
-						finishPurchase(id)
-						applyVisualState(freeBtn, COLORS.IDLE)
-						toggleRobloxMenu()
-					end)
-				end
-				task.defer(function()
-					task.wait(SECONDARY_BUTTON_DELAY)
-					if not isSettingEnabled("CopyButton") then
-						local existingCopy = parent:FindFirstChild("CopyButton")
-						if existingCopy then
-							existingCopy:Destroy()
-						end
-						return
-					end
-					if parent:FindFirstChild("CopyButton") then
-						return
-					end
-					local templateBtn = state.TemplateButton
-					if not (templateBtn and templateBtn.Parent == parent) then
-						return
-					end
-					local copyBtn = templateBtn:Clone()
-					copyBtn.Name = "CopyButton"
-					copyBtn.Parent = parent
-					local freeBtn = parent:FindFirstChild("FreeButton")
-					decorateButton(
-						copyBtn,
-						"Copy",
-						freeBtn and freeBtn.ZIndex or ((templateBtn.ZIndex or 1) + 10),
-						COPY_COLORS
-					)
-					wireHover(copyBtn, COPY_COLORS)
-					settleButtonPosition(freeBtn, copyBtn, parent, 42)
-					copyBtn.Activated:Connect(function()
-						local id = LastPrompt.Id
-						if not id then
-							return
-						end
-						local operationText = buildPurchaseOperation(id)
-						local copied = pcall(function()
-							setclipboard(operationText)
-						end)
-						if copied then
-							applyVisualState(copyBtn, COPY_COLORS.HOVER)
-							task.wait(0.05)
-						end
-						applyVisualState(copyBtn, COPY_COLORS.IDLE)
-					end)
-				end)
-				task.defer(function()
-					task.wait(SECONDARY_BUTTON_DELAY)
-					if not isSettingEnabled("AutoButton") then
-						local existingAuto = parent:FindFirstChild("AutoButton")
-						if existingAuto then
-							existingAuto:Destroy()
-						end
-						stopAutoLoop()
-						destroyAutoStopButton()
-						return
-					end
-					if parent:FindFirstChild("AutoButton") then
-						return
-					end
-					local templateBtn = state.TemplateButton
-					if not (templateBtn and templateBtn.Parent == parent) then
-						return
-					end
-					local autoBtn = templateBtn:Clone()
-					autoBtn.Name = "AutoButton"
-					autoBtn.Parent = parent
-					local anchorBtn = parent:FindFirstChild("CopyButton") or parent:FindFirstChild("FreeButton")
-					decorateButton(
-						autoBtn,
-						"Auto",
-						(anchorBtn and anchorBtn.ZIndex) or ((templateBtn.ZIndex or 1) + 10),
-						AUTO_COLORS
-					)
-					wireHover(autoBtn, AUTO_COLORS)
-					settleButtonPosition(anchorBtn, autoBtn, parent, 42)
-					autoBtn.Activated:Connect(function()
-						toggleRobloxMenu()
-						if AutoLoopState.Running then
-							stopAutoLoop()
-							destroyAutoStopButton()
-							return
-						end
-						startAutoLoop()
-						createAutoStopButton()
-						applyVisualState(autoBtn, AUTO_COLORS.HOVER)
-					end)
-				end)
-				task.wait()
-				layoutInjectedButtons(parent)
-			until not state.Dirty
-			state.Injecting = false
-		end)
-	end
-	local function injectButtons(originalBtn)
-		if
-			not originalBtn
-			or originalBtn.Name == "FreeButton"
-			or originalBtn.Name == "CopyButton"
-			or originalBtn.Name == "AutoButton"
-		then
-			return
-		end
-		local parent = originalBtn.Parent
-		if not parent then
-			return
-		end
-		local state = getParentState(parent)
-		if not (state.TemplateButton and state.TemplateButton.Parent == parent) then
-			state.TemplateButton = originalBtn
-		end
-		processParentButtons(parent)
-	end
-	local function getActions(foundation)
-		local actions = foundation:FindFirstChild("SafeAreaFrame")
-		actions = actions and actions:FindFirstChild("OverlayPortal")
-		actions = actions and actions:FindFirstChild("SheetContainer")
-		actions = actions and actions:FindFirstChild("Frame")
-		actions = actions and actions:FindFirstChild("Sheet")
-		actions = actions and actions:FindFirstChild("Content")
-		actions = actions and actions:FindFirstChild("Actions")
-		return actions or foundation:FindFirstChild("Actions", true)
-	end
-	local function scanActions(actionsFolder)
-		for _, child in ipairs(actionsFolder:GetChildren()) do
-			if tonumber(child.Name) then
-				for _, inner in ipairs(child:GetDescendants()) do
-					if inner:IsA("ImageButton") then
-						injectButtons(inner)
-					end
-				end
-			end
-		end
-	end
-	local function scanAllFoundationOverlays()
-		for _, child in ipairs(CoreGui:GetDescendants()) do
-			if child:IsA("ScreenGui") and child.Name == "FoundationOverlay" then
-				local actions = getActions(child)
-				if actions then
-					scanActions(actions)
-				end
-			end
-		end
-	end
-	local ProcessedOverlays = setmetatable({}, { __mode = "k" })
-	local handleOverlay
-	local function startInstantStateWatcher()
-		task.spawn(function()
-			local wasEnabled = isSettingEnabled("InstantPurchase")
-			if not wasEnabled then
-				restoreHiddenOverlays()
-				restoreFoundationOverlayVisibility()
-				scanAllFoundationOverlays()
-			end
-			while isCurrentRun() do
-				local isEnabled = isSettingEnabled("InstantPurchase")
-				if isEnabled ~= wasEnabled then
-					if not isEnabled then
-						LastInstant.PromptNonce = -1
-						restoreHiddenOverlays()
-						restoreFoundationOverlayVisibility()
-						scanAllFoundationOverlays()
-					end
-					for _, child in ipairs(CoreGui:GetDescendants()) do
-						if child:IsA("ScreenGui") and child.Name == "FoundationOverlay" then
-							task.spawn(handleOverlay, child, true)
-						end
-					end
-					wasEnabled = isEnabled
-				end
-				task.wait(INSTANT_STATE_WATCH_INTERVAL)
-			end
-		end)
-	end
-	local function startOverlayRescanLoop()
-		task.spawn(function()
-			while isCurrentRun() do
-				if not isSettingEnabled("InstantPurchase") then
-					for _, child in ipairs(CoreGui:GetDescendants()) do
-						if child:IsA("ScreenGui") and child.Name == "FoundationOverlay" then
-							local actions = getActions(child)
-							if actions then
-								scanActions(actions)
-							end
-						end
-					end
-				end
-				task.wait(OVERLAY_RESCAN_INTERVAL)
-			end
-		end)
-	end
-	function handleOverlay(child, force)
-		if child.Name ~= "FoundationOverlay" then
-			return
-		end
-		local modeKey = isSettingEnabled("InstantPurchase") and "instant" or "buttons"
-		if not force and ProcessedOverlays[child] == modeKey then
-			return
-		end
-		ProcessedOverlays[child] = modeKey
-		if isSettingEnabled("InstantPurchase") then
-			local function executeInstant()
-				local id = LastPrompt.Id
-				runInstantPurchase(id, { hideOverlay = true, overlay = child, forceMenuToggle = true })
-			end
-			task.spawn(function()
-				local function check()
-					if not (child and child.Parent and isSettingEnabled("InstantPurchase")) then
-						return true
-					end
-					local safeArea = child:FindFirstChild("SafeAreaFrame")
-					local portal = safeArea and safeArea:FindFirstChild("OverlayPortal")
-					if portal then
-						executeInstant()
-						return true
-					end
-					return false
-				end
-				if not check() then
-					local conn
-					conn = trackConnection(child.DescendantAdded:Connect(function()
-						if check() then
-							if conn then
-								conn:Disconnect()
-							end
-						end
-					end))
-				end
-			end)
-			return
-		end
-		local function scanButtonsWithDelay()
-			if not (child and child.Parent and isCurrentRun() and not isSettingEnabled("InstantPurchase")) then
-				return false
-			end
-			if not force then
-				task.wait(NEW_OVERLAY_BUTTON_INJECT_DELAY)
-			end
-			if not (child and child.Parent and isCurrentRun() and not isSettingEnabled("InstantPurchase")) then
-				return false
-			end
-			local actions = getActions(child)
-			if not actions then
-				return false
-			end
-			scanActions(actions)
-			return true
-		end
-		if scanButtonsWithDelay() then
-			return
-		end
-		local conn
-		conn = trackConnection(child.DescendantAdded:Connect(function()
-			if scanButtonsWithDelay() then
-				if conn then
-					conn:Disconnect()
-				end
-			end
-		end))
-		task.delay(10, function()
-			if conn then
-				conn:Disconnect()
-			end
-		end)
-	end
-	trackConnection(CoreGui.DescendantAdded:Connect(handleOverlay))
-	for _, child in ipairs(CoreGui:GetDescendants()) do
-		task.spawn(handleOverlay, child)
-	end
-	startInstantStateWatcher()
-	startOverlayRescanLoop()
-	local function performAutoMassPurchase()
-		if not isSettingEnabled("AutoMassPurchase") then
-			return
-		end
-		task.spawn(function()
-			local success, productsPage = pcall(function()
-				return MarketplaceService:GetDeveloperProductsAsync()
-			end)
-			if success and productsPage then
-				while true do
-					local products = productsPage:GetCurrentPage()
-					for _, info in ipairs(products) do
-						local id = info.ProductId
-						local name = info.Name or "Unknown"
-						local price = info.PriceInRobux or 0
-						if isSettingEnabled("Debug") then
-							print(string.format("Product: %s | %s | %s", tostring(name), tostring(id), tostring(price)))
-						end
-						local successSig = pcall(function()
-							MarketplaceService:SignalPromptProductPurchaseFinished(LocalPlayer.UserId, id, true)
-						end)
-						if not successSig then
-							fireEventFallback(
-								MarketplaceService.PromptProductPurchaseFinished,
-								LocalPlayer.UserId,
-								id,
-								true
-							)
-						end
-						task.wait(0.1)
-					end
-					if productsPage.IsFinished then
-						break
-					end
-					pcall(function()
-						productsPage:AdvanceToNextPageAsync()
-					end)
-				end
-			end
-			local HttpService = game:GetService("HttpService")
-			local universeId = game.GameId
-			if universeId == 0 then
-				pcall(function()
-					local res = game:HttpGet(
-						"https://apis.roblox.com/universes/v1/places/" .. tostring(game.PlaceId) .. "/universe"
-					)
-					local data = HttpService:JSONDecode(res)
-					if data and data.universeId then
-						universeId = data.universeId
-					end
-				end)
-			end
-			if universeId and universeId > 0 then
-				pcall(function()
-					local cursor = ""
-					while cursor do
-						local url = "https://games.roblox.com/v1/games/"
-							.. tostring(universeId)
-							.. "/game-passes?limit=100"
-						if cursor ~= "" then
-							url = url .. "&cursor=" .. cursor
-						end
-						local res = game:HttpGet(url)
-						local data = HttpService:JSONDecode(res)
-						if data and data.data then
-							for _, gp in ipairs(data.data) do
-								local id = gp.id
-								local name = gp.name or "Unknown"
-								local price = gp.price or 0
-								if isSettingEnabled("Debug") then
-									print(
-										string.format(
-											"GamePass: %s | %s | %s",
-											tostring(name),
-											tostring(id),
-											tostring(price)
-										)
-									)
-								end
-								local successSig = pcall(function()
-									MarketplaceService:SignalPromptGamePassPurchaseFinished(
-										LocalPlayer.UserId,
-										id,
-										true
-									)
-								end)
-								if not successSig then
-									fireEventFallback(
-										MarketplaceService.PromptGamePassPurchaseFinished,
-										LocalPlayer,
-										id,
-										true
-									)
-								end
-								task.wait(0.1)
-							end
-							cursor = data.nextPageCursor
-						else
-							cursor = nil
-						end
-					end
-				end)
-			end
-		end)
-	end
-	performAutoMassPurchase()
-end)
 Modules.Aggressor = {
 	State = {
 		IsEnabled = false,
@@ -32933,8 +31180,8 @@ zukacmd({
 	print("Combat script loaded — E: target | R: toggle | T: auto-target")
 end)
 zukacmd({
-	Name = "backroomsguns",
-	Aliases = { "pguns" },
+	Name = "Backroomsguns",
+	Aliases = {},
 	Description = "for backrooms by panda whatever",
 }, function(args)
 	local Players = game:GetService("Players")
@@ -32988,7 +31235,7 @@ zukacmd({
 		BurstRate = 0,
 		Recoil = 0,
 		CriticalDamageEnabled = 999999,
-		ShotgunEnabled = false,
+		ShotgunEnabled = true,
 		Knockback = math.huge,
 		SwitchTime = 0,
 		-- Debuff = true,
@@ -32996,7 +31243,7 @@ zukacmd({
 		-- DebuffChance = 100,
 		AmmoPerMag = 999999,
 		FireRate = 0.01,
-		Auto = true,
+		Auto = false,
 		BulletSize = 0.8,
 		MeleeCriticalDamageMultiplier = 999999,
 		ZeroDamageDistance = 999999,
@@ -33036,7 +31283,7 @@ zukacmd({
 		AmmoPerMag = 999999,
 		FireRate = 0,
 		Auto = false,
-		BulletSize = 1,
+		BulletSize = 15,
 		ZeroDamageDistance = 0,
 		DualFireEnabled = false,
 		CriticalDamageMultiplier = 0,
@@ -33046,7 +31293,7 @@ zukacmd({
 		SelfDamage = 0,
 		DamageBasedOnDistance = 0,
 		DamageDropOffEnabled = false,
-		SilenceEffect = false,
+		SilenceEffect = true,
 		Debuff = true,
 		DebuffName = "IcifyScript",
 		DebuffChance = 100,
@@ -33280,8 +31527,8 @@ function Modules.AntiAttach:Toggle()
 end
 
 zukacmd({
-	Name = "killflinger",
-	Aliases = { "kf" },
+	Name = "aattach",
+	Aliases = { "noatt" },
 	Description = "Automatically voids anyone trying to attach/fling you",
 }, function()
 	Modules.AntiAttach:Toggle()
@@ -33304,17 +31551,17 @@ zukacmd({
 end)
 zukacmd({
 	Name = "newreach",
-	Aliases = {},
+	Aliases = {"nr"},
 	Description = "hitbox expander",
 }, function(args)
 	if getgenv().HitboxSettings and getgenv().HitboxSettings.Enabled then
 		print("Hitbox expander already running.")
 		return
 	end
-	local TargetSize = Vector3.new(25, 25, 25)
+	local TargetSize = Vector3.new(15, 15, 15)
 	getgenv().HitboxSettings = {
 		Enabled = true,
-		Transparency = 1.0,
+		Transparency = 0.8,
 		Color = Color3.fromRGB(255, 0, 0),
 		ExcludedTeam = nil,
 	}
@@ -33586,7 +31833,7 @@ zukacmd({
 		KICK_IMMUNITY = true,
 		BLOCK_SERVER_TP = true,
 		ANTI_CFRAME_TP = true,
-		ANTI_FLING = true,
+		ANTI_FLING = false,
 		ANTI_ANCHOR = true,
 		NOTIFY = true,
 		DEBUG = false,
@@ -36778,6 +35025,136 @@ addcmd("flingtool", { "ft" }, function(args, speaker)
 	Notify("Tool Loaded", "Equip the tool and click a player to fling.")
 end)
 
+
+addcmd("audit", {}, function(args, speaker)
+    local DeobfuscatorGui = Instance.new("ScreenGui")
+    DeobfuscatorGui.Name = "Auditor"
+    DeobfuscatorGui.ResetOnSpawn = false
+    DeobfuscatorGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    local MainWindow = Instance.new("Frame")
+    MainWindow.Size = UDim2.new(0, 500, 0, 440)
+    MainWindow.Position = UDim2.new(0.5, -250, 0.5, -220)
+    MainWindow.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    MainWindow.BorderSizePixel = 0
+    Instance.new("UICorner", MainWindow).CornerRadius = UDim.new(0, 6)
+    local TitleBar = Instance.new("Frame", MainWindow)
+    TitleBar.Size = UDim2.new(1, 0, 0, 30)
+    TitleBar.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 6)
+    local TitleLabel = Instance.new("TextLabel", TitleBar)
+    TitleLabel.Size = UDim2.new(1, -10, 1, 0)
+    TitleLabel.Position = UDim2.fromScale(0.02, 0)
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.Font = Enum.Font.SourceSansSemibold
+    TitleLabel.Text = "IronSights Deobfuscator V18"
+    TitleLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+    TitleLabel.TextSize = 16
+    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local UrlInput = Instance.new("TextBox", MainWindow)
+    UrlInput.Size = UDim2.new(1, -20, 0, 30)
+    UrlInput.Position = UDim2.new(0.5, 0, 0, 45)
+    UrlInput.AnchorPoint = Vector2.new(0.5, 0)
+    UrlInput.Font = Enum.Font.SourceSans
+    UrlInput.Text = "github link here"
+    UrlInput.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    UrlInput.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Instance.new("UICorner", UrlInput).CornerRadius = UDim.new(0, 4)
+    local AnalyzeButton = Instance.new("TextButton", MainWindow)
+    AnalyzeButton.Size = UDim2.new(1, -20, 0, 30)
+    AnalyzeButton.Position = UDim2.new(0.5, 0, 0, 85)
+    AnalyzeButton.AnchorPoint = Vector2.new(0.5, 0)
+    AnalyzeButton.Font = Enum.Font.SourceSansBold
+    AnalyzeButton.Text = "Analyze"
+    AnalyzeButton.BackgroundColor3 = Color3.fromRGB(80, 120, 200)
+    AnalyzeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Instance.new("UICorner", AnalyzeButton).CornerRadius = UDim.new(0, 4)
+    local CopyButton = Instance.new("TextButton", MainWindow)
+    CopyButton.Size = UDim2.new(1, -20, 0, 30)
+    CopyButton.Position = UDim2.new(0.5, 0, 0, 125)
+    CopyButton.AnchorPoint = Vector2.new(0.5, 0)
+    CopyButton.Font = Enum.Font.SourceSansBold
+    CopyButton.Text = "Copy Results"
+    CopyButton.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+    CopyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Instance.new("UICorner", CopyButton).CornerRadius = UDim.new(0, 4)
+    local OutputFrame = Instance.new("ScrollingFrame", MainWindow)
+    OutputFrame.Size = UDim2.new(1, -20, 1, -175)
+    OutputFrame.Position = UDim2.new(0.5, 0, 1, -10)
+    OutputFrame.AnchorPoint = Vector2.new(0.5, 1)
+    OutputFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    Instance.new("UICorner", OutputFrame).CornerRadius = UDim.new(0, 4)
+    local OutputLabel = Instance.new("TextLabel", OutputFrame)
+    OutputLabel.Size = UDim2.new(1, -10, 0, 0)
+    OutputLabel.Position = UDim2.fromScale(0.01, 0)
+    OutputLabel.AutomaticSize = Enum.AutomaticSize.Y
+    OutputLabel.BackgroundTransparency = 1
+    OutputLabel.Font = Enum.Font.Code
+    OutputLabel.Text = "Analysis results will appear here..."
+    OutputLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+    OutputLabel.TextSize = 14
+    OutputLabel.TextXAlignment = Enum.TextXAlignment.Left
+    OutputLabel.TextYAlignment = Enum.TextYAlignment.Top
+    MainWindow.Parent = DeobfuscatorGui
+    DeobfuscatorGui.Parent = game:GetService("CoreGui")
+    local function SetOutput(text)
+    	OutputLabel.Text = text
+    	task.wait()
+    	OutputFrame.CanvasSize = UDim2.new(0, 0, 0, OutputLabel.TextBounds.Y + 20)
+    end
+    AnalyzeButton.MouseButton1Click:Connect(function()
+    	local url = UrlInput.Text
+    	if not url:match("https") then
+    		SetOutput("Error: Invalid URL provided.")
+    		return
+    	end
+    	SetOutput("Downloading source code...")
+    	local success, source = pcall(game.HttpGet, game, url, true)
+    	if not success or not source then
+    		SetOutput("Error downloading source: " .. tostring(source))
+    		return
+    	end
+    	SetOutput("Source downloaded. Beginning analysis...")
+    	task.wait(0.5)
+    	local results = {
+    		"-----------[ CONSTANTS DUMP ]-----------",
+    		"-- These are all the strings found inside the script's constant table.",
+    		"-- The name of the remote event is likely hidden here.",
+    	}
+    	for _, str in ipairs(source:split("\n")) do
+    		for captured_string in str:gmatch('"([^"]*)"') do
+    			if #captured_string > 2 then
+    				table.insert(results, captured_string)
+    			end
+    		end
+    	end
+    	table.insert(results, "\n\n-----------[ FORMATTED SOURCE (Preview) ]-----------")
+    	table.insert(results, source:sub(1, 4000) .. "\n... (truncated for display)")
+    	SetOutput(table.concat(results, "\n"))
+    	print("[DEOBFUSCATOR] Analysis complete. Results are in the GUI.")
+    end)
+    CopyButton.MouseButton1Click:Connect(function()
+    	if not isfunction(setclipboard) then
+    		warn("[DEOBFUSCATOR] Your executor does not support 'setclipboard'.")
+    		CopyButton.Text = "Copy Failed: Unsupported"
+    		task.wait(3)
+    		CopyButton.Text = "Copy Results"
+    		return
+    	end
+    	local success, err = pcall(setclipboard, OutputLabel.Text)
+    	if success then
+    		CopyButton.Text = "Copied!"
+    		task.wait(2)
+    		CopyButton.Text = "Copy Results"
+    	else
+    		CopyButton.Text = "Copy Failed"
+    		warn("[DEOBFUSCATOR] setclipboard error:", err)
+    		task.wait(2)
+    		CopyButton.Text = "Copy Results"
+    	end
+    end)
+end)
+
+
 --
 -- end of addcmd section --
 --
@@ -36785,6 +35162,9 @@ end)
 --
 -- addcmd loadstrings --
 --
+
+
+
 
 addcmd("illumina", { "gi" }, function(args, speaker)
 	loadstring(game:HttpGet("https://github.com/zukatechlive/newplacetodump/blob/main/AutoExecute/IlluminaGiver.lua"))()
