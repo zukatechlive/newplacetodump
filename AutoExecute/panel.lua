@@ -31561,7 +31561,7 @@ zukacmd({
 	local TargetSize = Vector3.new(15, 15, 15)
 	getgenv().HitboxSettings = {
 		Enabled = true,
-		Transparency = 0.8,
+		Transparency = 1,
 		Color = Color3.fromRGB(255, 0, 0),
 		ExcludedTeam = nil,
 	}
