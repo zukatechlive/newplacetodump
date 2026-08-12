@@ -1,3 +1,5 @@
+-- anti auto farmer script, this is a meh script, it uses cframe snapback idk it was just an idea mainly
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -15,7 +17,7 @@ local originalCFrame = nil -- Defined outside to ensure scope access
 
 -- // Root
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-ScreenGui.Name = "TargetPanel"
+ScreenGui.Name = "CframeTest"
 ScreenGui.ResetOnSpawn = false
 
 local Main = Instance.new("Frame", ScreenGui)
@@ -73,7 +75,7 @@ UIStroke.Thickness = 1
 local Title = Instance.new("TextButton", Main)
 Title.Size = UDim2.new(1, 0, 0, 35)
 Title.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-Title.Text = "   TARGET PANEL"
+Title.Text = "Player List" -- simple
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.TextColor3 = Color3.fromRGB(230, 230, 230)
 Title.Font = Enum.Font.Code
@@ -189,7 +191,7 @@ end)
 setCollapsed(false)
 
 -- // Logic Loop
-RunService.PreSimulation:Connect(function()
+RunService.PreSimulation:Connect(function() 
     if not State.Enabled or not State.Target or not State.Target.Character then
         return
     end
