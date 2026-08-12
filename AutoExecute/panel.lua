@@ -33930,6 +33930,137 @@ zukacmd({
 		print("[Anti-CFrame]: System was not running.")
 	end
 end)
+
+Modules.MeleeFreezer = {
+    State = {
+        IsEnabled = false,
+        FrozenTracks = {},
+        Connection = nil
+    },
+    Config = {
+        ToggleKey = Enum.KeyCode.G
+    }
+}
+
+function Modules.MeleeFreezer:Enable(): ()
+    if self.State.IsEnabled then return end
+    self.State.IsEnabled = true
+    
+    self.State.Connection = RunService.RenderStepped:Connect(function()
+        local character = LocalPlayer.Character
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+        local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+        
+        if animator then
+            for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+                if track.IsPlaying and track.Speed ~= 0 then
+                    track:AdjustSpeed(0)
+                end
+            end
+        end
+    end)
+    
+    DoNotif("Melee Freeze: ENABLED (Animations Locked)", 2)
+end
+
+function Modules.MeleeFreezer:Disable(): ()
+    if not self.State.IsEnabled then return end
+    self.State.IsEnabled = false
+    
+    if self.State.Connection then
+        self.State.Connection:Disconnect()
+        self.State.Connection = nil
+    end
+    
+    local character = LocalPlayer.Character
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+    
+    if animator then
+        for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+            track:AdjustSpeed(1)
+        end
+    end
+    
+    DoNotif("Melee Freeze: DISABLED (Animations Restored)", 2)
+end
+
+function Modules.MeleeFreezer:Toggle(): ()
+    if self.State.IsEnabled then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+
+function Modules.MeleeFreezer:Initialize(): ()
+    local module = self
+    
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.KeyCode == module.Config.ToggleKey then
+            module:Toggle()
+        end
+    end)
+    
+    zukacmd({
+        Name = "freezemelee",
+        Aliases = {},
+        Description = "Toggles an animation freeze when G is pressed."
+    }, function()
+        module:Toggle()
+    end)
+end
+
+Modules.Gravity = {
+    State = {
+        IsEnabled = false,
+        OriginalGravity = nil
+    },
+    Services = {
+        Workspace = game:GetService("Workspace")
+    }
+}
+function Modules.Gravity:Enable(newGravityValue)
+    if not self.State.IsEnabled then
+        self.State.OriginalGravity = self.Services.Workspace.Gravity
+    end
+    self.State.IsEnabled = true
+    
+    local newGravity = tonumber(newGravityValue)
+    if not newGravity or newGravity <= 0 then
+        newGravity = 75
+        DoNotif("No gravity value provided. Defaulting to " .. newGravity, 2)
+    end
+    
+    self.Services.Workspace.Gravity = newGravity
+    DoNotif("Client gravity set to: " .. newGravity, 2)
+end
+
+function Modules.Gravity:Disable()
+    if not self.State.IsEnabled then return end
+    
+    if self.State.OriginalGravity then
+        self.Services.Workspace.Gravity = self.State.OriginalGravity
+    end
+    
+    self.State.IsEnabled = false
+    self.State.OriginalGravity = nil
+    DoNotif("Client gravity restored to default.", 2)
+end
+
+zukacmd({
+    Name = "gravity",
+    Aliases = {"grav"},
+    Description = "Sets the client-sided workspace gravity. Use 'reset' to disable."
+}, function(args)
+    local argument = args[1]
+    if argument and (argument:lower() == "reset" or argument:lower() == "off") then
+        Modules.Gravity:Disable()
+    else
+        Modules.Gravity:Enable(argument)
+    end
+end)
 Modules.Disarmer = {
 	State = {
 		IsEnabled = false,
@@ -36632,7 +36763,7 @@ end) --end of cmds
 
 
 
--- Logo
+--[[
 do
 	task.wait(2)
     
@@ -36641,6 +36772,7 @@ do
 	)()
     DoNotif("Welcome back degen.", 5)
 end
+]]
 
 
 
