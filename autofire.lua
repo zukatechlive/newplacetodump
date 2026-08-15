@@ -2,7 +2,6 @@ local kg = game:GetService("Players")
 local mq = game:GetService("ReplicatedStorage")
 local aS = game:GetService("UserInputService")
 local Xe = game:GetService("RunService")
-local gk = kg.gk
 local ez = mq.Remotes:WaitForChild("AttackEvent")
 local function createGui()
 	local zp = Instance.new("ScreenGui")
