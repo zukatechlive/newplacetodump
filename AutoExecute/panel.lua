@@ -1344,8 +1344,8 @@ end
 -- Uses the `Modules`, `Prefix`, `processCommand`, `CoreGui`, `TweenService`,
 -- and `UserInputService` that already exist in the outer script.
 
-local MAX_SUGGESTIONS = 8
-local HISTORY_LIMIT = 50
+local MAX_SUGGESTIONS = 12
+local HISTORY_LIMIT = 80
 
 Modules.CommandBar = {
 	State = {
@@ -1551,8 +1551,8 @@ function Modules.CommandBar:Initialize()
 
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = Theme.AccentColor
-	stroke.Thickness = 1
-	stroke.Transparency = 0.55
+	stroke.Thickness = 0.8
+	stroke.Transparency = 0.85
 	stroke.Parent = inputFrame
 	s.Stroke = stroke
 
@@ -1588,7 +1588,7 @@ function Modules.CommandBar:Initialize()
 	prefixLabel.Font = Theme.MainFont
 	prefixLabel.Text = Prefix or ">"
 	prefixLabel.TextColor3 = Theme.AccentColor
-	prefixLabel.TextSize = 14
+	prefixLabel.TextSize = 12
 	prefixLabel.TextXAlignment = Enum.TextXAlignment.Left
 	prefixLabel.Parent = inputFrame
 
@@ -1599,10 +1599,10 @@ function Modules.CommandBar:Initialize()
 	textBox.Size = UDim2.new(1, -38, 1, -10)
 	textBox.BackgroundTransparency = 1
 	textBox.Font = Theme.MainFont
-	textBox.PlaceholderText = "..."
+	textBox.PlaceholderText = "wsp gang..."
 	textBox.PlaceholderColor3 = Theme.PlaceholderColor
 	textBox.TextColor3 = Theme.InputTextColor
-	textBox.TextSize = 14
+	textBox.TextSize = 12
 	textBox.TextXAlignment = Enum.TextXAlignment.Left
 	textBox.ClearTextOnFocus = false
 	textBox.Parent = inputFrame
@@ -1616,7 +1616,7 @@ function Modules.CommandBar:Initialize()
 	suggestionsFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	suggestionsFrame.BackgroundColor3 = Theme.BarColor
 	suggestionsFrame.BorderSizePixel = 0
-	suggestionsFrame.ScrollBarThickness = 1
+	suggestionsFrame.ScrollBarThickness = 0.5
 	suggestionsFrame.ScrollBarImageColor3 = Theme.AccentColor
 	suggestionsFrame.Visible = false
 	suggestionsFrame.Parent = inputFrame
@@ -1624,7 +1624,7 @@ function Modules.CommandBar:Initialize()
 
 	local suggStroke = Instance.new("UIStroke")
 	suggStroke.Color = Theme.StrokeColor
-	suggStroke.Thickness = 1
+	suggStroke.Thickness = 0.7
 	suggStroke.Parent = suggestionsFrame
 
 	local listLayout = Instance.new("UIListLayout")
