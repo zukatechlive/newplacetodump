@@ -35086,7 +35086,7 @@ addcmd("scpauto", {}, function(args, speaker)
         end
     end)
     local function fireBurst()
-        for _ = 1, 10 do -- magic happens here
+        for _ = 1, 4 do -- magic happens here
             AttackEvent:FireServer()
         end
     end
