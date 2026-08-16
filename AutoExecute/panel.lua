@@ -36148,7 +36148,7 @@ addcmd("illumina", { "gi" }, function(args, speaker)
 	loadstring(game:HttpGet("https://github.com/zukatechlive/newplacetodump/blob/main/AutoExecute/IlluminaGiver.lua"))()
 end)
 
-addcmd("gunmenu", {}, function(args, speaker)
+addcmd("gunmenu2", {}, function(args, speaker)
 	loadstring(
 		game:HttpGet("https://raw.githubusercontent.com/zukatechlive/allmychains/refs/heads/main/weaponmenu.lua")
 	)()
