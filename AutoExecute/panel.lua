@@ -15907,7 +15907,7 @@ function Modules.NPCShield:Initialize()
 	end)
 	zukacmd({
 		Name = "npcrelease",
-		Aliases = { "nr" },
+		Aliases = { "npcr" },
 		Description = "Releases a specific NPC from the shield.",
 	}, function(args)
 		if not module.State.IsEnabled then
@@ -23362,8 +23362,8 @@ zukacmd({
 	task.spawn(function()
 		while getgenv().SovereigntyEngine.Enabled do
 			if hasHiddenProp then
-				sethiddenproperty(LocalPlayer, "SimulationRadius", 1000)
-				sethiddenproperty(LocalPlayer, "MaxSimulationRadius", 1000)
+				sethiddenproperty(LocalPlayer, "SimulationRadius", 10000000)
+				sethiddenproperty(LocalPlayer, "MaxSimulationRadius", 1000000)
 			end
 			if getgenv().SovereigntyEngine.AntiSleep then
 				Settings.Physics.AllowSleep = false
@@ -23393,7 +23393,7 @@ zukacmd({
 			end
 			for _, part in ipairs(char:GetDescendants()) do
 				if part:IsA("BasePart") then
-					part.CanCollide = true
+					part.CanCollide = false
 				end
 			end
 		end
@@ -36129,6 +36129,658 @@ addcmd("gunmenu", {"gmenu"}, function(args, speaker)
     		ResetBtn.Text = "Undo All"
     		ResetBtn.BackgroundColor3 = C.TOGGLE_OFF
     	end)
+    end)
+end)
+
+
+addcmd("viewer", {"vi"}, function(args, speaker)
+    local Players = game:GetService("Players")
+    local Workspace = game:GetService("Workspace")
+    local RunService = game:GetService("RunService")
+
+    local LocalPlayer = Players.LocalPlayer
+    local Mouse = LocalPlayer:GetMouse()
+
+    local FONT = Enum.Font.SourceSans
+    local MAX_PLAYERS = Players.MaxPlayers
+
+    local function formatSmart(n)
+    	local rounded = math.round(n)
+    	if math.abs(n - rounded) < 1e-9 then
+    		return tostring(rounded)
+    	end
+    	return string.format("%.2f", n)
+    end
+
+    local function formatGravity(n)
+    	return string.format("%.2f", n)
+    end
+
+    local function formatPing(n)
+    	return tostring(math.max(0, math.round(n)))
+    end
+
+    local function formatFps(n)
+    	return string.format("%.1f", n)
+    end
+
+    local function createLabel(adornee, size, offset)
+    	local gui = Instance.new("BillboardGui")
+    	gui.Name = "StatLabel"
+    	gui.Size = size
+    	gui.StudsOffset = offset
+    	gui.AlwaysOnTop = true
+    	gui.LightInfluence = 0
+    	gui.MaxDistance = 1000
+    	gui.Adornee = adornee
+    	gui.Parent = adornee.Parent
+
+    	local label = Instance.new("TextLabel")
+    	label.Size = UDim2.fromScale(1, 1)
+    	label.BackgroundTransparency = 1
+    	label.BorderSizePixel = 0
+    	label.TextScaled = true
+    	label.Font = FONT
+    	label.TextSize = 18
+    	label.TextColor3 = Color3.new(1, 1, 1)
+    	label.TextStrokeTransparency = 0
+    	label.Parent = gui
+
+    	return gui, label
+    end
+
+    local function getPreciseState(humanoid, rootPart)
+    	if humanoid.Health <= 0 then
+    		return "Dead"
+    	end
+
+    	local state = humanoid:GetState()
+    	local grounded = humanoid.FloorMaterial ~= Enum.Material.Air
+    	local velocity = rootPart.AssemblyLinearVelocity
+    	local yVelocity = velocity.Y
+    	local horizontalVelocity = Vector3.new(velocity.X, 0, velocity.Z).Magnitude
+    	local moveMagnitude = humanoid.MoveDirection.Magnitude
+
+    	if humanoid.Sit then
+    		if state == Enum.HumanoidStateType.Seated then
+    			return "Seated"
+    		end
+    		return "Sitting"
+    	end
+
+    	if humanoid.PlatformStand then
+    		return "Physics"
+    	end
+
+    	if state == Enum.HumanoidStateType.Swimming then
+    		return "Swimming"
+    	end
+
+    	if state == Enum.HumanoidStateType.Climbing then
+    		return "Climbing"
+    	end
+
+    	if state == Enum.HumanoidStateType.Ragdoll then
+    		return "Ragdoll"
+    	end
+
+    	if state == Enum.HumanoidStateType.FallingDown then
+    		return "FallingDown"
+    	end
+
+    	if state == Enum.HumanoidStateType.GettingUp then
+    		return "GettingUp"
+    	end
+
+    	if state == Enum.HumanoidStateType.Jumping then
+    		return "Jumping"
+    	end
+
+    	if state == Enum.HumanoidStateType.Landed then
+    		return "Landed"
+    	end
+
+    	if state == Enum.HumanoidStateType.Freefall then
+    		if grounded then
+    			if moveMagnitude < 0.05 and horizontalVelocity < 0.1 and math.abs(yVelocity) < 1 then
+    				return "Idle"
+    			end
+    			return "Running"
+    		end
+
+    		if yVelocity > 1 then
+    			return "Jumping"
+    		end
+
+    		return "Freefall"
+    	end
+
+    	if state == Enum.HumanoidStateType.Running or state == Enum.HumanoidStateType.RunningNoPhysics then
+    		if grounded then
+    			if moveMagnitude < 0.05 and horizontalVelocity < 0.1 and math.abs(yVelocity) < 1 then
+    				return "Idle"
+    			end
+    			return "Running"
+    		end
+
+    		if yVelocity > 1 then
+    			return "Jumping"
+    		end
+
+    		return "Freefall"
+    	end
+
+    	if state == Enum.HumanoidStateType.Physics then
+    		return "Physics"
+    	end
+
+    	if state == Enum.HumanoidStateType.Dead then
+    		return "Dead"
+    	end
+
+    	return state.Name
+    end
+
+    local function getClientPingMs()
+    	local ok, ping = pcall(function()
+    		return LocalPlayer:GetNetworkPing()
+    	end)
+
+    	if ok and typeof(ping) == "number" then
+    		return ping * 1000
+    	end
+
+    	return 0
+    end
+
+    local function getPlayerText()
+    	local totalPlayers = #Players:GetPlayers()
+    	local friendCount = 0
+
+    	for _, otherPlayer in ipairs(Players:GetPlayers()) do
+    		if otherPlayer ~= LocalPlayer then
+    			local ok, isFriend = pcall(function()
+    				return otherPlayer:IsFriendsWith(LocalPlayer.UserId)
+    			end)
+
+    			if ok and isFriend then
+    				friendCount += 1
+    			end
+    		end
+    	end
+
+    	local currentPlayers = math.max(totalPlayers - friendCount, 0)
+
+    	if friendCount > 0 then
+    		return "Player: " .. tostring(currentPlayers) .. "+" .. tostring(friendCount) .. "/" .. tostring(MAX_PLAYERS)
+    	end
+
+    	return "Player: " .. tostring(currentPlayers) .. "/" .. tostring(MAX_PLAYERS)
+    end
+
+    local function setHidden(labels, hidden, alpha)
+    	local textTransparency = hidden and 1 or alpha
+    	local strokeTransparency = hidden and 1 or math.clamp(alpha + 0.15, 0, 1)
+
+    	for _, label in ipairs(labels) do
+    		label.TextTransparency = textTransparency
+    		label.TextStrokeTransparency = strokeTransparency
+    	end
+    end
+
+    local function attachStats(character)
+    	local humanoid = character:WaitForChild("Humanoid")
+    	local rootPart = character:WaitForChild("HumanoidRootPart")
+    	local torso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso") or rootPart
+
+    	local speedGui, speedLabel = createLabel(torso, UDim2.new(0, 108, 0, 22), Vector3.new(-4, 1.55, 0))
+    	local jumpGui, jumpLabel = createLabel(torso, UDim2.new(0, 122, 0, 22), Vector3.new(4, 1.55, 0))
+    	local stateGui, stateLabel = createLabel(torso, UDim2.new(0, 128, 0, 22), Vector3.new(-4, 0.5, 0))
+    	local playersGui, playersLabel = createLabel(torso, UDim2.new(0, 128, 0, 22), Vector3.new(4, 0.5, 0))
+    	local pingGui, pingLabel = createLabel(torso, UDim2.new(0, 128, 0, 22), Vector3.new(-4, -0.5, 0))
+    	local fpsGui, fpsLabel = createLabel(torso, UDim2.new(0, 128, 0, 22), Vector3.new(4, -0.5, 0))
+
+    	local alive = true
+    	local hidden = false
+    	local speedSample = 0
+    	local fpsValue = 0
+    	local fpsFrames = 0
+    	local fpsElapsed = 0
+
+    	local connections = {}
+
+    	local function disconnectAll()
+    		for _, connection in ipairs(connections) do
+    			if connection.Connected then
+    				connection:Disconnect()
+    			end
+    		end
+    	end
+
+    	local function destroyAll()
+    		if speedGui then
+    			speedGui:Destroy()
+    		end
+    		if jumpGui then
+    			jumpGui:Destroy()
+    		end
+    		if stateGui then
+    			stateGui:Destroy()
+    		end
+    		if playersGui then
+    			playersGui:Destroy()
+    		end
+    		if pingGui then
+    			pingGui:Destroy()
+    		end
+    		if fpsGui then
+    			fpsGui:Destroy()
+    		end
+    	end
+
+    	local function stop()
+    		if not alive then
+    			return
+    		end
+
+    		alive = false
+    		disconnectAll()
+    		destroyAll()
+    	end
+
+    	table.insert(connections, humanoid.Died:Connect(stop))
+
+    	table.insert(
+    		connections,
+    		Mouse.Button1Down:Connect(function()
+    			if not alive or humanoid.Health <= 0 or not character.Parent then
+    				return
+    			end
+
+    			if Mouse.Target == torso then
+    				hidden = not hidden
+    			end
+    		end)
+    	)
+
+    	task.spawn(function()
+    		local previousPosition = rootPart.Position
+
+    		while alive and humanoid.Health > 0 and character.Parent do
+    			local currentPosition = rootPart.Position
+    			speedSample = (currentPosition - previousPosition).Magnitude
+    			previousPosition = currentPosition
+    			task.wait(1)
+    		end
+    	end)
+
+    	table.insert(
+    		connections,
+    		RunService.RenderStepped:Connect(function(dt)
+    			if not alive then
+    				return
+    			end
+
+    			if not character.Parent or humanoid.Health <= 0 then
+    				stop()
+    				return
+    			end
+
+    			local camera = Workspace.CurrentCamera
+    			if not camera then
+    				return
+    			end
+
+    			fpsFrames += 1
+    			fpsElapsed += dt
+
+    			if fpsElapsed >= 1 then
+    				fpsValue = fpsFrames / fpsElapsed
+    				fpsFrames = 0
+    				fpsElapsed = 0
+    			end
+
+    			local state = getPreciseState(humanoid, rootPart)
+    			local pingMs = getClientPingMs()
+    			local currentPos = rootPart.Position
+    			local distanceAlpha = math.clamp(((camera.CFrame.Position - currentPos).Magnitude - 12) / 28, 0, 1)
+
+    			speedLabel.Text = "Speed: " .. formatSmart(humanoid.WalkSpeed) .. " (" .. formatSmart(speedSample) .. ")"
+    			jumpLabel.Text = "Jump: "
+    				.. formatSmart(humanoid.UseJumpPower and humanoid.JumpPower or humanoid.JumpHeight)
+    				.. " ("
+    				.. formatGravity(Workspace.Gravity)
+    				.. ")"
+    			stateLabel.Text = "State: " .. state
+    			playersLabel.Text = getPlayerText()
+    			pingLabel.Text = "Ping: " .. formatPing(pingMs) .. " ms"
+    			fpsLabel.Text = "FPS: " .. formatFps(fpsValue)
+
+    			setHidden({
+    				speedLabel,
+    				jumpLabel,
+    				stateLabel,
+    				playersLabel,
+    				pingLabel,
+    				fpsLabel,
+    			}, hidden, distanceAlpha)
+    		end)
+    	)
+    end
+
+    LocalPlayer.CharacterAdded:Connect(attachStats)
+
+    if LocalPlayer.Character then
+    	attachStats(LocalPlayer.Character)
+    end
+end)
+
+addcmd("scriptmaker", {"sm"}, function(args, speaker)
+    local UIS = game:GetService("UserInputService")
+
+    if game.CoreGui:FindFirstChild("SimpleHub") then
+    	game.CoreGui.SimpleHub:Destroy()
+    end
+
+    local Scripts = {}
+
+    local gui = Instance.new("ScreenGui", game.CoreGui)
+    gui.Name = "SimpleHub"
+    gui.ResetOnSpawn = false
+
+    local main = Instance.new("Frame", gui)
+    main.Size = UDim2.new(0, 550, 0, 420)
+    main.Position = UDim2.new(0.5, -275, 0.5, -210)
+    main.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    main.Active = true
+    main.Draggable = true
+    Instance.new("UICorner", main)
+
+    local top = Instance.new("Frame", main)
+    top.Size = UDim2.new(1, 0, 0, 35)
+    top.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    Instance.new("UICorner", top)
+
+    local title = Instance.new("TextLabel", top)
+    title.Size = UDim2.new(1, -40, 1, 0)
+    title.BackgroundTransparency = 1
+    title.Text = "-- Universal Script Hub"
+    title.TextColor3 = Color3.new(1, 1, 1)
+    title.Font = Enum.Font.SourceSansBold
+    title.TextSize = 18
+
+    local close = Instance.new("TextButton", top)
+    close.Size = UDim2.new(0, 35, 1, 0)
+    close.Position = UDim2.new(1, -35, 0, 0)
+    close.Text = "X"
+    close.BackgroundColor3 = Color3.fromRGB(170, 40, 40)
+    close.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", close)
+    close.MouseButton1Click:Connect(function()
+    	gui:Destroy()
+    end)
+
+    local searchBox = Instance.new("TextBox", main)
+    searchBox.Size = UDim2.new(1, -20, 0, 30)
+    searchBox.Position = UDim2.new(0, 10, 0, 40)
+    searchBox.PlaceholderText = "Search scripts..."
+    searchBox.Text = ""
+    searchBox.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    searchBox.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", searchBox)
+
+    local scriptFrame = Instance.new("ScrollingFrame", main)
+    scriptFrame.Position = UDim2.new(0, 10, 0, 80)
+    scriptFrame.Size = UDim2.new(1, -20, 1, -130)
+    scriptFrame.ScrollBarThickness = 6
+    scriptFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Instance.new("UICorner", scriptFrame)
+
+    local layout = Instance.new("UIListLayout", scriptFrame)
+    layout.Padding = UDim.new(0, 6)
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    	scriptFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 5)
+    end)
+
+    local addBtn = Instance.new("TextButton", main)
+    addBtn.Size = UDim2.new(1, -20, 0, 40)
+    addBtn.Position = UDim2.new(0, 10, 1, -45)
+    addBtn.Text = "Add Script"
+    addBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    addBtn.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", addBtn)
+
+    local BASE_FOLDER = "ISCRIPTS/Universal Scripts"
+
+    local function EnsureFolders()
+    	if not isfolder("ISCRIPTS") then
+    		makefolder("ISCRIPTS")
+    	end
+    	if not isfolder(BASE_FOLDER) then
+    		makefolder(BASE_FOLDER)
+    	end
+    end
+
+    local function SaveScript(name, code, aliases)
+    	EnsureFolders()
+    	local folder = BASE_FOLDER .. "/" .. name
+    	if not isfolder(folder) then
+    		makefolder(folder)
+    	end
+    	writefile(folder .. "/" .. name .. ".txt", code)
+    	writefile(folder .. "/aliases.txt", table.concat(aliases, ","))
+    end
+
+    local function DeleteScript(name)
+    	local folder = BASE_FOLDER .. "/" .. name
+    	if isfolder(folder) then
+    		delfolder(folder)
+    	end
+    end
+
+    local function AddScript(name, code, aliases)
+    	for i = #Scripts, 1, -1 do
+    		if Scripts[i].Name == name then
+    			table.remove(Scripts, i)
+    		end
+    	end
+    	table.insert(Scripts, { Name = name, Code = code, Aliases = aliases or {} })
+    end
+
+    local function OpenEditor(existing)
+    	local popup = Instance.new("Frame", gui)
+    	popup.Size = UDim2.new(0, 500, 0, 480)
+    	popup.Position = UDim2.new(0.5, -250, 0.5, -240)
+    	popup.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    	popup.Active = true
+    	Instance.new("UICorner", popup)
+
+    	local closeBtn = Instance.new("TextButton", popup)
+    	closeBtn.Size = UDim2.new(0, 35, 0, 35)
+    	closeBtn.Position = UDim2.new(1, -35, 0, 0)
+    	closeBtn.Text = "X"
+    	closeBtn.BackgroundColor3 = Color3.fromRGB(170, 40, 40)
+    	closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    	Instance.new("UICorner", closeBtn)
+    	closeBtn.MouseButton1Click:Connect(function()
+    		popup:Destroy()
+    	end)
+
+    	local nameBox = Instance.new("TextBox", popup)
+    	nameBox.Size = UDim2.new(0.9, 0, 0, 30)
+    	nameBox.Position = UDim2.new(0.05, 0, 0, 40)
+    	nameBox.ClearTextOnFocus = false
+    	nameBox.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
+    	nameBox.TextColor3 = Color3.new(1, 1, 1)
+    	if existing and existing.Name and existing.Name ~= "" then
+    		nameBox.Text = existing.Name
+    		nameBox.PlaceholderText = ""
+    	else
+    		nameBox.Text = ""
+    		nameBox.PlaceholderText = "Script Name"
+    	end
+
+    	local codeBox = Instance.new("TextBox", popup)
+    	codeBox.Size = UDim2.new(0.9, 0, 0, 300)
+    	codeBox.Position = UDim2.new(0.05, 0, 0, 80)
+    	codeBox.MultiLine = true
+    	codeBox.ClearTextOnFocus = false
+    	codeBox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    	codeBox.TextColor3 = Color3.new(1, 1, 1)
+    	codeBox.TextXAlignment = Enum.TextXAlignment.Left
+    	codeBox.TextYAlignment = Enum.TextYAlignment.Top
+    	codeBox.ClipsDescendants = true
+    	if existing and existing.Code and existing.Code ~= "" then
+    		codeBox.Text = existing.Code
+    		codeBox.PlaceholderText = ""
+    	else
+    		codeBox.Text = ""
+    		codeBox.PlaceholderText = "Paste Script Here"
+    	end
+
+    	local aliasBox = Instance.new("TextBox", popup)
+    	aliasBox.Size = UDim2.new(0.9, 0, 0, 30)
+    	aliasBox.Position = UDim2.new(0.05, 0, 0, 390)
+    	aliasBox.ClearTextOnFocus = false
+    	aliasBox.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
+    	aliasBox.TextColor3 = Color3.new(1, 1, 1)
+    	if existing and existing.Aliases then
+    		aliasBox.Text = table.concat(existing.Aliases, ",")
+    		aliasBox.PlaceholderText = ""
+    	else
+    		aliasBox.Text = ""
+    		aliasBox.PlaceholderText = "Aliases (comma separated)"
+    	end
+
+    	local saveBtn = Instance.new("TextButton", popup)
+    	saveBtn.Size = UDim2.new(0.4, 0, 0, 35)
+    	saveBtn.Position = UDim2.new(0.3, 0, 1, -45)
+    	saveBtn.Text = "Save Script"
+    	saveBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+    	saveBtn.TextColor3 = Color3.new(1, 1, 1)
+    	Instance.new("UICorner", saveBtn)
+
+    	saveBtn.MouseButton1Click:Connect(function()
+    		local name = nameBox.Text
+    		local code = codeBox.Text
+    		local aliases = {}
+    		for part in string.gmatch(aliasBox.Text or "", "[^,]+") do
+    			table.insert(aliases, part:match("^%s*(.-)%s*$"))
+    		end
+    		if name == "" or code == "" then
+    			return
+    		end
+    		AddScript(name, code, aliases)
+    		SaveScript(name, code, aliases)
+    		popup:Destroy()
+    		Refresh()
+    	end)
+    end
+
+    local function Refresh()
+    	for _, child in ipairs(scriptFrame:GetChildren()) do
+    		if child:IsA("TextButton") then
+    			child:Destroy()
+    		end
+    	end
+
+    	local filter = searchBox.Text:lower()
+
+    	for _, data in ipairs(Scripts) do
+    		local nameMatches = data.Name:lower():find(filter)
+    		local aliasMatches = false
+    		for _, a in ipairs(data.Aliases) do
+    			if a:lower():find(filter) then
+    				aliasMatches = true
+    			end
+    		end
+    		if filter == "" or nameMatches or aliasMatches then
+    			local btn = Instance.new("TextButton")
+    			btn.Size = UDim2.new(1, -5, 0, 35)
+    			btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    			btn.TextColor3 = Color3.new(1, 1, 1)
+    			btn.Text = data.Name
+    			btn.TextXAlignment = Enum.TextXAlignment.Left
+    			btn.TextYAlignment = Enum.TextYAlignment.Center
+    			Instance.new("UICorner", btn)
+    			btn.Parent = scriptFrame
+
+    			local padding = Instance.new("UIPadding", btn)
+    			padding.PaddingLeft = UDim.new(0, 10)
+
+    			btn.MouseButton1Click:Connect(function()
+    				pcall(function()
+    					loadstring(data.Code)()
+    				end)
+    			end)
+
+    			local edit = Instance.new("TextButton", btn)
+    			edit.Size = UDim2.new(0, 30, 0, 30)
+    			edit.Position = UDim2.new(1, -65, 0, 2)
+    			edit.Text = "✏️"
+    			edit.BackgroundTransparency = 1
+    			edit.TextScaled = true
+    			edit.MouseButton1Click:Connect(function()
+    				OpenEditor(data)
+    			end)
+
+    			local delete = Instance.new("TextButton", btn)
+    			delete.Size = UDim2.new(0, 30, 0, 30)
+    			delete.Position = UDim2.new(1, -35, 0, 2)
+    			delete.Text = "🗑"
+    			delete.BackgroundTransparency = 1
+    			delete.TextScaled = true
+    			delete.MouseButton1Click:Connect(function()
+    				DeleteScript(data.Name)
+    				for i, v in ipairs(Scripts) do
+    					if v.Name == data.Name then
+    						table.remove(Scripts, i)
+    						break
+    					end
+    				end
+    				Refresh()
+    			end)
+    		end
+    	end
+    end
+
+    searchBox:GetPropertyChangedSignal("Text"):Connect(Refresh)
+
+    local function LoadSaved()
+    	if not isfolder(BASE_FOLDER) then
+    		return
+    	end
+    	for _, folder in ipairs(listfiles(BASE_FOLDER)) do
+    		if isfolder(folder) then
+    			local name = folder:match("[^/\\]+$")
+    			local file = folder .. "/" .. name .. ".txt"
+    			local aliasesFile = folder .. "/aliases.txt"
+    			local aliases = {}
+    			if isfile(aliasesFile) then
+    				for part in string.gmatch(readfile(aliasesFile), "[^,]+") do
+    					table.insert(aliases, part:match("^%s*(.-)%s*$"))
+    				end
+    			end
+    			if isfile(file) then
+    				table.insert(Scripts, { Name = name, Code = readfile(file), Aliases = aliases })
+    			end
+    		end
+    	end
+    end
+
+    addBtn.MouseButton1Click:Connect(function()
+    	OpenEditor()
+    end)
+    LoadSaved()
+    Refresh()
+
+    UIS.InputBegan:Connect(function(input, gp)
+    	if gp then
+    		return
+    	end
+    	if input.KeyCode == Enum.KeyCode.Comma then
+    		gui.Enabled = not gui.Enabled
+    	end
     end)
 end)
 
