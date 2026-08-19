@@ -36475,311 +36475,183 @@ addcmd("viewer", {"vi"}, function(args, speaker)
     end
 end)
 
-addcmd("scriptmaker", {"sm"}, function(args, speaker)
-    local UIS = game:GetService("UserInputService")
 
-    if game.CoreGui:FindFirstChild("SimpleHub") then
-    	game.CoreGui.SimpleHub:Destroy()
-    end
 
-    local Scripts = {}
+addcmd("grass", {"fucking hate this game"}, function(args, speaker) 
+    local ProtectedInstances = {}
+    local _Instance = Instance.new
+    local _tostring = tostring
 
-    local gui = Instance.new("ScreenGui", game.CoreGui)
-    gui.Name = "SimpleHub"
-    gui.ResetOnSpawn = false
-
-    local main = Instance.new("Frame", gui)
-    main.Size = UDim2.new(0, 550, 0, 420)
-    main.Position = UDim2.new(0.5, -275, 0.5, -210)
-    main.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    main.Active = true
-    main.Draggable = true
-    Instance.new("UICorner", main)
-
-    local top = Instance.new("Frame", main)
-    top.Size = UDim2.new(1, 0, 0, 35)
-    top.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-    Instance.new("UICorner", top)
-
-    local title = Instance.new("TextLabel", top)
-    title.Size = UDim2.new(1, -40, 1, 0)
-    title.BackgroundTransparency = 1
-    title.Text = "-- Universal Script Hub"
-    title.TextColor3 = Color3.new(1, 1, 1)
-    title.Font = Enum.Font.SourceSansBold
-    title.TextSize = 18
-
-    local close = Instance.new("TextButton", top)
-    close.Size = UDim2.new(0, 35, 1, 0)
-    close.Position = UDim2.new(1, -35, 0, 0)
-    close.Text = "X"
-    close.BackgroundColor3 = Color3.fromRGB(170, 40, 40)
-    close.TextColor3 = Color3.new(1, 1, 1)
-    Instance.new("UICorner", close)
-    close.MouseButton1Click:Connect(function()
-    	gui:Destroy()
-    end)
-
-    local searchBox = Instance.new("TextBox", main)
-    searchBox.Size = UDim2.new(1, -20, 0, 30)
-    searchBox.Position = UDim2.new(0, 10, 0, 40)
-    searchBox.PlaceholderText = "Search scripts..."
-    searchBox.Text = ""
-    searchBox.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    searchBox.TextColor3 = Color3.new(1, 1, 1)
-    Instance.new("UICorner", searchBox)
-
-    local scriptFrame = Instance.new("ScrollingFrame", main)
-    scriptFrame.Position = UDim2.new(0, 10, 0, 80)
-    scriptFrame.Size = UDim2.new(1, -20, 1, -130)
-    scriptFrame.ScrollBarThickness = 6
-    scriptFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    Instance.new("UICorner", scriptFrame)
-
-    local layout = Instance.new("UIListLayout", scriptFrame)
-    layout.Padding = UDim.new(0, 6)
-    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    	scriptFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 5)
-    end)
-
-    local addBtn = Instance.new("TextButton", main)
-    addBtn.Size = UDim2.new(1, -20, 0, 40)
-    addBtn.Position = UDim2.new(0, 10, 1, -45)
-    addBtn.Text = "Add Script"
-    addBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    addBtn.TextColor3 = Color3.new(1, 1, 1)
-    Instance.new("UICorner", addBtn)
-
-    local BASE_FOLDER = "ISCRIPTS/Universal Scripts"
-
-    local function EnsureFolders()
-    	if not isfolder("ISCRIPTS") then
-    		makefolder("ISCRIPTS")
-    	end
-    	if not isfolder(BASE_FOLDER) then
-    		makefolder(BASE_FOLDER)
-    	end
-    end
-
-    local function SaveScript(name, code, aliases)
-    	EnsureFolders()
-    	local folder = BASE_FOLDER .. "/" .. name
-    	if not isfolder(folder) then
-    		makefolder(folder)
-    	end
-    	writefile(folder .. "/" .. name .. ".txt", code)
-    	writefile(folder .. "/aliases.txt", table.concat(aliases, ","))
-    end
-
-    local function DeleteScript(name)
-    	local folder = BASE_FOLDER .. "/" .. name
-    	if isfolder(folder) then
-    		delfolder(folder)
-    	end
-    end
-
-    local function AddScript(name, code, aliases)
-    	for i = #Scripts, 1, -1 do
-    		if Scripts[i].Name == name then
-    			table.remove(Scripts, i)
+    local InstanceHook
+    InstanceHook = hookfunction(
+    	Instance.new,
+    	newcclosure(function(...)
+    		if checkcaller() then
+    			local NewInstance = InstanceHook(...)
+    			sethiddenproperty(NewInstance, "DefinesCapabilities", true)
+    			ProtectedInstances[NewInstance] = true
+    			return NewInstance
     		end
-    	end
-    	table.insert(Scripts, { Name = name, Code = code, Aliases = aliases or {} })
-    end
-
-    local function OpenEditor(existing)
-    	local popup = Instance.new("Frame", gui)
-    	popup.Size = UDim2.new(0, 500, 0, 480)
-    	popup.Position = UDim2.new(0.5, -250, 0.5, -240)
-    	popup.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    	popup.Active = true
-    	Instance.new("UICorner", popup)
-
-    	local closeBtn = Instance.new("TextButton", popup)
-    	closeBtn.Size = UDim2.new(0, 35, 0, 35)
-    	closeBtn.Position = UDim2.new(1, -35, 0, 0)
-    	closeBtn.Text = "X"
-    	closeBtn.BackgroundColor3 = Color3.fromRGB(170, 40, 40)
-    	closeBtn.TextColor3 = Color3.new(1, 1, 1)
-    	Instance.new("UICorner", closeBtn)
-    	closeBtn.MouseButton1Click:Connect(function()
-    		popup:Destroy()
+    		return InstanceHook(...)
     	end)
+    )
 
-    	local nameBox = Instance.new("TextBox", popup)
-    	nameBox.Size = UDim2.new(0.9, 0, 0, 30)
-    	nameBox.Position = UDim2.new(0.05, 0, 0, 40)
-    	nameBox.ClearTextOnFocus = false
-    	nameBox.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
-    	nameBox.TextColor3 = Color3.new(1, 1, 1)
-    	if existing and existing.Name and existing.Name ~= "" then
-    		nameBox.Text = existing.Name
-    		nameBox.PlaceholderText = ""
-    	else
-    		nameBox.Text = ""
-    		nameBox.PlaceholderText = "Script Name"
-    	end
-
-    	local codeBox = Instance.new("TextBox", popup)
-    	codeBox.Size = UDim2.new(0.9, 0, 0, 300)
-    	codeBox.Position = UDim2.new(0.05, 0, 0, 80)
-    	codeBox.MultiLine = true
-    	codeBox.ClearTextOnFocus = false
-    	codeBox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    	codeBox.TextColor3 = Color3.new(1, 1, 1)
-    	codeBox.TextXAlignment = Enum.TextXAlignment.Left
-    	codeBox.TextYAlignment = Enum.TextYAlignment.Top
-    	codeBox.ClipsDescendants = true
-    	if existing and existing.Code and existing.Code ~= "" then
-    		codeBox.Text = existing.Code
-    		codeBox.PlaceholderText = ""
-    	else
-    		codeBox.Text = ""
-    		codeBox.PlaceholderText = "Paste Script Here"
-    	end
-
-    	local aliasBox = Instance.new("TextBox", popup)
-    	aliasBox.Size = UDim2.new(0.9, 0, 0, 30)
-    	aliasBox.Position = UDim2.new(0.05, 0, 0, 390)
-    	aliasBox.ClearTextOnFocus = false
-    	aliasBox.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
-    	aliasBox.TextColor3 = Color3.new(1, 1, 1)
-    	if existing and existing.Aliases then
-    		aliasBox.Text = table.concat(existing.Aliases, ",")
-    		aliasBox.PlaceholderText = ""
-    	else
-    		aliasBox.Text = ""
-    		aliasBox.PlaceholderText = "Aliases (comma separated)"
-    	end
-
-    	local saveBtn = Instance.new("TextButton", popup)
-    	saveBtn.Size = UDim2.new(0.4, 0, 0, 35)
-    	saveBtn.Position = UDim2.new(0.3, 0, 1, -45)
-    	saveBtn.Text = "Save Script"
-    	saveBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-    	saveBtn.TextColor3 = Color3.new(1, 1, 1)
-    	Instance.new("UICorner", saveBtn)
-
-    	saveBtn.MouseButton1Click:Connect(function()
-    		local name = nameBox.Text
-    		local code = codeBox.Text
-    		local aliases = {}
-    		for part in string.gmatch(aliasBox.Text or "", "[^,]+") do
-    			table.insert(aliases, part:match("^%s*(.-)%s*$"))
-    		end
-    		if name == "" or code == "" then
-    			return
-    		end
-    		AddScript(name, code, aliases)
-    		SaveScript(name, code, aliases)
-    		popup:Destroy()
-    		Refresh()
-    	end)
-    end
-
-    local function Refresh()
-    	for _, child in ipairs(scriptFrame:GetChildren()) do
-    		if child:IsA("TextButton") then
-    			child:Destroy()
-    		end
-    	end
-
-    	local filter = searchBox.Text:lower()
-
-    	for _, data in ipairs(Scripts) do
-    		local nameMatches = data.Name:lower():find(filter)
-    		local aliasMatches = false
-    		for _, a in ipairs(data.Aliases) do
-    			if a:lower():find(filter) then
-    				aliasMatches = true
+    local tostringHook
+    tostringHook = hookfunction(
+    	_tostring,
+    	newcclosure(function(...)
+    		local args = { ... }
+    		if not checkcaller() then
+    			if ProtectedInstances[args[1]] then
+    				return ""
     			end
     		end
-    		if filter == "" or nameMatches or aliasMatches then
-    			local btn = Instance.new("TextButton")
-    			btn.Size = UDim2.new(1, -5, 0, 35)
-    			btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    			btn.TextColor3 = Color3.new(1, 1, 1)
-    			btn.Text = data.Name
-    			btn.TextXAlignment = Enum.TextXAlignment.Left
-    			btn.TextYAlignment = Enum.TextYAlignment.Center
-    			Instance.new("UICorner", btn)
-    			btn.Parent = scriptFrame
+    		return tostringHook(...)
+    	end)
+    )
 
-    			local padding = Instance.new("UIPadding", btn)
-    			padding.PaddingLeft = UDim.new(0, 10)
-
-    			btn.MouseButton1Click:Connect(function()
-    				pcall(function()
-    					loadstring(data.Code)()
-    				end)
-    			end)
-
-    			local edit = Instance.new("TextButton", btn)
-    			edit.Size = UDim2.new(0, 30, 0, 30)
-    			edit.Position = UDim2.new(1, -65, 0, 2)
-    			edit.Text = "✏️"
-    			edit.BackgroundTransparency = 1
-    			edit.TextScaled = true
-    			edit.MouseButton1Click:Connect(function()
-    				OpenEditor(data)
-    			end)
-
-    			local delete = Instance.new("TextButton", btn)
-    			delete.Size = UDim2.new(0, 30, 0, 30)
-    			delete.Position = UDim2.new(1, -35, 0, 2)
-    			delete.Text = "🗑"
-    			delete.BackgroundTransparency = 1
-    			delete.TextScaled = true
-    			delete.MouseButton1Click:Connect(function()
-    				DeleteScript(data.Name)
-    				for i, v in ipairs(Scripts) do
-    					if v.Name == data.Name then
-    						table.remove(Scripts, i)
-    						break
-    					end
-    				end
-    				Refresh()
-    			end)
-    		end
-    	end
-    end
-
-    searchBox:GetPropertyChangedSignal("Text"):Connect(Refresh)
-
-    local function LoadSaved()
-    	if not isfolder(BASE_FOLDER) then
-    		return
-    	end
-    	for _, folder in ipairs(listfiles(BASE_FOLDER)) do
-    		if isfolder(folder) then
-    			local name = folder:match("[^/\\]+$")
-    			local file = folder .. "/" .. name .. ".txt"
-    			local aliasesFile = folder .. "/aliases.txt"
-    			local aliases = {}
-    			if isfile(aliasesFile) then
-    				for part in string.gmatch(readfile(aliasesFile), "[^,]+") do
-    					table.insert(aliases, part:match("^%s*(.-)%s*$"))
+    local FunctionHook
+    FunctionHook = hookmetamethod(
+    	game,
+    	"__namecall",
+    	newcclosure(function(self, ...)
+    		local Method = getnamecallmethod()
+    		if not checkcaller() then
+    			if ProtectedInstances[self] then
+    				return nil
+    			end
+    			local methodLower = Method:lower()
+    			if methodLower:match("^findfirst") or methodLower:match("^waitforchild") then
+    				local Inst = FunctionHook(self, ...)
+    				if Inst and ProtectedInstances[Inst] then
+    					return nil
     				end
     			end
-    			if isfile(file) then
-    				table.insert(Scripts, { Name = name, Code = readfile(file), Aliases = aliases })
+    		end
+    		return FunctionHook(self, ...)
+    	end)
+    )
+
+    local PropertiesHook
+    PropertiesHook = hookmetamethod(
+    	game,
+    	"__index",
+    	newcclosure(function(self, index)
+    		if not checkcaller() then
+    			local indexLower = index:lower()
+    			local selfProtected = ProtectedInstances[self]
+
+    			if (selfProtected and indexLower:match("^is")) or indexLower:match("^findfirst") then
+    				local IndexFunction = PropertiesHook(self, index)
+    				if typeof(IndexFunction) == "function" and not isfunctionhooked(IndexFunction) then
+    					hookfunction(
+    						IndexFunction,
+    						newcclosure(function(...)
+    							local args = { ... }
+    							local Inst = IndexFunction(self, args[2])
+    							if (Inst and ProtectedInstances[Inst]) or selfProtected then
+    								return nil
+    							end
+    						end)
+    					)
+    				end
+    			end
+
+    			if selfProtected and typeof(PropertiesHook(self, index)) ~= "function" then
+    				return nil
     			end
     		end
+    		return PropertiesHook(self, index)
+    	end)
+    )
+
+    for _, Thread in next, getactorthreads() do
+    	run_on_thread(
+    		Thread,
+    		[[
+            local _tostring = tostring
+            local args
+
+            hookfunction(tostring, newcclosure(function(...)
+                args = {...}
+                if not checkcaller() and gethiddenproperty(args[1], "DefinesCapabilities") then
+                    return ""
+                end
+                return _tostring(...)
+            end))
+
+            hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+                if not checkcaller() and gethiddenproperty(self, "DefinesCapabilities") then
+                    return nil
+                end
+                return old(self, ...)
+            end))
+        ]]
+    	)
+    end
+    local Players = game:GetService("Players")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local LP = Players.LocalPlayer
+    local Remotes = ReplicatedStorage:WaitForChild("RemoteEvents")
+
+
+
+    local WEAPON_MODS = {
+
+
+    	["AnimationTime"] = 0.5,
+    	["BaseCooldown"] = 0.6,
+
+
+    }
+
+    local function Inject(Tool)
+    	if not Tool:IsA("Tool") then
+    		return
+    	end
+
+    	for Name, Value in pairs(WEAPON_MODS) do
+    		Tool:SetAttribute(Name, Value)
+    	end
+
+    	local WS = Tool:FindFirstChild("WeaponLocalScript")
+    	if WS then
+    		WS.Disabled = true
+    		task.wait(0.1)
+    		WS.Disabled = false
     	end
     end
 
-    addBtn.MouseButton1Click:Connect(function()
-    	OpenEditor()
+    LP.CharacterAdded:Connect(function(Character)
+    	Character.ChildAdded:Connect(Inject)
     end)
-    LoadSaved()
-    Refresh()
 
-    UIS.InputBegan:Connect(function(input, gp)
-    	if gp then
-    		return
+    if LP.Character then
+    	LP.Character.ChildAdded:Connect(Inject)
+    	for _, v in ipairs(LP.Character:GetChildren()) do
+    		Inject(v)
     	end
-    	if input.KeyCode == Enum.KeyCode.Comma then
-    		gui.Enabled = not gui.Enabled
+    end
+
+    task.spawn(function()
+    	while task.wait(0.01) do
+    		local Character = LP.Character
+    		local Tool = Character and Character:FindFirstChildOfClass("Tool")
+    		local Swing = Tool and Tool:FindFirstChild("WeaponSwingEvent")
+
+    		if Swing then
+    			Swing:FireServer("SwingStart")
+    			Swing:FireServer("HitboxStart")
+    			Swing:FireServer("HitboxEnd")
+    			Swing:FireServer("SwingEnd")
+    		end
+
+    		local LootModels = workspace:FindFirstChild("LootModels")
+    		if LootModels then
+    			for _, Loot in ipairs(LootModels:GetChildren()) do
+    				Remotes.LootPickedUpEvent:FireServer(Loot.Name)
+    			end
+    		end
     	end
     end)
 end)
