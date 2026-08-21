@@ -1,7 +1,7 @@
 local function main()
 	local ZukDecompile
-	--local prettyPrint
-	--local cleanOutput
+	local prettyPrint
+	local cleanOutput
 	task.defer(function()
 		local FLOAT_PRECISION = 7
 		local Reader = {}
@@ -198,11 +198,12 @@ local function main()
 				{ name = "NEWCLASSMEMBER", type = "ABC", aux = true },
 				{ name = "CALLFB", type = "ABC", aux = true },
 				{ name = "CMPPROTO", type = "AsD", aux = true },
+				{ name = "NEWCLASS", type = "ABC", aux = true },
 				{ name = "_COUNT", type = "none" },
 			},
 			BytecodeTag = {
 				LBC_VERSION_MIN = 1,
-				LBC_VERSION_MAX = 11,
+				LBC_VERSION_MAX = 13,
 				LBC_TYPE_VERSION_MIN = 1,
 				LBC_TYPE_VERSION_MAX = 3,
 				LBC_CONSTANT_NIL = 0,
@@ -215,6 +216,8 @@ local function main()
 				LBC_CONSTANT_VECTOR = 7,
 				LBC_CONSTANT_TABLE_WITH_CONSTANTS = 8,
 				LBC_CONSTANT_INTEGER = 9,
+				LBC_CONSTANT_CLASS_SHAPE = 10,
+				LBC_CONSTANT_VECTORD = 11,
 			},
 			BytecodeType = {
 				LBC_TYPE_NIL = 0,
@@ -818,13 +821,43 @@ local function main()
 								local keys = {}
 								for k = 1, sz do
 									keys[k] = reader:nextVarInt() + 1
-									reader:nextVarInt()
+									reader:nextInt32()
 								end
 								constValue = { size = sz, keys = keys }
 							elseif constType == BT.LBC_CONSTANT_INTEGER then
-								local lo = reader:nextUInt32()
-								local hi = reader:nextUInt32()
-								constValue = hi * 4294967296 + lo
+								-- Real wire format: 1 sign byte (0/1) + 1 varint magnitude,
+								-- NOT two raw 4-byte words - reading the old (wrong) way
+								-- desynced every byte read for the rest of the file on any
+								-- 64-bit integer constant.
+								-- NOTE: nextVarInt() itself is bit32-backed and so is
+								-- clamped to 32 bits; this correctly fixes the byte-stream
+								-- desync but very large (>2^32) integer constants will
+								-- still read back with a truncated magnitude. That's a
+								-- separate, much rarer precision gap - not a resync issue.
+								local isNegative = reader:nextByte()
+								local magnitude = reader:nextVarInt()
+								constValue = (isNegative == 1) and -magnitude or magnitude
+							elseif constType == BT.LBC_CONSTANT_CLASS_SHAPE then
+								local classNameIdx = reader:nextVarInt()
+								local propCount = reader:nextVarInt()
+								local methodCount = reader:nextVarInt()
+								local propNames, methodNames = {}, {}
+								for k = 1, propCount do
+									propNames[k] = stringTable[reader:nextVarInt()]
+								end
+								for k = 1, methodCount do
+									methodNames[k] = stringTable[reader:nextVarInt()]
+								end
+								constValue = {
+									className = stringTable[classNameIdx],
+									properties = propNames,
+									methods = methodNames,
+								}
+							elseif constType == BT.LBC_CONSTANT_VECTORD then
+								local x, y, z, w =
+									reader:nextDouble(), reader:nextDouble(), reader:nextDouble(), reader:nextDouble()
+								constValue = w == 0 and ("Vector3.new(" .. x .. "," .. y .. "," .. z .. ")")
+									or ("vector.create(" .. x .. "," .. y .. "," .. z .. "," .. w .. ")")
 							end
 							proto.constants[j] = { type = constType, value = constValue }
 						end
@@ -2263,6 +2296,7 @@ local function main()
 			[8] = "table_with_constants",
 			[9] = "integer",
 			[10] = "class_shape",
+			[11] = "vectord",
 		}
 		local function parseProto(p, stringTable, depth, bytecodeVer)
 			local result = {
@@ -3007,7 +3041,7 @@ local function main()
 		prettyPrint = _ppImpl
 		cleanOutput = _coImpl
 		getgenv()._ZUK_DECOMPILE = Decompile
-	--	getgenv()._ZUK_PRETTYPRINT = _ppImpl
-	--	getgenv()._ZUK_CLEANOUTPUT = _coImpl
+		getgenv()._ZUK_PRETTYPRINT = _ppImpl
+		getgenv()._ZUK_CLEANOUTPUT = _coImpl
 	end)
 end
