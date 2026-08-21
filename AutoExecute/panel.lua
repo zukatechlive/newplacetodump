@@ -232,7 +232,84 @@ local CollectionService = game:GetService("CollectionService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerMouse = LocalPlayer:GetMouse()
 local CurrentCamera = Workspace.CurrentCamera
-
+do
+    local THEME = {
+    Title = "Success..",
+    Subtitle = "Loading Zuka Tech...",
+    IconAssetId = "rbxassetid://7243158473",
+    BackgroundColor = Color3.fromRGB(20, 20, 25),
+    AccentColor = Color3.fromRGB(0, 255, 255),
+    TextColor = Color3.fromRGB(240, 240, 240),
+    FadeInTime = 0.5,
+    HoldTime = 2.0,
+    FadeOutTime = 0.7
+    }
+    local splashGui = Instance.new("ScreenGui")
+    splashGui.Name = "SplashScreen_" .. math.random(1000, 9999)
+    splashGui.ResetOnSpawn = false
+    splashGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+    local background = Instance.new("Frame", splashGui)
+    background.Size = UDim2.fromScale(1, 1)
+    background.BackgroundColor3 = THEME.BackgroundColor
+    background.BackgroundTransparency = 1
+    local centerFrame = Instance.new("Frame", background)
+    centerFrame.Size = UDim2.fromOffset(200, 200)
+    centerFrame.Position = UDim2.fromScale(0.5, 0.5)
+    centerFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    centerFrame.BackgroundTransparency = 1
+    local icon = Instance.new("ImageLabel", centerFrame)
+    icon.Size = UDim2.fromScale(0.5, 0.5)
+    icon.Position = UDim2.fromScale(0.5, 0.35)
+    icon.AnchorPoint = Vector2.new(0.5, 0.5)
+    icon.BackgroundTransparency = 1
+    icon.Image = THEME.IconAssetId
+    icon.ImageColor3 = THEME.AccentColor
+    icon.ImageTransparency = 1
+    local title = Instance.new("TextLabel", centerFrame)
+    title.Size = UDim2.new(1, 0, 0.2, 0)
+    title.Position = UDim2.fromScale(0.5, 0.65)
+    title.AnchorPoint = Vector2.new(0.5, 0.5)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.GothamSemibold
+    title.Text = THEME.Title
+    title.TextColor3 = THEME.TextColor
+    title.TextSize = 24
+    title.TextTransparency = 1
+    local subtitle = Instance.new("TextLabel", centerFrame)
+    subtitle.Size = UDim2.new(1, 0, 0.1, 0)
+    subtitle.Position = UDim2.fromScale(0.5, 0.8)
+    subtitle.AnchorPoint = Vector2.new(0.5, 0.5)
+    subtitle.BackgroundTransparency = 1
+    subtitle.Font = Enum.Font.Gotham
+    subtitle.Text = THEME.Subtitle
+    subtitle.TextColor3 = THEME.TextColor
+    subtitle.TextSize = 14
+    subtitle.TextTransparency = 1
+    splashGui.Parent = CoreGui
+    local tweenInfoIn = TweenInfo.new(THEME.FadeInTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local tweenInfoOut = TweenInfo.new(THEME.FadeOutTime, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+    local fadeInTweens = {
+    TweenService:Create(background, tweenInfoIn, { BackgroundTransparency = 0.3 }),
+    TweenService:Create(icon, tweenInfoIn, { ImageTransparency = 0 }),
+    TweenService:Create(title, tweenInfoIn, { TextTransparency = 0 }),
+    TweenService:Create(subtitle, tweenInfoIn, { TextTransparency = 0.2 })
+    }
+    local fadeOutTweens = {
+    TweenService:Create(background, tweenInfoOut, { BackgroundTransparency = 1 }),
+    TweenService:Create(icon, tweenInfoOut, { ImageTransparency = 1 }),
+    TweenService:Create(title, tweenInfoOut, { TextTransparency = 1 }),
+    TweenService:Create(subtitle, tweenInfoOut, { TextTransparency = 1 })
+    }
+    for _, tween in ipairs(fadeInTweens) do
+        tween:Play()
+    end
+    task.wait(THEME.FadeInTime + THEME.HoldTime)
+    for _, tween in ipairs(fadeOutTweens) do
+        tween:Play()
+    end
+    fadeOutTweens[1].Completed:Wait()
+    splashGui:Destroy()
+end
 local Utilities = {}
 function Utilities.findPlayer(inputName)
 	local input = tostring(inputName):lower()
@@ -415,6 +492,9 @@ end
 
 addcmd = getgenv().addcmd
 
+
+
+-- start of cmds
 Modules.Performance = {
 	State = {
 		IsEnabled = false,
@@ -692,7 +772,6 @@ function Modules.Performance:Disable()
 
 	DoNotif("Performance Mode: DISABLED", 2)
 end
-
 function Modules.Performance:Toggle()
 	if self.State.IsEnabled then
 		self:Disable()
@@ -700,7 +779,6 @@ function Modules.Performance:Toggle()
 		self:Enable()
 	end
 end
-
 zukacmd({
 	Name = "fpsboost",
 	Aliases = { "noshadows", "performance" },
@@ -708,10 +786,11 @@ zukacmd({
 }, function()
 	Modules.Performance:Toggle()
 end)
+
 zukacmd({
 	Name = "desync",
-	Aliases = { "psync" },
-	Description = "Zukas P Desync.",
+	Aliases = { "d" },
+	Description = "Zukas Desync.",
 	ArgsDesc = {},
 	Permissions = {},
 }, function(args, speaker)
@@ -726,8 +805,8 @@ zukacmd({
 	local function DoNotif(msg, duration)
 		pcall(function()
 			StarterGui:SetCore("SendNotification", {
-				Title = "Astral Projection:",
-				Text = msg,
+				Title = "DoNotif:",
+				Text = "Desync toggled.",
 				Duration = duration or 1.5,
 			})
 		end)
@@ -1339,11 +1418,11 @@ function Modules.CommandList:Toggle()
 		end)
 	end
 end
+
 -- CommandBar.lua
 -- Paste directly in place of the old Modules.CommandBar block.
 -- Uses the `Modules`, `Prefix`, `processCommand`, `CoreGui`, `TweenService`,
 -- and `UserInputService` that already exist in the outer script.
-
 local MAX_SUGGESTIONS = 12
 local HISTORY_LIMIT = 80
 
@@ -1799,12 +1878,12 @@ Modules.ESP = {
 		ColorMode = "team",
 		CustomFillColor = Color3.fromRGB(255, 50, 50),
 		CustomOutlineColor = Color3.fromRGB(255, 255, 255),
-		FillTransparency = 0.75,
-		OutlineTransparency = 0.1,
+		FillTransparency = 0.85,
+		OutlineTransparency = 0.3,
 		DistanceClose = 100,
 		DistanceMid = 500,
 		MaxDistance = 10000,
-		UpdateRate = 0.05,
+		UpdateRate = 0.1,
 		CharLoadTimeout = 15,
 		CharLoadRetries = 3,
 	},
@@ -2125,18 +2204,20 @@ function Modules.ESP:SetColor(args)
 end
 zukacmd({
 	Name = "esp",
-	Aliases = { "visuals" },
+	Aliases = {},
 	Description = "Toggles ESP for all players or a specific player. Usage: esp [player|all]",
 }, function(args)
 	Modules.ESP:Toggle(args[1])
 end)
 zukacmd({
 	Name = "espcolor",
-	Aliases = { "espc" },
+	Aliases = {},
 	Description = "Change ESP colors. Modes: team | distance | custom <r> <g> <b> | outline <r> <g> <b>",
 }, function(args)
 	Modules.ESP:SetColor(args)
 end)
+
+
 Modules.SnapTP = {
 	State = {
 		SnapDelay = 0.1,
@@ -2200,7 +2281,7 @@ end
 
 zukacmd({
 	Name = "snaptp",
-	Aliases = { "stp", "rtp", "randomtp" },
+	Aliases = {},
 	Description = "Snap-teleport to a player and return instantly. Usage: snaptp [playerName]",
 }, function(args)
 	if args and args[1] and args[1]:lower() == "delay" then
@@ -2258,6 +2339,7 @@ end
 zukacmd({ Name = "clicktp", Aliases = {}, Description = "Hold Left CTRL and click to teleport." }, function(args)
 	Modules.ClickTP:Toggle(args)
 end)
+
 Modules.FovChanger = {
 	State = {
 		IsEnabled = false,
@@ -2318,6 +2400,8 @@ zukacmd({ Name = "fov", Aliases = { "fieldofview", "camfov" }, Description = "Ch
 	enableFovLock()
 	DoNotif("FOV locked to " .. clampedFov, 2)
 end)
+
+
 zukacmd({ Name = "cmds", Aliases = {}, Description = "Command List." }, function()
 	Modules.CommandList:Toggle()
 end)
@@ -2590,11 +2674,11 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
 		return
 	end
-	if input.KeyCode == Enum.KeyCode.RightControl then
+	if input.KeyCode == Enum.KeyCode.V then
 		Fly:Toggle()
 	end
 end)
-zukacmd({ Name = "fly", Aliases = { "flight" }, Description = "Toggle fly. (also bound to F)" }, function()
+zukacmd({ Name = "fly", Aliases = { "flight" }, Description = "Go whoosh" }, function()
 	Fly:Toggle()
 end)
 zukacmd({ Name = "flyspeed", Aliases = { "fs" }, Description = "Set fly speed. Usage: flyspeed <n>" }, function(args)
@@ -3354,6 +3438,7 @@ zukacmd({
 	print("Attempts Blocked:", stats.AttemptsBlocked)
 	print("Uptime:", string.format("%.1f", stats.Uptime) .. "s")
 end)
+
 Modules.Fling = {
 	State = {
 		IsFlinging = false,
@@ -3475,7 +3560,7 @@ function Modules.Fling:Initialize()
 	end
 	zukacmd({
 		Name = "fling",
-		Aliases = { "ff" },
+		Aliases = { "fl" },
 		Description = "Flings a target player using physics manipulation.",
 	}, function(args)
 		local targetName = args[1] or ""
