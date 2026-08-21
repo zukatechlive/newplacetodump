@@ -6184,10 +6184,10 @@ local EmbeddedModules = {
 										CleanMode = false,
 										ReaderFloatPrecision = 7,
 										ShowDebugInformation = true,
-										ShowTrivialOperations = false,
+										ShowTrivialOperations = true,
 										ShowInstructionLines = true,
-										ShowOperationIndex = true,
-										ShowOperationNames = true,
+										ShowOperationIndex = false,
+										ShowOperationNames = false,
 										ListUsedGlobals = true,
 										UseTypeInfo = true,
 										EnabledRemarks = { ColdRemark = true, InlineRemark = false },
@@ -31102,7 +31102,9 @@ local function main()
 		getgenv()._ZUK_PRETTYPRINT = _ppImpl
 		getgenv()._ZUK_CLEANOUTPUT = _coImpl
 	end)
-    local ScriptViewer = {}
+
+
+  local ScriptViewer = {}
 	local window, codeFrame
 
 	local execute, clear, dumpbtn
@@ -31372,21 +31374,22 @@ local function main()
 			end
 		end
 		if okBC and bytecode and bytecode ~= "" and ZukDecompile then
-			local opts = {
-				DecompilerMode = "disasm",
-				DecompilerTimeout = 20,
-				CleanMode = true,
-				ReaderFloatPrecision = 10,
-				ShowDebugInformation = true,
-				ShowTrivialOperations = true,
-				ShowInstructionLines = true,
-				ShowOperationIndex = false,
-				ShowOperationNames = false,
-				ListUsedGlobals = true,
-				UseTypeInfo = true,
-				EnabledRemarks = { ColdRemark = true, InlineRemark = true },
-				ReturnElapsedTime = true,
-			}
+									local opts = {
+										DecompilerMode = "disasm",
+										DecompilerTimeout = 10,
+										CleanMode = true,
+										ReaderFloatPrecision = 7,
+										ShowDebugInformation = true,
+										ShowTrivialOperations = true,
+										ShowInstructionLines = true,
+										ShowOperationIndex = false,
+										ShowOperationNames = false,
+										ListUsedGlobals = true,
+										UseTypeInfo = true,
+										EnabledRemarks = { ColdRemark = true, InlineRemark = false },
+										ReturnElapsedTime = true,
+										prettyPrint = true,
+									}
 			local okD, result, elapsed = pcall(ZukDecompile, bytecode, opts)
 			local zukFailed = not okD
 				or not result
