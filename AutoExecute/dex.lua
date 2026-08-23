@@ -7410,428 +7410,146 @@ local EmbeddedModules = {
 					end,
 				})
 
-				context:Register("GENERATE_UNIVERSAL_POISON", {
-					Name = "[ZEX] Universal Module Poison",
-					IconMap = Explorer.MiscIcons,
-					Icon = "Zap",
-					OnClick = function()
-						local node = selection.List[1]
-						if not node or not node.Obj:IsA("ModuleScript") then
-							if getgenv().DoNotif then
-								getgenv().DoNotif(" Select a ModuleScript first!", 2)
-							end
-							return
-						end
+context:Register("GENERATE_UNIVERSAL_POISON", {
+	Name = "_Make OP",
+	IconMap = Explorer.MiscIcons,
+	Icon = "CallFunction",
+	OnClick = function()
+		local node = selection.List[1]
+		if not node or not node.Obj:IsA("ModuleScript") then
+			return
+		end
+		local module = node.Obj
 
-						local module = node.Obj
-						local path = Explorer.GetInstancePath(module)
-						local success, result = pcall(require, module)
+		local path = Explorer.GetInstancePath(module)
+		local success, result = pcall(require, module)
 
-						local detectedTypes = {}
-						local confidence = {}
+		local function getPoisonValue(name, currentVal)
+			local n = tostring(name)
+			local lowerN = n:lower()
 
-						local function detectModuleTypes(tbl)
-							if type(tbl) ~= "table" then
-								return
-							end
+			if n == "BaseDamage" or lowerN:find("damage") then
+				return 999999
+			elseif n == "HeadshotDamageMultiplier" or lowerN:find("headshot") then
+				return 100
+			elseif n == "FireRate" or n == "BurstRate" or n == "ReloadTime" or n == "EquipTime" then
+				return 0.03
+			elseif n == "TacticalReloadTime" or n == "SwitchTime" or lowerN:find("delay") then
+				return 0
+			elseif n == "AmmoPerMag" then
+				return 999999
+			elseif n == "Recoil" then
+				return 0
+			elseif n == "BulletPerShot" then
+				return 5
+			elseif n == "FriendlyFire" then
+				return true
+			elseif n == "Lifesteal" then
+				return 99999
+			elseif n == "ShotgunEnabled" then
+				return true
+			elseif n == "Knockback" then
+				return 9999999
+			elseif n == "IcifyChance" then
+				return 9999
+			elseif n == "FlamingBullet" then
+				return true
+			elseif n == "IgniteChance" then
+				return 9999
+			elseif n == "FreezingBullet" then
+				return true
+			elseif n == "ChargedShotEnabled" then
+				return false
+			elseif n == "ChargingTime" then
+				return 0
+			elseif n == "HoldAndReleaseEnabled" then
+				return false
+			elseif n == "DelayBeforeFiring" then
+				return 0
+			elseif n == "Auto" then
+				return false
+			elseif n == "CriticalDamageEnabled" then
+				return 999999
+			elseif n == "HoldDownEnabled" then
+				return false
+			elseif n == "BulletLifetime" then
+				return 10
+			elseif n == "Recoil" or n == "Spread" or n == "Accuracy" then
+				return 0
+			elseif lowerN:find("angle") and (lowerN:find("min") or lowerN:find("max")) then
+				return 0
+			elseif n == "BulletSpeed" or n == "Range" then
+				return 90000
+			elseif n == "LimitedAmmoEnabled" or n == "DamageDropOffEnabled" then
+				return false
+			end
+			return currentVal
+		end
 
-							local signatures = {
-								["SHOP"] = { "Price", "Cost", "Currency", "BuyPrice", "SellPrice" },
-								["CURRENCY"] = { "Coins", "Cash", "Money", "Gems", "Credits" },
-								["REWARDS"] = { "Reward", "Prize", "Loot", "Drop", "XP" },
+		local function serialize(v)
+			local t = typeof(v)
+			if t == "string" then
+				return '"' .. v .. '"'
+			elseif t == "number" or t == "boolean" then
+				return tostring(v)
+			elseif t == "Vector3" then
+				return "Vector3.new(" .. v.X .. ", " .. v.Y .. ", " .. v.Z .. ")"
+			elseif t == "Vector2" then
+				return "Vector2.new(" .. v.X .. ", " .. v.Y .. ")"
+			elseif t == "CFrame" then
+				return "CFrame.new(" .. tostring(v) .. ")"
+			elseif t == "Color3" then
+				return "Color3.fromRGB("
+					.. math.floor(v.R * 255)
+					.. ", "
+					.. math.floor(v.G * 255)
+					.. ", "
+					.. math.floor(v.B * 255)
+					.. ")"
+			elseif t == "EnumItem" then
+				return tostring(v)
+			end
+			return "nil"
+		end
 
-								["STATS"] = { "Health", "MaxHealth", "Speed", "WalkSpeed", "JumpPower" },
-								["ABILITIES"] = { "Cooldown", "ManaCost", "Duration", "Power" },
-								["INVENTORY"] = { "MaxSlots", "Capacity", "Weight", "Limit" },
+		local output = "\n--[[ \pwned: "
+			.. module.Name
+			.. "\n\tMade with love.\n\tTARGET: "
+			.. path
+			.. "\n--]]\n\n"
+		output = output .. "local _ = require(" .. path .. ")\n"
+		output = output .. "if setreadonly then setreadonly(_, false) end\n\n"
 
-								["VEHICLE"] = { "Speed", "Acceleration", "Handling", "TopSpeed", "Fuel" },
-								["BOAT"] = { "MaxSpeed", "TurnSpeed", "Buoyancy" },
-								["AIRCRAFT"] = { "ThrustPower", "LiftForce", "MaxAltitude" },
+		if not success then
+			output = output .. "-- [ERROR]: Require failed.\n"
+		elseif type(result) == "table" then
+			for k, v in pairs(result) do
+				if type(v) ~= "function" and type(v) ~= "table" then
+					local pVal = getPoisonValue(tostring(k), v)
+					local pValDisp = serialize(pVal)
 
-								["PET"] = { "Damage", "CollectionRadius", "SpawnRate", "Rarity", "Level" },
-								["COMPANION"] = { "FollowDistance", "AttackDamage", "Health" },
+					if pVal ~= v then
+						output = output .. "_." .. tostring(k) .. " = " .. pValDisp .. " -- [zukv2]\n"
+					end
+				end
+			end
+			output = output .. "\nif setreadonly then setreadonly(_, true) end\n"
+			output = output .. "print('--> [zukv2]: " .. module.Name .. " has been updated.')"
+		else
+			output = output .. "-- [INFO]: Module returns a " .. type(result) .. " instead of a table."
+		end
 
-								["TYCOON"] = { "Income", "BuildTime", "UpgradeCost", "ProductionRate" },
-								["BUILDING"] = { "Cost", "BuildDuration", "Material", "Requirement" },
 
-								["FARMING"] = { "GrowthTime", "YieldAmount", "WaterNeeded", "HarvestValue" },
-								["MINING"] = { "HardnessLevel", "OreValue", "RespawnTime", "Durability" },
-								["SIMULATOR"] = { "Multiplier", "Boost", "Rate", "ClickPower" },
+		print(output)
+		print("we're so back")
 
-								["CRAFTING"] = { "CraftTime", "MaterialCost", "Recipe", "Ingredients" },
-								["REBIRTH"] = { "Requirement", "Multiplier", "ResetValue", "Level" },
-								["UPGRADE"] = { "Level", "MaxLevel", "UpgradeCost", "Effect" },
-								["TELEPORT"] = { "Cooldown", "Destination", "RequiredLevel", "Cost" },
+		ScriptViewer.ViewRaw(output)
+		if getgenv().DoNotif then
+			getgenv().DoNotif(" Poison Patch opened in notepad!", 3)
+		end
+	end,
+})
 
-								["GAMEPASS"] = { "GamepassId", "GamepassRequired", "Premium", "VIP" },
-								["RESTRICTIONS"] = { "MinLevel", "MaxLevel", "RequiredItem", "Locked" },
-								["COOLDOWNS"] = { "GlobalCooldown", "ActionDelay", "RateLimit" },
-
-								["ZONE"] = { "Radius", "DamagePerSecond", "SafeZone", "Boundary" },
-								["DOOR"] = { "Keycard", "AccessLevel", "Permission", "RequiredRank" },
-								["EVENT"] = { "SpawnRate", "Duration", "Frequency", "Chance" },
-							}
-
-							for moduleType, keys in pairs(signatures) do
-								local matches = 0
-								for _, key in ipairs(keys) do
-									if tbl[key] ~= nil then
-										matches = matches + 1
-									end
-								end
-
-								local matchPercent = (matches / #keys) * 100
-								if matchPercent >= 30 then
-									table.insert(detectedTypes, moduleType)
-									confidence[moduleType] = matchPercent
-								end
-							end
-
-							table.sort(detectedTypes, function(a, b)
-								return confidence[a] > confidence[b]
-							end)
-						end
-
-						if success and type(result) == "table" then
-							detectModuleTypes(result)
-						end
-
-						local function getPoisonValue(name, currentVal, types)
-							local n = tostring(name)
-							local lowerN = n:lower()
-							local typeV = type(currentVal)
-
-							if typeV == "table" or typeV == "function" or typeV == "userdata" then
-								return currentVal
-							end
-
-							if typeV == "boolean" then
-								if
-									lowerN:find("lock")
-									or lowerN:find("restrict")
-									or lowerN:find("limit")
-									or lowerN:find("required")
-									or lowerN:find("enabled")
-									or lowerN:find("disabled")
-									or lowerN:find("vip")
-									or lowerN:find("premium")
-									or lowerN:find("gamepass")
-								then
-									return false
-								end
-
-								if
-									lowerN:find("auto")
-									or lowerN:find("infinite")
-									or lowerN:find("unlimited")
-									or lowerN:find("collect")
-									or lowerN:find("free")
-								then
-									return true
-								end
-							end
-
-							if typeV == "number" then
-								if
-									lowerN:find("cost")
-									or lowerN:find("price")
-									or lowerN:find("expense")
-									or lowerN:find("fee")
-									or lowerN:find("tax")
-								then
-									return 0
-								end
-
-								if
-									lowerN:find("cooldown")
-									or lowerN:find("delay")
-									or lowerN:find("wait")
-									or lowerN:find("ratelimit")
-								then
-									return 0.01
-								end
-
-								if
-									lowerN:find("time")
-									or lowerN:find("duration")
-									or lowerN:find("respawn")
-									or lowerN:find("growth")
-									or lowerN:find("craft")
-									or lowerN:find("build")
-								then
-									return 0.01
-								end
-
-								if
-									lowerN:find("requirement")
-									or lowerN:find("needed")
-									or lowerN:find("minlevel")
-									or lowerN:find("threshold")
-								then
-									return 0
-								end
-
-								if lowerN:find("damage") and (lowerN:find("take") or lowerN:find("received")) then
-									return 0
-								end
-								if lowerN:find("decay") or lowerN:find("drain") or lowerN:find("loss") then
-									return 0
-								end
-							end
-
-							if typeV == "number" then
-								if
-									(lowerN:find("damage") and not lowerN:find("take"))
-									or lowerN:find("attack")
-									or lowerN:find("power")
-									or lowerN:find("strength")
-								then
-									return 999999
-								end
-
-								if lowerN:find("speed") or lowerN:find("velocity") or lowerN:find("acceleration") then
-									return 500
-								end
-
-								if
-									lowerN:find("range")
-									or lowerN:find("radius")
-									or lowerN:find("distance")
-									or lowerN:find("reach")
-								then
-									return 99999
-								end
-
-								if
-									lowerN:find("health")
-									or lowerN:find("hp")
-									or lowerN:find("defense")
-									or lowerN:find("armor")
-									or lowerN:find("shield")
-								then
-									return 999999
-								end
-
-								if
-									lowerN:find("ammo")
-									or lowerN:find("mag")
-									or lowerN:find("capacity")
-									or lowerN:find("slot")
-									or lowerN:find("limit")
-									or lowerN:find("max")
-								then
-									return 999999
-								end
-
-								if
-									lowerN:find("multi")
-									or lowerN:find("boost")
-									or lowerN:find("bonus")
-									or lowerN:find("modifier")
-									or lowerN:find("rate")
-								then
-									return 999999
-								end
-
-								if
-									lowerN:find("income")
-									or lowerN:find("reward")
-									or lowerN:find("yield")
-									or lowerN:find("value")
-									or lowerN:find("worth")
-									or lowerN:find("profit")
-								then
-									return 999999
-								end
-
-								if
-									lowerN:find("chance")
-									or lowerN:find("probability")
-									or lowerN:find("rate") and currentVal <= 1
-								then
-									return 1
-								elseif lowerN:find("chance") or lowerN:find("drop") then
-									return 100
-								end
-							end
-
-							return currentVal
-						end
-
-						local function serialize(v, depth)
-							depth = depth or 0
-							if depth > 5 then
-								return "nil --[[MAX_DEPTH]]"
-							end
-
-							local t = typeof(v)
-
-							if t == "string" then
-								return '"' .. v:gsub('"', '\\"'):gsub("\n", "\\n") .. '"'
-							elseif t == "number" then
-								if v == math.huge then
-									return "math.huge"
-								elseif v == -math.huge then
-									return "-math.huge"
-								elseif v ~= v then
-									return "0/0"
-								else
-									return tostring(v)
-								end
-							elseif t == "boolean" then
-								return tostring(v)
-							elseif t == "nil" then
-								return "nil"
-							elseif t == "Vector3" then
-								return string.format("Vector3.new(%.2f, %.2f, %.2f)", v.X, v.Y, v.Z)
-							elseif t == "Vector2" then
-								return string.format("Vector2.new(%.2f, %.2f)", v.X, v.Y)
-							elseif t == "Color3" then
-								return string.format(
-									"Color3.fromRGB(%d, %d, %d)",
-									math.floor(v.R * 255),
-									math.floor(v.G * 255),
-									math.floor(v.B * 255)
-								)
-							elseif t == "CFrame" then
-								local components = { v:GetComponents() }
-								return "CFrame.new(" .. table.concat(components, ", ") .. ")"
-							elseif t == "EnumItem" then
-								return tostring(v)
-							elseif t == "table" then
-								local items = {}
-								for k, val in pairs(v) do
-									if type(k) == "string" then
-										table.insert(items, '["' .. k .. '"] = ' .. serialize(val, depth + 1))
-									else
-										table.insert(items, "[" .. k .. "] = " .. serialize(val, depth + 1))
-									end
-								end
-								return "{" .. table.concat(items, ", ") .. "}"
-							end
-
-							return "nil --[[UNSUPPORTED:" .. t .. "]]"
-						end
-
-						local patchedCount = 0
-						local skippedCount = 0
-						local patchDetails = {}
-
-						local function generatePatchCode(tbl, parentPath, depth)
-							depth = depth or 0
-							if depth > 4 then
-								return ""
-							end
-
-							local code = ""
-
-							for k, v in pairs(tbl) do
-								local keyPath = parentPath .. "." .. tostring(k)
-								local valueType = type(v)
-
-								if valueType == "table" then
-									code = code .. generatePatchCode(v, keyPath, depth + 1)
-								elseif valueType ~= "function" and valueType ~= "userdata" then
-									local pVal = getPoisonValue(tostring(k), v, detectedTypes)
-
-									if pVal ~= v then
-										local pValSerialized = serialize(pVal)
-										code = code
-											.. keyPath
-											.. " = "
-											.. pValSerialized
-											.. " -- "
-											.. tostring(v)
-											.. " → "
-											.. tostring(pVal)
-											.. "\n"
-										patchedCount = patchedCount + 1
-										table.insert(patchDetails, { key = k, old = v, new = pVal })
-									else
-										skippedCount = skippedCount + 1
-									end
-								end
-							end
-
-							return code
-						end
-
-						local typesList = #detectedTypes > 0 and table.concat(detectedTypes, ", ") or "GENERIC"
-
-						local output = ""
-						output = output .. "--[[\n"
-						output = output .. "    \n"
-						output = output .. "          UNIVERSAL MODULE POISON                          \n"
-						output = output .. "    \n"
-						output = output .. "    \n"
-						output = output .. "    Target:        " .. module.Name .. "\n"
-						output = output .. "    Path:          " .. path .. "\n"
-						output = output .. "    Detected:      " .. typesList .. "\n"
-
-						if #detectedTypes > 0 then
-							for _, mType in ipairs(detectedTypes) do
-								output = output
-									.. "                   - "
-									.. mType
-									.. " ("
-									.. math.floor(confidence[mType])
-									.. "%)\n"
-							end
-						end
-
-						output = output .. "    Generated:     " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n"
-						output = output .. "    Engine:        ZukaTech Universal Poisoner v1.0\n"
-						output = output .. "--]]\n\n"
-
-						if not success then
-							output = output .. "-- [ERROR]: Failed to require module\n"
-							output = output .. "-- Reason: " .. tostring(result) .. "\n"
-						elseif type(result) ~= "table" then
-							output = output .. "-- [INFO]: Module returns " .. type(result) .. "\n"
-							output = output .. "-- Cannot poison non-table modules\n"
-						else
-							output = output .. "local targetModule = require(" .. path .. ")\n"
-							output = output .. "assert(type(targetModule) == 'table', 'Module must return a table')\n\n"
-
-							output = output .. "-- Disable protections\n"
-							output = output .. "if setreadonly then pcall(setreadonly, targetModule, false) end\n"
-							output = output .. "if make_writeable then pcall(make_writeable, targetModule) end\n\n"
-
-							output = output .. "-- Apply universal patches\n"
-							local patchCode = generatePatchCode(result, "targetModule", 0)
-							output = output .. patchCode
-
-							output = output .. "\n-- Re-enable protections\n"
-							output = output .. "if setreadonly then pcall(setreadonly, targetModule, true) end\n\n"
-							output = output
-								.. "print('[Universal Poison] "
-								.. module.Name
-								.. " poisoned ("
-								.. patchedCount
-								.. " patches)')\n"
-							output = output .. "return targetModule\n"
-						end
-
-						print("\n" .. string.rep("=", 70))
-						print("[ZUKATECH UNIVERSAL POISONER]")
-						print(string.rep("=", 70))
-						print("Module: " .. module.Name)
-						print("Types:  " .. typesList)
-						print(string.rep("-", 70))
-						print(output)
-						print(string.rep("=", 70))
-						print("Stats: " .. patchedCount .. " patched, " .. skippedCount .. " unchanged")
-						print(string.rep("=", 70) .. "\n")
-
-						ScriptViewer.ViewRaw(output)
-						if getgenv().DoNotif then
-							getgenv().DoNotif(
-								" Universal poison opened in notepad! (" .. patchedCount .. " patches)",
-								3
-							)
-						end
-					end,
-				})
 
 				context:Register("GENERATE_POISON_PATCH2", {
 					Name = "[S+] Module Fucker!",
@@ -7979,7 +7697,7 @@ local EmbeddedModules = {
 				})
 
 				context:Register("OPEN_PATCH_MANAGER", {
-					Name = "Open in Patch Manager",
+					Name = "0pen in Patch Manager",
 					IconMap = Explorer.MiscIcons,
 					Icon = "ExploreData",
 					OnClick = function()
