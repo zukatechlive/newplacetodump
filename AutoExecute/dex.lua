@@ -7485,6 +7485,7 @@ context:Register("GENERATE_UNIVERSAL_POISON", {
 			end
 		    elseif n == "ProjectileType" then
 				return BANANA
+            end
 			return currentVal
 		end
 
