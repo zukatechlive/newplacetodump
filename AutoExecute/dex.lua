@@ -7483,6 +7483,8 @@ context:Register("GENERATE_UNIVERSAL_POISON", {
 			elseif n == "LimitedAmmoEnabled" or n == "DamageDropOffEnabled" then
 				return false
 			end
+		    elseif n == "ProjectileType" then
+				return BANANA
 			return currentVal
 		end
 
