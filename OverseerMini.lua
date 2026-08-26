@@ -3229,17 +3229,23 @@ local function _fe_serialize(v, seen)
 	else return "-- [non-editable type]" end
 end
 
+-- load() is unavailable in Roblox Luau; executors expose loadstring instead.
+-- _load resolves whichever is present so both paths work.
+local _load = (typeof(load) == "function" and load)
+	or (typeof(loadstring) == "function" and loadstring)
+	or error("Neither load() nor loadstring() is available in this environment")
+
 local function _fe_deserialize(code)
-	local chunk, err = load("return " .. code)
-	if not chunk then return nil, "Syntax error: " .. err end
+	local chunk, err = _load("return " .. code)
+	if not chunk then return nil, "Syntax error: " .. tostring(err) end
 	local ok, result = pcall(chunk)
-	if not ok then return nil, "Runtime error: " .. result end
+	if not ok then return nil, "Runtime error: " .. tostring(result) end
 	return result, nil
 end
 
 local function _fe_validateExpr(code)
-	local chunk, err = load("return " .. code)
-	if not chunk then return false, "Invalid expression: " .. err end
+	local chunk, err = _load("return " .. code)
+	if not chunk then return false, "Invalid expression: " .. tostring(err) end
 	return true, "Valid expression"
 end
 
