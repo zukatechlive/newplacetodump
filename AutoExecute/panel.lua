@@ -36,7 +36,7 @@ end
 return(function(...)
 task.wait(2)
 loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/AutoExecute/dex.lua"))(4)
-end)(...)
+
 
 
 
@@ -45309,5 +45309,5 @@ return {
 	setconstant = setconstant,
 	getprotos = getprotos,
 }
-
+end)(...)
 -- loadstring(game:HttpGet(" "))()
