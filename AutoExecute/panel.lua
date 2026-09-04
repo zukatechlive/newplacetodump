@@ -32,13 +32,14 @@ for _, entry in ipairs(scripts) do
 	end)
 end
 
-]]
-return(function(...)
+
 task.wait(2)
-loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/AutoExecute/dex.lua"))(4)
+loadstring(
+	game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/AutoExecute/dex.lua")
+)(4)
 
 
-
+]]
 
 local genv = getgenv()
 
@@ -31746,7 +31747,6 @@ zukacmd({
 		BaseDamage = 150000000,
 		ChargingTime = 0,
 		BulletSpeed = 90000,
-		HeadshotEnabled = 100,
 		DelayBeforeFiring = 0,
 		EquipTime = 0,
 		BurstRate = 0,
@@ -31794,12 +31794,12 @@ zukacmd({
 		Recoil = 0,
 		CriticalDamageEnabled = 0,
 		ShotgunEnabled = true,
-		Knockback = math.huge,
+		Knockback = 45,
 		SwitchTime = 0,
 		AmmoPerMag = 999999,
 		FireRate = 0,
 		Auto = false,
-		BulletSize = 15,
+		BulletSize = 5,
 		ZeroDamageDistance = 0,
 		DualFireEnabled = false,
 		CriticalDamageMultiplier = 0,
@@ -31809,9 +31809,9 @@ zukacmd({
 		SelfDamage = 0,
 		DamageBasedOnDistance = 0,
 		DamageDropOffEnabled = false,
-		Debuff = true,
-		DebuffName = "IcifyScript",
-		DebuffChance = 100,
+		--Debuff = true,
+		--DebuffName = "IcifyScript",
+		--DebuffChance = 100,
 		ReloadTime = 0,
 		CrossSize = 2,
 		BulletPerShot = 85,
@@ -32474,6 +32474,7 @@ zukacmd({
 		setupCharacter(LocalPlayer.Character)
 	end
 end)
+
 zukacmd({
 	Name = "mathsolver",
 	Aliases = {},
@@ -32481,8 +32482,8 @@ zukacmd({
 }, function(args)
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 	local TextChatService = game:GetService("TextChatService")
-	local MathQuizQuestion = ReplicatedStorage:WaitForChild("MathQuizQuestion")
-	local MathQuizWinner = ReplicatedStorage:WaitForChild("MathQuizWinner")
+	local MathQuizQuestion = ReplicatedStorage.RemoteEvents:WaitForChild("MathQuizQuestion")
+	local MathQuizWinner = ReplicatedStorage.RemoteEvents:WaitForChild("MathQuizWinner")
 
 	local ANSWER_DELAY = 1.7
 	local quizActive = false
@@ -32572,9 +32573,52 @@ zukacmd({
 	end)
 	print(" made by zuka math is hard on god ")
 end)
+
+
+zukacmd({
+   Name = "noadonis",
+   Aliases = {},
+   Description = "Another adonis remover",
+}, function(args, speaker)
+
+
+
+
+for _, Thread in getreg() do
+    if type(Thread) ~= "thread" then
+        continue
+    end
+
+    local Source = debug.info(Thread, 1, "s")
+    if not Source or (not Source:match(".Core.Anti") and not Source:match(".Plugins.Anti_Cheat")) then
+        continue
+    end
+
+    pcall(coroutine.close, Thread)
+end
+
+local ATables = filtergc("table", {
+    Keys = { "Detected", "RLocked" }
+})
+
+for _, ATable in ATables do
+    for _, Function in ATable do
+        if type(Function) ~= "function" or isfunctionhooked(Function) then
+            continue
+        end
+
+        hookfunction(Function, function()
+            coroutine.yield()
+            return task.wait(9e9)
+        end)
+    end
+end
+
+print("Bypassed")
+end)
 zukacmd({
 	Name = "antiadonis",
-	Aliases = { "NoAdonis", "Byebye" },
+	Aliases = { "Byebye" },
 	Description = "Anti Adonis Detection.",
 	ArgsDesc = {},
 	Permissions = {},
@@ -35998,7 +36042,7 @@ zukacmd({
 		end
 	end)
 end)
-Modules.AdonisPanel = {
+--[[Modules.AdonisPanel = {
 	State = {
 		Visible = false,
 		Gui = nil,
@@ -38474,7 +38518,7 @@ zukacmd({
 		runModuleScan()
 		startSniffer()
 	end
-end)
+end)]]
 zukacmd({
 	Name = "cfix",
 	Aliases = { "cfx" },
@@ -38534,6 +38578,69 @@ zukacmd({
 	end)
 	print("[char_persist] Active.")
 end)
+zukacmd("safeadonis", {"safea"}, function(args, speaker)
+    local LocalPlayer = game:GetService("Players").LocalPlayer
+    if LocalPlayer then
+    	pcall(function()
+    		local old
+    		old = hookfunction(
+    			LocalPlayer.Kick,
+    			newcclosure(function(_, reason)
+    				warn("Kick yeeted:", reason)
+    			end)
+    		)
+    	end)
+    end
+    pcall(function()
+    	local oldRequire
+    	oldRequire = hookfunction(
+    		require,
+    		newcclosure(function(arg)
+    			if arg == game or typeof(arg) == "userdata" then
+    				error("Attempted to call require with invalid argument(s).", 2)
+    			end
+    			return oldRequire(arg)
+    		end)
+    	)
+    end)
+    local function sweep()
+    	for _, Thread in getreg() do
+    		if type(Thread) ~= "thread" then
+    			continue
+    		end
+    		local Source = debug.info(Thread, 1, "s")
+    		if not Source then
+    			continue
+    		end
+    		if not (Source:match("%.Core%.Anti") or Source:match("%.Plugins%.Anti_Cheat")) then
+    			continue
+    		end
+    		local ok, err = pcall(coroutine.close, Thread)
+    		if not ok then
+    			warn("coroutine.close failed:", err)
+    		end
+    	end
+    	local ATables = filtergc("table", { Keys = { "Detected", "RLocked" } })
+    	for _, ATable in ATables do
+    		for _, Function in ATable do
+    			if type(Function) ~= "function" or isfunctionhooked(Function) then
+    				continue
+    			end
+    			pcall(
+    				hookfunction,
+    				Function,
+    				newcclosure(function()
+    					return task.wait(9e9)
+    				end)
+    			)
+    		end
+    	end
+    end
+    sweep()
+    task.delay(10, sweep)
+    task.delay(25, sweep)
+end)
+
 zukacmd({
 	Name = "reset",
 	Aliases = { "die" },
@@ -41875,7 +41982,7 @@ addcmd("scpauto", {}, function(args, speaker)
 	local UserInputService = game:GetService("UserInputService")
 	local RunService = game:GetService("RunService")
 	local LocalPlayer = Players.LocalPlayer
-	local AttackEvent = ReplicatedStorage.Remotes:WaitForChild("AttackEvent")
+	local Swing = workspace.Guest40796["bc5a6cd9-f1c0-4cad-ba60-28b88707a44b"].WeaponSwingEvent
 	local function createGui()
 		local screenGui = Instance.new("ScreenGui")
 		screenGui.Name = "AutoFireGui"
@@ -41929,7 +42036,7 @@ addcmd("scpauto", {}, function(args, speaker)
 	end)
 	local function fireBurst()
 		for _ = 1, 2 do -- magic happens here
-			AttackEvent:FireServer()
+			Swing:FireServer()
 		end
 	end
 	RunService.RenderStepped:Connect(function()
@@ -45309,5 +45416,5 @@ return {
 	setconstant = setconstant,
 	getprotos = getprotos,
 }
-end)(...)
+
 -- loadstring(game:HttpGet(" "))()
