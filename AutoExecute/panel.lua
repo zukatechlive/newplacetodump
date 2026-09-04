@@ -3113,7 +3113,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
 		return
 	end
-	if input.KeyCode == Enum.KeyCode.F then
+	if input.KeyCode == Enum.KeyCode.L then
 		Fly:Toggle()
 	elseif input.KeyCode == Enum.KeyCode.U then
 		Fly:ToggleUI()
