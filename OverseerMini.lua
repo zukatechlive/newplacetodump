@@ -3092,25 +3092,27 @@ Modules.TI = {
 		ModuleList = {},
 		ActivePatches = {},
 		FreezeList = {},
+		SelectedPatches = {},
 		UI = nil,
 		MetatableChain = {},
 		SelectedModule = nil,
 	},
 	Config = {
-		BG_LIGHT = Color3.fromRGB(240, 240, 240),
-		BG_PANEL = Color3.fromRGB(236, 233, 216),
-		BG_DARK = Color3.fromRGB(212, 208, 200),
-		BG_WHITE = Color3.fromRGB(255, 255, 255),
-		BORDER_DARK = Color3.fromRGB(128, 128, 128),
-		BORDER_LIGHT = Color3.fromRGB(128, 128, 128),
-		TEXT_BLACK = Color3.fromRGB(0, 0, 0),
-		TEXT_GRAY = Color3.fromRGB(128, 128, 128),
-		ACCENT = Color3.fromRGB(111, 0, 0),
-		HIGHLIGHT = Color3.fromRGB(51, 153, 255),
-		FROZEN_RED = Color3.fromRGB(255, 0, 0),
-		SUCCESS_GREEN = Color3.fromRGB(0, 180, 0),
-		WARNING_ORANGE = Color3.fromRGB(255, 165, 0),
-		ROW_HEIGHT = 22,
+		-- Modern dark flat palette
+		BG_LIGHT    = Color3.fromRGB(40,  40,  44),   -- hover state
+		BG_PANEL    = Color3.fromRGB(22,  22,  26),   -- main background
+		BG_DARK     = Color3.fromRGB(16,  16,  20),   -- deeper bg / titlebar
+		BG_WHITE    = Color3.fromRGB(28,  28,  32),   -- list / scroll bg
+		BORDER_DARK = Color3.fromRGB(50,  50,  60),   -- subtle border
+		BORDER_LIGHT= Color3.fromRGB(70,  70,  85),   -- highlight border
+		TEXT_BLACK  = Color3.fromRGB(220, 220, 230),  -- primary text
+		TEXT_GRAY   = Color3.fromRGB(120, 120, 140),  -- muted text
+		ACCENT      = Color3.fromRGB(99,  102, 241),  -- indigo accent
+		HIGHLIGHT   = Color3.fromRGB(56,  189, 248),  -- sky blue
+		FROZEN_RED  = Color3.fromRGB(239, 68,  68),
+		SUCCESS_GREEN = Color3.fromRGB(34, 197, 94),
+		WARNING_ORANGE= Color3.fromRGB(251,191, 36),
+		ROW_HEIGHT  = 24,
 	},
 }
 local TI = Modules.TI
@@ -3606,65 +3608,46 @@ function TI:_generateUID()
 	return r
 end
 function TI:_createBorder(parent, inset)
-	local top = inset and self.Config.BORDER_DARK or self.Config.BORDER_LIGHT
-	local bottom = inset and self.Config.BORDER_LIGHT or self.Config.BORDER_DARK
-	local function edge(sz, pos, col)
-		local f = Instance.new("Frame", parent)
-		f.Size = sz
-		f.Position = pos
-		f.BackgroundColor3 = col
-		f.BorderSizePixel = 0
-		f.ZIndex = parent.ZIndex + 1
-	end
-	edge(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 0, 0), top)
-	edge(UDim2.new(0, 1, 1, 0), UDim2.new(0, 0, 0, 0), top)
-	edge(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 1, -1), bottom)
-	edge(UDim2.new(0, 1, 1, 0), UDim2.new(1, -1, 0, 0), bottom)
+	-- Modern: single UIStroke, ignore inset flag
+	local stroke = Instance.new("UIStroke", parent)
+	stroke.Color = inset and self.Config.BORDER_DARK or self.Config.BORDER_LIGHT
+	stroke.Thickness = 1
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 end
 function TI:_createButton(parent, text, size, position, callback)
 	local btn = Instance.new("TextButton", parent)
-	btn.Size = size
-	btn.Position = position
-	btn.BackgroundColor3 = self.Config.BG_PANEL
-	btn.Text = text
-	btn.TextColor3 = self.Config.TEXT_BLACK
-	btn.Font = Enum.Font.SourceSans
-	btn.TextSize = 11
+	btn.Size          = size
+	btn.Position      = position
+	btn.BackgroundColor3 = self.Config.BG_LIGHT
+	btn.Text          = text
+	btn.TextColor3    = self.Config.TEXT_BLACK
+	btn.Font          = Enum.Font.GothamMedium
+	btn.TextSize      = 11
 	btn.BorderSizePixel = 0
 	btn.AutoButtonColor = false
 	btn.ClipsDescendants = true
-	self:_createBorder(btn, false)
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+	local stroke = Instance.new("UIStroke", btn)
+	stroke.Color     = self.Config.BORDER_LIGHT
+	stroke.Thickness = 1
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	if callback then
 		btn.MouseButton1Click:Connect(callback)
 	end
 	btn.MouseButton1Down:Connect(function()
-		btn.BackgroundColor3 = self.Config.BG_DARK
-		for _, c in ipairs(btn:GetChildren()) do
-			if c.Name == "BorderTop" or c.Name == "BorderLeft" then
-				c.BackgroundColor3 = self.Config.BORDER_DARK
-			elseif c.Name == "BorderBottom" or c.Name == "BorderRight" then
-				c.BackgroundColor3 = self.Config.BORDER_LIGHT
-			end
-		end
+		TweenService:Create(btn, TweenInfo.new(0.08), { BackgroundColor3 = self.Config.ACCENT }):Play()
 	end)
 	btn.MouseButton1Up:Connect(function()
-		btn.BackgroundColor3 = self.Config.BG_PANEL
-		for _, c in ipairs(btn:GetChildren()) do
-			if c.Name == "BorderTop" or c.Name == "BorderLeft" then
-				c.BackgroundColor3 = self.Config.BORDER_LIGHT
-			elseif c.Name == "BorderBottom" or c.Name == "BorderRight" then
-				c.BackgroundColor3 = self.Config.BORDER_DARK
-			end
-		end
+		TweenService:Create(btn, TweenInfo.new(0.1), { BackgroundColor3 = self.Config.BG_LIGHT }):Play()
 	end)
 	btn.MouseEnter:Connect(function()
-		if btn.BackgroundColor3 ~= self.Config.BG_DARK then
-			TweenService:Create(btn, TweenInfo.new(0.1), { BackgroundColor3 = self.Config.BG_LIGHT }):Play()
+		if btn.BackgroundColor3 ~= self.Config.ACCENT then
+			TweenService:Create(btn, TweenInfo.new(0.1), { BackgroundColor3 = Color3.fromRGB(55,55,65) }):Play()
 		end
 	end)
 	btn.MouseLeave:Connect(function()
-		if btn.BackgroundColor3 ~= self.Config.BG_DARK then
-			TweenService:Create(btn, TweenInfo.new(0.1), { BackgroundColor3 = self.Config.BG_PANEL }):Play()
+		if btn.BackgroundColor3 ~= self.Config.ACCENT then
+			TweenService:Create(btn, TweenInfo.new(0.1), { BackgroundColor3 = self.Config.BG_LIGHT }):Play()
 		end
 	end)
 	return btn
@@ -3676,13 +3659,19 @@ function TI:_showNotification(message, msgType)
 	local notif = Instance.new("Frame", self.State.UI.Main)
 	notif.Size = UDim2.fromOffset(280, 50)
 	notif.Position = UDim2.new(1, -290, 1, 10)
-	notif.BackgroundColor3 = msgType == "success" and Color3.fromRGB(220, 255, 220)
-		or msgType == "error" and Color3.fromRGB(255, 220, 220)
-		or msgType == "warning" and Color3.fromRGB(255, 245, 220)
+	notif.BackgroundColor3 = msgType == "success" and Color3.fromRGB(20, 50, 30)
+		or msgType == "error" and Color3.fromRGB(50, 20, 20)
+		or msgType == "warning" and Color3.fromRGB(50, 40, 10)
 		or self.Config.BG_LIGHT
 	notif.BorderSizePixel = 0
 	notif.ZIndex = 1000
-	self:_createBorder(notif, true)
+	Instance.new("UICorner", notif).CornerRadius = UDim.new(0, 8)
+	local ns = Instance.new("UIStroke", notif)
+	ns.Color = msgType == "success" and self.Config.SUCCESS_GREEN
+		or msgType == "error" and self.Config.FROZEN_RED
+		or msgType == "warning" and self.Config.WARNING_ORANGE
+		or self.Config.ACCENT
+	ns.Thickness = 1
 	local icon = Instance.new("TextLabel", notif)
 	icon.Size = UDim2.fromOffset(34, 34)
 	icon.Position = UDim2.fromOffset(8, 8)
@@ -3696,7 +3685,7 @@ function TI:_showNotification(message, msgType)
 		or msgType == "error" and self.Config.FROZEN_RED
 		or msgType == "warning" and self.Config.WARNING_ORANGE
 		or self.Config.ACCENT
-	icon.Font = Enum.Font.SourceSansBold
+	icon.Font = Enum.Font.GothamBold
 	icon.TextSize = 22
 	local msg = Instance.new("TextLabel", notif)
 	msg.Size = UDim2.new(1, -48, 1, -4)
@@ -4153,7 +4142,7 @@ function TI:CreateInspectorRow(key, value, parentTable, isMetatable)
 		end
 	end
 	row.BackgroundColor3 = isFrozen and Color3.fromRGB(255, 220, 220)
-		or isMetatable and self.Config.BG_LIGHT
+		or isMetatable and Color3.fromRGB(30, 28, 48)
 		or self.Config.BG_WHITE
 	local activeBox = Instance.new("TextButton", row)
 	activeBox.Size = UDim2.fromOffset(12, 12)
@@ -4171,7 +4160,7 @@ function TI:CreateInspectorRow(key, value, parentTable, isMetatable)
 	keyLabel.Position = UDim2.new(0.07, 2, 0, 0)
 	keyLabel.BackgroundTransparency = 1
 	keyLabel.Text = tostring(key)
-	keyLabel.TextColor3 = isMetatable and Color3.fromRGB(0, 0, 128) or self.Config.TEXT_BLACK
+	keyLabel.TextColor3 = isMetatable and Color3.fromRGB(99, 102, 241) or self.Config.TEXT_BLACK
 	keyLabel.Font = isMetatable and Enum.Font.Code or Enum.Font.SourceSans
 	keyLabel.TextSize = 10
 	keyLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -4361,6 +4350,119 @@ function TI:DisplayMetatableChain(chain)
 		end
 	end
 end
+-- ════════════════════════════════════════════════════════════════════════════
+-- BATCH PATCH OPERATIONS
+-- ════════════════════════════════════════════════════════════════════════════
+function TI:_buildPatchSnippet(patch)
+	local keyStr = type(patch.Key) == "string"
+		and string.format("%q", patch.Key)
+		or  tostring(patch.Key)
+	local vt = type(patch.NewValue)
+	local valStr
+	if vt == "string" then
+		valStr = string.format("%q", patch.NewValue)
+	elseif vt == "boolean" or vt == "number" then
+		valStr = tostring(patch.NewValue)
+	elseif vt == "nil" then
+		valStr = "nil"
+	else
+		valStr = "-- [" .. vt .. ": " .. tostring(patch.NewValue) .. "]"
+	end
+	local lines = {}
+	table.insert(lines, "-- Patch: " .. tostring(patch.Key) .. "  |  Type: " .. vt)
+	if patch.Frozen then
+		table.insert(lines, "RunService.Heartbeat:Connect(function()")
+		table.insert(lines, "\tpcall(function()")
+		table.insert(lines, "\t\tif setreadonly then setreadonly(tbl, false) end")
+		table.insert(lines, "\t\trawset(tbl, " .. keyStr .. ", " .. valStr .. ")")
+		table.insert(lines, "\t\tif setreadonly then setreadonly(tbl, true) end")
+		table.insert(lines, "\tend)")
+		table.insert(lines, "end)")
+	else
+		table.insert(lines, "pcall(function()")
+		table.insert(lines, "\tif setreadonly then setreadonly(tbl, false) end")
+		table.insert(lines, "\trawset(tbl, " .. keyStr .. ", " .. valStr .. ")")
+		table.insert(lines, "\tif setreadonly then setreadonly(tbl, true) end")
+		table.insert(lines, "end)")
+	end
+	return table.concat(lines, "\n")
+end
+
+function TI:ExportPatches(idsToExport)
+	-- idsToExport: table of patchId strings, or nil to export all
+	local chunks = {}
+	local count = 0
+	local header = {
+		"-- ╔══════════════════════════════════════════════╗",
+		"-- ║   Overseer · Batch Patch Export              ║",
+		"-- ║   Generated: " .. os.date and os.date("%Y-%m-%d %H:%M") or tick() .. "  ║",
+		"-- ╚══════════════════════════════════════════════╝",
+		"",
+		"-- NOTE: Replace `tbl` with the actual table reference for each patch.",
+		"",
+	}
+	table.insert(chunks, table.concat(header, "\n"))
+	if idsToExport then
+		for _, id in ipairs(idsToExport) do
+			local patch = self.State.ActivePatches[id]
+			if patch then
+				table.insert(chunks, self:_buildPatchSnippet(patch))
+				count += 1
+			end
+		end
+	else
+		for _, patch in pairs(self.State.ActivePatches) do
+			table.insert(chunks, self:_buildPatchSnippet(patch))
+			count += 1
+		end
+	end
+	if count == 0 then
+		self:_showNotification("No patches to export", "warning")
+		return
+	end
+	local full = table.concat(chunks, "\n\n")
+	local ok = pcall(function()
+		if setclipboard then setclipboard(full)
+		elseif toclipboard then toclipboard(full) end
+	end)
+	self:_showNotification(
+		ok and ("Exported " .. count .. " patch(es) to clipboard") or "Clipboard unavailable",
+		ok and "success" or "warning"
+	)
+end
+
+function TI:SelectAllPatches()
+	for id in pairs(self.State.ActivePatches) do
+		self.State.SelectedPatches[id] = true
+	end
+	self:RefreshPatchList()
+	local sel = 0
+	for _ in pairs(self.State.SelectedPatches) do sel += 1 end
+	if self.State.UI and self.State.UI.PatchSelCount then
+		self.State.UI.PatchSelCount.Text = sel > 0 and (sel .. " sel") or ""
+	end
+	self:_showNotification("Selected " .. sel .. " patch(es)", "info")
+end
+
+function TI:RemoveSelectedPatches()
+	local toRemove = {}
+	for id in pairs(self.State.SelectedPatches) do
+		table.insert(toRemove, id)
+	end
+	if #toRemove == 0 then
+		self:_showNotification("No patches selected", "warning")
+		return
+	end
+	for _, id in ipairs(toRemove) do
+		self:RemovePatch(id)
+	end
+	self.State.SelectedPatches = {}
+	if self.State.UI and self.State.UI.PatchSelCount then
+		self.State.UI.PatchSelCount.Text = ""
+	end
+	self:_showNotification("Removed " .. #toRemove .. " patch(es)", "success")
+end
+
 function TI:RefreshPatchList()
 	if not self.State.UI then
 		return
@@ -4382,9 +4484,40 @@ function TI:CreatePatchRow(patchId, patch)
 	row.Size = UDim2.new(1, -2, 0, self.Config.ROW_HEIGHT)
 	row.BackgroundColor3 = patch.Frozen and Color3.fromRGB(255, 220, 220) or self.Config.BG_WHITE
 	row.BorderSizePixel = 0
+	-- ── Selection checkbox ────────────────────────────────────────────────────
+	local isSelected = self.State.SelectedPatches[patchId] == true
+	local selBox = Instance.new("TextButton", row)
+	selBox.Size = UDim2.fromOffset(12, 12)
+	selBox.Position = UDim2.new(0.02, -6, 0.5, -6)
+	selBox.BackgroundColor3 = isSelected and self.Config.ACCENT or self.Config.BG_WHITE
+	selBox.Text = isSelected and "✓" or ""
+	selBox.TextColor3 = Color3.new(1,1,1)
+	selBox.Font = Enum.Font.SourceSansBold
+	selBox.TextSize = 8
+	selBox.BorderSizePixel = 0
+	selBox.AutoButtonColor = false
+	self:_createBorder(selBox, true)
+	selBox.MouseButton1Click:Connect(function()
+		if self.State.SelectedPatches[patchId] then
+			self.State.SelectedPatches[patchId] = nil
+			selBox.BackgroundColor3 = self.Config.BG_WHITE
+			selBox.Text = ""
+		else
+			self.State.SelectedPatches[patchId] = true
+			selBox.BackgroundColor3 = self.Config.ACCENT
+			selBox.Text = "✓"
+		end
+		-- Update count label
+		local sel = 0
+		for _ in pairs(self.State.SelectedPatches) do sel += 1 end
+		if self.State.UI and self.State.UI.PatchSelCount then
+			self.State.UI.PatchSelCount.Text = sel > 0 and (sel .. " sel") or ""
+		end
+	end)
+	-- ── Freeze toggle ─────────────────────────────────────────────────────────
 	local freezeBox = Instance.new("TextButton", row)
 	freezeBox.Size = UDim2.fromOffset(12, 12)
-	freezeBox.Position = UDim2.new(0.05, -6, 0.5, -6)
+	freezeBox.Position = UDim2.new(0.12, -6, 0.5, -6)
 	freezeBox.BackgroundColor3 = self.Config.BG_WHITE
 	freezeBox.Text = patch.Frozen and "X" or ""
 	freezeBox.TextColor3 = self.Config.FROZEN_RED
@@ -4397,8 +4530,8 @@ function TI:CreatePatchRow(patchId, patch)
 		self:ToggleFreeze(patchId)
 	end)
 	local keyLbl = Instance.new("TextLabel", row)
-	keyLbl.Size = UDim2.new(0.38, -4, 1, 0)
-	keyLbl.Position = UDim2.new(0.13, 2, 0, 0)
+	keyLbl.Size = UDim2.new(0.35, -4, 1, 0)
+	keyLbl.Position = UDim2.new(0.20, 2, 0, 0)
 	keyLbl.BackgroundTransparency = 1
 	keyLbl.Text = tostring(patch.Key)
 	keyLbl.TextColor3 = self.Config.TEXT_BLACK
@@ -4407,8 +4540,8 @@ function TI:CreatePatchRow(patchId, patch)
 	keyLbl.TextXAlignment = Enum.TextXAlignment.Left
 	keyLbl.TextTruncate = Enum.TextTruncate.AtEnd
 	local valLbl = Instance.new("TextLabel", row)
-	valLbl.Size = UDim2.new(0.35, -4, 1, 0)
-	valLbl.Position = UDim2.new(0.51, 2, 0, 0)
+	valLbl.Size = UDim2.new(0.30, -4, 1, 0)
+	valLbl.Position = UDim2.new(0.55, 2, 0, 0)
 	valLbl.BackgroundTransparency = 1
 	valLbl.Text = tostring(patch.NewValue):sub(1, 20)
 	valLbl.TextColor3 = self.Config.TEXT_BLACK
@@ -4500,69 +4633,146 @@ local ROBLOX_MODULE_BLACKLIST = {
 	["TransparencyController"] = true,
 }
 function TI:ScanModules()
-	if not self.State.UI then
-		return
-	end
-	for _, c in ipairs(self.State.UI.ModuleScroll:GetChildren()) do
-		if not c:IsA("UIListLayout") then
-			c:Destroy()
-		end
+	local ui = self.State.UI
+	if not ui then return end
+	-- clear existing rows
+	for _, c in ipairs(ui.ModuleScroll:GetChildren()) do
+		if not c:IsA("UIListLayout") then c:Destroy() end
 	end
 	self.State.ModuleList = {}
+	if ui.ModuleCount then
+		ui.ModuleCount.Text = "Scanning..."
+		ui.ModuleCount.TextColor3 = self.Config.TEXT_GRAY
+	end
 	task.spawn(function()
-		for _, root in ipairs({ ReplicatedStorage, Players.LocalPlayer, Workspace }) do
+		local roots = { ReplicatedStorage, Players.LocalPlayer, Workspace }
+		-- also sweep game.Players children for server-side loaded scripts
+		pcall(function()
+			for _, plr in ipairs(Players:GetPlayers()) do
+				table.insert(roots, plr)
+			end
+		end)
+		for _, root in ipairs(roots) do
 			if root then
-				for _, obj in ipairs(root:GetDescendants()) do
-					if obj:IsA("ModuleScript") and not ROBLOX_MODULE_BLACKLIST[obj.Name] then
-						self:AddModuleToList(obj)
+				local ok, descendants = pcall(function() return root:GetDescendants() end)
+				if ok then
+					for _, obj in ipairs(descendants) do
+						if obj:IsA("ModuleScript") and not ROBLOX_MODULE_BLACKLIST[obj.Name] then
+							self:AddModuleToList(obj)
+						end
 					end
 				end
 				task.wait()
 			end
 		end
-		self:_showNotification("Found " .. #self.State.ModuleList .. " modules", "success")
+		local count = #self.State.ModuleList
+		if ui.ModuleCount then
+			ui.ModuleCount.Text = count .. " module" .. (count == 1 and "" or "s")
+			ui.ModuleCount.TextColor3 = self.Config.SUCCESS_GREEN
+		end
+		self:_showNotification("Found " .. count .. " modules", "success")
 	end)
 end
 function TI:AddModuleToList(ms)
-	if not self.State.UI then
-		return
-	end
+	if not self.State.UI then return end
+	local ROW_H = 40   -- taller to fit name + path line
+	local BADGE_W = 40
+
 	local row = Instance.new("TextButton", self.State.UI.ModuleScroll)
-	row.Size = UDim2.new(1, -2, 0, self.Config.ROW_HEIGHT)
+	row.Size = UDim2.new(1, -2, 0, ROW_H)
 	row.BackgroundColor3 = self.Config.BG_WHITE
 	row.Text = ""
 	row.BorderSizePixel = 0
 	row.AutoButtonColor = false
+
+	-- ── Module name (top line) ────────────────────────────────────────────────
 	local lbl = Instance.new("TextLabel", row)
-	lbl.Size = UDim2.new(1, -8, 1, 0)
-	lbl.Position = UDim2.fromOffset(4, 0)
+	lbl.Size = UDim2.new(1, -(BADGE_W + 8), 0, 18)
+	lbl.Position = UDim2.fromOffset(4, 2)
 	lbl.BackgroundTransparency = 1
 	lbl.Text = ms.Name
 	lbl.TextColor3 = self.Config.TEXT_BLACK
-	lbl.Font = Enum.Font.SourceSans
-	lbl.TextSize = 12
+	lbl.Font = Enum.Font.GothamMedium
+	lbl.TextSize = 11
 	lbl.TextXAlignment = Enum.TextXAlignment.Left
 	lbl.TextTruncate = Enum.TextTruncate.AtEnd
-	row.MouseButton1Click:Connect(function()
+
+	-- ── Full path (bottom line, muted) ────────────────────────────────────────
+	local fullPath = ms:GetFullName()
+	-- Trim the leading service name for brevity: "ReplicatedStorage.Modules.Core" -> "RS.Modules.Core"
+	local serviceAbbrev = {
+		ReplicatedStorage = "RS",
+		Players           = "Plr",
+		Workspace         = "WS",
+		ServerScriptService = "SSS",
+		StarterGui        = "SG",
+		StarterPack       = "SP",
+	}
+	local shortPath = fullPath:gsub("^(%a+)", function(svc)
+		return serviceAbbrev[svc] or svc
+	end)
+	local pathLbl = Instance.new("TextLabel", row)
+	pathLbl.Size = UDim2.new(1, -(BADGE_W + 8), 0, 14)
+	pathLbl.Position = UDim2.fromOffset(4, 22)
+	pathLbl.BackgroundTransparency = 1
+	pathLbl.Text = shortPath
+	pathLbl.TextColor3 = self.Config.TEXT_GRAY
+	pathLbl.Font = Enum.Font.Code
+	pathLbl.TextSize = 9
+	pathLbl.TextXAlignment = Enum.TextXAlignment.Left
+	pathLbl.TextTruncate = Enum.TextTruncate.AtEnd
+
+	-- ── Return-type badge (right side, filled after LoadModule) ───────────────
+	local BADGE_COLORS = {
+		["table"]    = Color3.fromRGB(56,  189, 248),  -- sky blue
+		["function"] = Color3.fromRGB(251, 191, 36),   -- amber
+		["nil"]      = Color3.fromRGB(120, 120, 140),  -- muted
+		["other"]    = Color3.fromRGB(239, 68,  68),   -- red
+		["?"]        = Color3.fromRGB(60,  60,  80),   -- dark (not loaded yet)
+	}
+	local badge = Instance.new("TextLabel", row)
+	badge.Name = "ReturnBadge"
+	badge.Size = UDim2.fromOffset(BADGE_W - 4, 16)
+	badge.Position = UDim2.new(1, -(BADGE_W), 0.5, -8)
+	badge.BackgroundColor3 = BADGE_COLORS["?"]
+	badge.Text = "?"
+	badge.TextColor3 = Color3.new(1, 1, 1)
+	badge.Font = Enum.Font.GothamBold
+	badge.TextSize = 8
+	badge.BorderSizePixel = 0
+	badge.TextXAlignment = Enum.TextXAlignment.Center
+	Instance.new("UICorner", badge).CornerRadius = UDim.new(0, 3)
+
+	-- ── Selection / hover logic ───────────────────────────────────────────────
+	local function deselectAll()
 		for _, child in ipairs(self.State.UI.ModuleScroll:GetChildren()) do
 			if child:IsA("TextButton") then
 				child.BackgroundColor3 = self.Config.BG_WHITE
 				for _, l in ipairs(child:GetChildren()) do
-					if l:IsA("TextLabel") then
-						l.TextColor3 = self.Config.TEXT_BLACK
+					if l:IsA("TextLabel") and l.Name ~= "ReturnBadge" then
+						if l.Font == Enum.Font.GothamMedium or l.Font == Enum.Font.Code then
+							l.TextColor3 = l.Font == Enum.Font.GothamMedium
+								and self.Config.TEXT_BLACK
+								or  self.Config.TEXT_GRAY
+						end
 					end
 				end
 			end
 		end
+	end
+
+	row.MouseButton1Click:Connect(function()
+		deselectAll()
 		row.BackgroundColor3 = self.Config.HIGHLIGHT
-		lbl.TextColor3 = self.Config.BG_WHITE
+		lbl.TextColor3 = Color3.new(1, 1, 1)
+		pathLbl.TextColor3 = Color3.fromRGB(180, 230, 255)
 		self.State.SelectedModule = ms
-		if self.State.UI and self.State.UI.ScriptViewerName then
-			self.State.UI.ScriptViewerName.Text = ms.Name .. "  (" .. ms:GetFullName() .. ")"
+		if self.State.UI.ScriptViewerName then
+			self.State.UI.ScriptViewerName.Text = ms.Name .. "  (" .. fullPath .. ")"
 			self.State.UI.ScriptViewerOutput.Text = "← Click Decompile to view '" .. ms.Name .. "' as disassembly"
 			self.State.UI.ScriptViewerStatus.Text = ""
 		end
-		self:LoadModule(ms)
+		self:LoadModule(ms, badge, BADGE_COLORS)
 	end)
 	row.MouseEnter:Connect(function()
 		if row.BackgroundColor3 ~= self.Config.HIGHLIGHT then
@@ -4574,7 +4784,14 @@ function TI:AddModuleToList(ms)
 			row.BackgroundColor3 = self.Config.BG_WHITE
 		end
 	end)
-	table.insert(self.State.ModuleList, { Script = ms, Row = row, Name = ms.Name })
+
+	table.insert(self.State.ModuleList, {
+		Script = ms,
+		Row    = row,
+		Name   = ms.Name,
+		Path   = fullPath,
+		Badge  = badge,
+	})
 end
 function TI:LoadModule(ms)
 	local success, result, done = false, nil, false
@@ -4714,6 +4931,214 @@ function TI:Restore()
 		Position = savedPos,
 	}):Play()
 end
+-- ════════════════════════════════════════════════════════════════════════════
+-- GC / GLOBALS / UPVALUE INSPECTOR
+-- Walks getgc(), getreg(), getgenv(), and debug.getupvalues to surface every
+-- live table and function the executor can see.
+-- ════════════════════════════════════════════════════════════════════════════
+function TI:ScanGC(filterType, searchText)
+	local results = {}
+	local seen = {}
+	local function addResult(kind, label, ref)
+		if seen[ref] then return end
+		seen[ref] = true
+		local t = type(ref)
+		if filterType and filterType ~= "all" and t ~= filterType then return end
+		if searchText and searchText ~= "" then
+			if not label:lower():find(searchText:lower(), 1, true) then return end
+		end
+		table.insert(results, { kind = kind, label = label, ref = ref, valueType = t })
+	end
+	-- ── getgc ────────────────────────────────────────────────────────────────
+	if type(getgc) == "function" then
+		local ok, gc = pcall(getgc, true)
+		if ok and gc then
+			for i, v in ipairs(gc) do
+				local t = type(v)
+				if t == "table" or t == "function" then
+					local label
+					if t == "table" then
+						local n = 0
+						pcall(function()
+							for _ in pairs(v) do n += 1; if n > 100 then break end end
+						end)
+						label = string.format("gc[%d]  {%d+ keys}", i, n)
+					else
+						local info = ""
+						if debug and debug.getinfo then
+							local ok2, di = pcall(debug.getinfo, v)
+							if ok2 and di then
+								info = string.format(" (%s:%s)", (di.source or "?"):sub(1,18), di.linedefined or "?")
+							end
+						end
+						label = string.format("gc[%d]  fn%s", i, info)
+					end
+					addResult("gc", label, v)
+				end
+			end
+		end
+	end
+	-- ── getreg ───────────────────────────────────────────────────────────────
+	if type(getreg) == "function" then
+		local ok, reg = pcall(getreg)
+		if ok and type(reg) == "table" then
+			for k, v in pairs(reg) do
+				local t = type(v)
+				if t == "table" or t == "function" then
+					addResult("reg", "reg[" .. tostring(k) .. "]", v)
+				end
+			end
+		end
+	end
+	-- ── getgenv ──────────────────────────────────────────────────────────────
+	if type(getgenv) == "function" then
+		local ok, genv = pcall(getgenv)
+		if ok and type(genv) == "table" then
+			for k, v in pairs(genv) do
+				local t = type(v)
+				if t == "table" or t == "function" then
+					addResult("genv", "genv." .. tostring(k), v)
+				end
+			end
+		end
+	end
+	-- ── upvalues of live functions ────────────────────────────────────────────
+	local getupvals = (type(getupvalues) == "function" and getupvalues)
+		or (debug and type(debug.getupvalues) == "function" and debug.getupvalues)
+	if getupvals and type(getgc) == "function" then
+		local ok2, gc2 = pcall(getgc, true)
+		if ok2 and gc2 then
+			for _, fn in ipairs(gc2) do
+				if type(fn) == "function" then
+					local ok3, upvals = pcall(getupvals, fn)
+					if ok3 and type(upvals) == "table" then
+						for upName, upVal in pairs(upvals) do
+							local t = type(upVal)
+							if t == "table" or t == "function" then
+								local fnLabel = "?"
+								if debug and debug.getinfo then
+									local ok4, di = pcall(debug.getinfo, fn)
+									if ok4 and di then
+										fnLabel = (di.source or "?"):sub(1,16) .. ":" .. (di.linedefined or "?")
+									end
+								end
+								addResult("upv",
+									string.format("upv[%s]  via %s", tostring(upName), fnLabel),
+									upVal)
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	return results
+end
+
+function TI:PopulateGCPanel(filterType, searchText)
+	local ui = self.State.UI
+	if not ui or not ui.GCScroll then return end
+	-- clear old rows
+	for _, c in ipairs(ui.GCScroll:GetChildren()) do
+		if not c:IsA("UIListLayout") then c:Destroy() end
+	end
+	ui.GCStatus.Text = "Scanning..."
+	ui.GCStatus.TextColor3 = self.Config.TEXT_GRAY
+	task.spawn(function()
+		local results = self:ScanGC(filterType, searchText)
+		local shown = 0
+		-- cap display at 400 to avoid freezing the scroll
+		for i, entry in ipairs(results) do
+			if i > 400 then break end
+			shown += 1
+			local row = Instance.new("Frame", ui.GCScroll)
+			row.Size = UDim2.new(1, -2, 0, self.Config.ROW_HEIGHT)
+			row.BackgroundColor3 = self.Config.BG_WHITE
+			row.BorderSizePixel = 0
+			row.LayoutOrder = i
+			-- kind badge
+			local kindColors = {
+				gc  = Color3.fromRGB(99, 102, 241),
+				reg = Color3.fromRGB(56, 189, 248),
+				genv= Color3.fromRGB(34, 197, 94),
+				upv = Color3.fromRGB(251, 191, 36),
+			}
+			local badge = Instance.new("TextLabel", row)
+			badge.Size = UDim2.fromOffset(32, 14)
+			badge.Position = UDim2.new(0, 2, 0.5, -7)
+			badge.BackgroundColor3 = kindColors[entry.kind] or self.Config.ACCENT
+			badge.Text = entry.kind
+			badge.TextColor3 = Color3.new(0,0,0)
+			badge.Font = Enum.Font.GothamBold
+			badge.TextSize = 8
+			badge.BorderSizePixel = 0
+			Instance.new("UICorner", badge).CornerRadius = UDim.new(0,3)
+			-- type icon
+			local typeIcon = Instance.new("TextLabel", row)
+			typeIcon.Size = UDim2.fromOffset(14, self.Config.ROW_HEIGHT)
+			typeIcon.Position = UDim2.new(0, 36, 0, 0)
+			typeIcon.BackgroundTransparency = 1
+			typeIcon.Text = entry.valueType == "table" and "T" or "F"
+			typeIcon.TextColor3 = entry.valueType == "table"
+				and Color3.fromRGB(56,189,248)
+				or  Color3.fromRGB(251,191,36)
+			typeIcon.Font = Enum.Font.GothamBold
+			typeIcon.TextSize = 10
+			-- label
+			local lbl = Instance.new("TextLabel", row)
+			lbl.Size = UDim2.new(1, -130, 1, 0)
+			lbl.Position = UDim2.new(0, 52, 0, 0)
+			lbl.BackgroundTransparency = 1
+			lbl.Text = entry.label
+			lbl.TextColor3 = self.Config.TEXT_BLACK
+			lbl.Font = Enum.Font.Code
+			lbl.TextSize = 10
+			lbl.TextXAlignment = Enum.TextXAlignment.Left
+			lbl.TextTruncate = Enum.TextTruncate.AtEnd
+			-- Dive button (tables only)
+			if entry.valueType == "table" then
+				local diveBtn = self:_createButton(row, "Dive",
+					UDim2.fromOffset(36, 16), UDim2.new(1, -80, 0.5, -8),
+					function()
+						self:DrillDown(entry.label, entry.ref)
+						if ui.SVSwitchTab then ui.SVSwitchTab("inspector") end
+					end)
+				diveBtn.TextSize = 9
+				diveBtn.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
+			end
+			-- Copy label button
+			local copyBtn = self:_createButton(row, "Copy",
+				UDim2.fromOffset(36, 16), UDim2.new(1, -40, 0.5, -8),
+				function()
+					pcall(function()
+						if setclipboard then setclipboard(entry.label)
+						elseif toclipboard then toclipboard(entry.label) end
+					end)
+					self:_showNotification("Copied: " .. entry.label, "success")
+				end)
+			copyBtn.TextSize = 9
+			copyBtn.BackgroundColor3 = Color3.fromRGB(60, 100, 160)
+			-- hover
+			row.MouseEnter:Connect(function()
+				row.BackgroundColor3 = self.Config.BG_LIGHT
+			end)
+			row.MouseLeave:Connect(function()
+				row.BackgroundColor3 = self.Config.BG_WHITE
+			end)
+			task.wait()
+		end
+		ui.GCStatus.Text = string.format(
+			"%d shown / %d total  (gc=%s  reg=%s  genv=%s  upv=%s)",
+			shown, #results,
+			type(getgc)=="function" and "✓" or "✗",
+			type(getreg)=="function" and "✓" or "✗",
+			type(getgenv)=="function" and "✓" or "✗",
+			(type(getupvalues)=="function" or (debug and type(debug.getupvalues)=="function")) and "✓" or "✗"
+		)
+		ui.GCStatus.TextColor3 = self.Config.SUCCESS_GREEN
+	end)
+end
+
 function TI:CreateUI()
 	if self.State.UI and self.State.UI.Main then
 		self.State.UI.Main.Visible = true
@@ -4736,32 +5161,57 @@ function TI:CreateUI()
 	main.BackgroundColor3 = self.Config.BG_PANEL
 	main.BorderSizePixel = 0
 	main.ClipsDescendants = false
-	self:_createBorder(main, false)
+	Instance.new("UICorner", main).CornerRadius = UDim.new(0, 8)
+	local mainStroke = Instance.new("UIStroke", main)
+	mainStroke.Thickness = 2
+	mainStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	-- animated rainbow gradient outline
+	local _rainbowHue = 0
+	RunService.RenderStepped:Connect(function(dt)
+		_rainbowHue = (_rainbowHue + dt * 0.18) % 1
+		local c1 = Color3.fromHSV(_rainbowHue,               0.85, 1)
+		local c2 = Color3.fromHSV((_rainbowHue + 0.33) % 1,  0.85, 1)
+		local c3 = Color3.fromHSV((_rainbowHue + 0.66) % 1,  0.85, 1)
+		local grad = Instance.new("UIGradient")
+		grad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0,    c1),
+			ColorSequenceKeypoint.new(0.33, c2),
+			ColorSequenceKeypoint.new(0.66, c3),
+			ColorSequenceKeypoint.new(1,    c1),
+		})
+		grad.Rotation = (_rainbowHue * 360) % 360
+		local old = mainStroke:FindFirstChildOfClass("UIGradient")
+		if old then old:Destroy() end
+		grad.Parent = mainStroke
+	end)
+	-- title bar
 	local titleBar = Instance.new("Frame", main)
-	titleBar.Size = UDim2.new(1, 0, 0, 24)
+	titleBar.Size = UDim2.new(1, 0, 0, 32)
 	titleBar.BackgroundColor3 = self.Config.BG_DARK
 	titleBar.BorderSizePixel = 0
-	self:_createBorder(titleBar, true)
+	Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 8)
+	-- accent left stripe
+	local accentBar = Instance.new("Frame", titleBar)
+	accentBar.Size = UDim2.new(0, 3, 1, 0)
+	accentBar.BackgroundColor3 = self.Config.ACCENT
+	accentBar.BorderSizePixel = 0
+	-- title text
 	local title = Instance.new("TextLabel", titleBar)
-	title.Size = UDim2.new(1, -72, 1, 0)
-	title.Position = UDim2.fromOffset(6, 0)
+	title.Size = UDim2.new(1, -100, 1, 0)
+	title.Position = UDim2.fromOffset(14, 0)
 	title.BackgroundTransparency = 1
-	title.Text = "Table Inspector  ·  Editor  ·  Freeze  ·  Dive"
+	title.Text = "Overseer  ·  Inspector  ·  Editor  ·  Freeze  ·  GC/Upvalues"
 	title.TextColor3 = self.Config.TEXT_BLACK
-	title.Font = Enum.Font.SourceSansBold
-	title.TextSize = 13
+	title.Font = Enum.Font.GothamBold
+	title.TextSize = 12
 	title.TextXAlignment = Enum.TextXAlignment.Left
-	self:_createButton(titleBar, "×", UDim2.fromOffset(20, 18), UDim2.new(1, -22, 0, 2), function()
+	-- close / minimize
+	self:_createButton(titleBar, "✕", UDim2.fromOffset(24, 20), UDim2.new(1, -28, 0, 6), function()
 		main.Visible = false
 	end)
 	local minimizeBtn = self:_createButton(
-		titleBar,
-		"─",
-		UDim2.fromOffset(20, 18),
-		UDim2.new(1, -44, 0, 2),
-		function()
-			self:Minimize()
-		end
+		titleBar, "─", UDim2.fromOffset(24, 20), UDim2.new(1, -56, 0, 6),
+		function() self:Minimize() end
 	)
 	local dragging, dragStart, startPos
 	titleBar.InputBegan:Connect(function(i)
@@ -4784,8 +5234,8 @@ function TI:CreateUI()
 		end
 	end)
 	local content = Instance.new("Frame", main)
-	content.Size = UDim2.new(1, -4, 1, -28)
-	content.Position = UDim2.fromOffset(2, 26)
+	content.Size = UDim2.new(1, -12, 1, -40)
+	content.Position = UDim2.fromOffset(6, 36)
 	content.BackgroundTransparency = 1
 	content.BorderSizePixel = 0
 	local modPanel = Instance.new("Frame", content)
@@ -4793,6 +5243,7 @@ function TI:CreateUI()
 	modPanel.Position = UDim2.new(0, 0, 0, 0)
 	modPanel.BackgroundColor3 = self.Config.BG_PANEL
 	modPanel.BorderSizePixel = 0
+	Instance.new("UICorner", modPanel).CornerRadius = UDim.new(0, 6)
 	self:_createBorder(modPanel, false)
 	local modTitle = Instance.new("TextLabel", modPanel)
 	modTitle.Size = UDim2.new(1, -4, 0, 18)
@@ -4801,7 +5252,7 @@ function TI:CreateUI()
 	modTitle.BorderSizePixel = 0
 	modTitle.Text = "Modules"
 	modTitle.TextColor3 = self.Config.TEXT_BLACK
-	modTitle.Font = Enum.Font.SourceSansBold
+	modTitle.Font = Enum.Font.GothamBold
 	modTitle.TextSize = 11
 	modTitle.TextXAlignment = Enum.TextXAlignment.Left
 	local mp = Instance.new("UIPadding", modTitle)
@@ -4814,8 +5265,8 @@ function TI:CreateUI()
 	modSearch.Text = ""
 	modSearch.PlaceholderText = "Search modules..."
 	modSearch.TextColor3 = self.Config.TEXT_BLACK
-	modSearch.Font = Enum.Font.SourceSans
-	modSearch.TextSize = 12
+	modSearch.Font = Enum.Font.Gotham
+	modSearch.TextSize = 11
 	modSearch.TextXAlignment = Enum.TextXAlignment.Left
 	modSearch.BorderSizePixel = 0
 	modSearch.ClearTextOnFocus = false
@@ -4837,13 +5288,13 @@ function TI:CreateUI()
 	modScroll.Position = UDim2.fromOffset(4, 74)
 	modScroll.BackgroundColor3 = self.Config.BG_WHITE
 	modScroll.BorderSizePixel = 0
-	modScroll.ScrollBarThickness = 10
-	modScroll.ScrollBarImageColor3 = self.Config.BG_DARK
+	modScroll.ScrollBarThickness = 4
+	modScroll.ScrollBarImageColor3 = self.Config.ACCENT
 	modScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	modScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 	self:_createBorder(modScroll, true)
 	local modList = Instance.new("UIListLayout", modScroll)
-	modList.Padding = UDim.new(0, 1)
+	modList.Padding = UDim.new(0, 2)
 	local debounce
 	modSearch.Changed:Connect(function(prop)
 		if prop == "Text" then
@@ -4860,6 +5311,7 @@ function TI:CreateUI()
 	inspPanel.Position = UDim2.new(0.2026, 0, 0, 0)
 	inspPanel.BackgroundColor3 = self.Config.BG_PANEL
 	inspPanel.BorderSizePixel = 0
+	Instance.new("UICorner", inspPanel).CornerRadius = UDim.new(0, 6)
 	self:_createBorder(inspPanel, false)
 	local inspTitle = Instance.new("TextLabel", inspPanel)
 	inspTitle.Size = UDim2.new(1, -4, 0, 18)
@@ -4868,7 +5320,7 @@ function TI:CreateUI()
 	inspTitle.BorderSizePixel = 0
 	inspTitle.Text = "Table Inspector"
 	inspTitle.TextColor3 = self.Config.TEXT_BLACK
-	inspTitle.Font = Enum.Font.SourceSansBold
+	inspTitle.Font = Enum.Font.GothamBold
 	inspTitle.TextSize = 11
 	inspTitle.TextXAlignment = Enum.TextXAlignment.Left
 	local itp = Instance.new("UIPadding", inspTitle)
@@ -4877,7 +5329,7 @@ function TI:CreateUI()
 	local svTabStrip = Instance.new("Frame", inspPanel)
 	svTabStrip.Size = UDim2.new(1, -4, 0, 20)
 	svTabStrip.Position = UDim2.fromOffset(2, 20)
-	svTabStrip.BackgroundColor3 = self.Config.BG_DARK
+	svTabStrip.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
 	svTabStrip.BorderSizePixel = 0
 	self:_createBorder(svTabStrip, true)
 	local svActiveTab = "inspector"
@@ -4887,7 +5339,7 @@ function TI:CreateUI()
 	svInspTab.BackgroundColor3 = self.Config.BG_LIGHT
 	svInspTab.Text = "Table Inspector"
 	svInspTab.TextColor3 = self.Config.TEXT_BLACK
-	svInspTab.Font = Enum.Font.SourceSansBold
+	svInspTab.Font = Enum.Font.GothamMedium
 	svInspTab.TextSize = 10
 	svInspTab.BorderSizePixel = 0
 	svInspTab.AutoButtonColor = false
@@ -4898,11 +5350,22 @@ function TI:CreateUI()
 	svScriptTab.BackgroundColor3 = self.Config.BG_PANEL
 	svScriptTab.Text = "Script Viewer"
 	svScriptTab.TextColor3 = self.Config.TEXT_BLACK
-	svScriptTab.Font = Enum.Font.SourceSans
+	svScriptTab.Font = Enum.Font.GothamMedium
 	svScriptTab.TextSize = 10
 	svScriptTab.BorderSizePixel = 0
 	svScriptTab.AutoButtonColor = false
 	self:_createBorder(svScriptTab, true)
+	local svGCTab = Instance.new("TextButton", svTabStrip)
+	svGCTab.Size = UDim2.fromOffset(110, 20)
+	svGCTab.Position = UDim2.fromOffset(213, 0)
+	svGCTab.BackgroundColor3 = self.Config.BG_PANEL
+	svGCTab.Text = "GC / Upvalues"
+	svGCTab.TextColor3 = self.Config.TEXT_BLACK
+	svGCTab.Font = Enum.Font.GothamMedium
+	svGCTab.TextSize = 10
+	svGCTab.BorderSizePixel = 0
+	svGCTab.AutoButtonColor = false
+	self:_createBorder(svGCTab, true)
 	local toolbar = Instance.new("Frame", inspPanel)
 	toolbar.Size = UDim2.new(1, -8, 0, 26)
 	toolbar.Position = UDim2.fromOffset(4, 42)
@@ -4941,7 +5404,7 @@ function TI:CreateUI()
 		h.BackgroundTransparency = 1
 		h.Text = ht
 		h.TextColor3 = self.Config.TEXT_BLACK
-		h.Font = Enum.Font.SourceSansBold
+		h.Font = Enum.Font.GothamBold
 		h.TextSize = 11
 		h.TextXAlignment = Enum.TextXAlignment.Left
 		local hp = Instance.new("UIPadding", h)
@@ -4954,7 +5417,7 @@ function TI:CreateUI()
 	inspScroll.BackgroundColor3 = self.Config.BG_WHITE
 	inspScroll.BorderSizePixel = 0
 	inspScroll.ScrollBarThickness = 12
-	inspScroll.ScrollBarImageColor3 = self.Config.BG_DARK
+	inspScroll.ScrollBarImageColor3 = self.Config.ACCENT
 	inspScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	inspScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 	self:_createBorder(inspScroll, true)
@@ -4979,7 +5442,7 @@ function TI:CreateUI()
 	svScriptNameLbl.BackgroundTransparency = 1
 	svScriptNameLbl.Text = "No module selected"
 	svScriptNameLbl.TextColor3 = self.Config.TEXT_BLACK
-	svScriptNameLbl.Font = Enum.Font.SourceSansBold
+	svScriptNameLbl.Font = Enum.Font.GothamBold
 	svScriptNameLbl.TextSize = 11
 	svScriptNameLbl.TextXAlignment = Enum.TextXAlignment.Left
 	svScriptNameLbl.TextTruncate = Enum.TextTruncate.AtEnd
@@ -4991,7 +5454,7 @@ function TI:CreateUI()
 	svStatusLbl.BackgroundTransparency = 1
 	svStatusLbl.Text = ""
 	svStatusLbl.TextColor3 = self.Config.TEXT_GRAY
-	svStatusLbl.Font = Enum.Font.SourceSans
+	svStatusLbl.Font = Enum.Font.Gotham
 	svStatusLbl.TextSize = 10
 	svStatusLbl.TextXAlignment = Enum.TextXAlignment.Right
 	local svModeBtn =
@@ -5039,7 +5502,7 @@ function TI:CreateUI()
 	local svScroll = Instance.new("ScrollingFrame", scriptPanel)
 	svScroll.Size = UDim2.new(1, 0, 1, -30)
 	svScroll.Position = UDim2.fromOffset(0, 30)
-	svScroll.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	svScroll.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 	svScroll.BorderSizePixel = 0
 	svScroll.ScrollBarThickness = 10
 	svScroll.ScrollBarImageColor3 = self.Config.BG_DARK
@@ -5053,33 +5516,163 @@ function TI:CreateUI()
 	svOutput.Position = UDim2.fromOffset(4, 4)
 	svOutput.BackgroundTransparency = 1
 	svOutput.Text = "← Select a module then click Decompile"
-	svOutput.TextColor3 = Color3.fromRGB(180, 180, 180)
+	svOutput.TextColor3 = Color3.fromRGB(200, 200, 215)
 	svOutput.Font = Enum.Font.Code
 	svOutput.TextSize = 11
 	svOutput.TextXAlignment = Enum.TextXAlignment.Left
 	svOutput.TextYAlignment = Enum.TextYAlignment.Top
 	svOutput.TextWrapped = true
 	svOutput.RichText = false
+	-- ── GC / Upvalues panel ─────────────────────────────────────────────────────
+	local gcPanel = Instance.new("Frame", inspPanel)
+	gcPanel.Size = UDim2.new(1, -8, 1, -100)
+	gcPanel.Position = UDim2.fromOffset(4, 96)
+	gcPanel.BackgroundColor3 = self.Config.BG_WHITE
+	gcPanel.BorderSizePixel = 0
+	gcPanel.Visible = false
+	self:_createBorder(gcPanel, true)
+	-- GC toolbar
+	local gcToolbar = Instance.new("Frame", gcPanel)
+	gcToolbar.Size = UDim2.new(1, 0, 0, 30)
+	gcToolbar.BackgroundColor3 = self.Config.BG_DARK
+	gcToolbar.BorderSizePixel = 0
+	self:_createBorder(gcToolbar, true)
+	-- Search box
+	local gcSearch = Instance.new("TextBox", gcToolbar)
+	gcSearch.Size = UDim2.new(0, 160, 0, 20)
+	gcSearch.Position = UDim2.fromOffset(4, 5)
+	gcSearch.BackgroundColor3 = self.Config.BG_WHITE
+	gcSearch.Text = ""
+	gcSearch.PlaceholderText = "Search labels..."
+	gcSearch.TextColor3 = self.Config.TEXT_BLACK
+	gcSearch.Font = Enum.Font.Gotham
+	gcSearch.TextSize = 11
+	gcSearch.BorderSizePixel = 0
+	gcSearch.ClearTextOnFocus = false
+	local gsp = Instance.new("UIPadding", gcSearch)
+	gsp.PaddingLeft = UDim.new(0, 4)
+	self:_createBorder(gcSearch, true)
+	-- Type filter dropdown (text cycle button)
+	local gcFilterTypes = {"all", "table", "function"}
+	local gcFilterIdx = 1
+	local gcFilterBtn = self:_createButton(gcToolbar, "Type: all",
+		UDim2.fromOffset(72, 20), UDim2.fromOffset(168, 5), function() end)
+	gcFilterBtn.TextSize = 9
+	gcFilterBtn.BackgroundColor3 = self.Config.ACCENT
+	gcFilterBtn.MouseButton1Click:Connect(function()
+		gcFilterIdx = (gcFilterIdx % #gcFilterTypes) + 1
+		gcFilterBtn.Text = "Type: " .. gcFilterTypes[gcFilterIdx]
+	end)
+	-- Scan button
+	local gcScanBtn = self:_createButton(gcToolbar, "▶ Scan",
+		UDim2.fromOffset(58, 20), UDim2.fromOffset(244, 5), function()
+			self:PopulateGCPanel(
+				gcFilterTypes[gcFilterIdx] ~= "all" and gcFilterTypes[gcFilterIdx] or nil,
+				gcSearch.Text ~= "" and gcSearch.Text or nil
+			)
+		end)
+	gcScanBtn.TextSize = 9
+	gcScanBtn.BackgroundColor3 = Color3.fromRGB(34, 197, 94)
+	-- Source filter chips
+	local gcSrcFilters = {"gc", "reg", "genv", "upv"}
+	local gcSrcEnabled = {gc=true, reg=true, genv=true, upv=true}
+	local chipX = 306
+	for _, src in ipairs(gcSrcFilters) do
+		local chip = self:_createButton(gcToolbar, src,
+			UDim2.fromOffset(34, 20), UDim2.fromOffset(chipX, 5), function() end)
+		chip.TextSize = 9
+		local chipColors = {
+			gc   = Color3.fromRGB(99, 102, 241),
+			reg  = Color3.fromRGB(56, 189, 248),
+			genv = Color3.fromRGB(34, 197, 94),
+			upv  = Color3.fromRGB(251, 191, 36),
+		}
+		chip.BackgroundColor3 = chipColors[src]
+		chipX = chipX + 38
+	end
+	-- Status label
+	local gcStatus = Instance.new("TextLabel", gcPanel)
+	gcStatus.Size = UDim2.new(1, -8, 0, 16)
+	gcStatus.Position = UDim2.fromOffset(4, 32)
+	gcStatus.BackgroundTransparency = 1
+	gcStatus.Text = "Click ▶ Scan to walk getgc / getreg / getgenv / upvalues"
+	gcStatus.TextColor3 = self.Config.TEXT_GRAY
+	gcStatus.Font = Enum.Font.Gotham
+	gcStatus.TextSize = 10
+	gcStatus.TextXAlignment = Enum.TextXAlignment.Left
+	-- Column header
+	local gcHdr = Instance.new("Frame", gcPanel)
+	gcHdr.Size = UDim2.new(1, 0, 0, self.Config.ROW_HEIGHT)
+	gcHdr.Position = UDim2.fromOffset(0, 50)
+	gcHdr.BackgroundColor3 = self.Config.BG_DARK
+	gcHdr.BorderSizePixel = 0
+	self:_createBorder(gcHdr, true)
+	for i, txt in ipairs({"Src", "T", "Label", "Actions"}) do
+		local hx = {UDim2.new(0,2,0,0), UDim2.new(0,36,0,0), UDim2.new(0,52,0,0), UDim2.new(1,-80,0,0)}
+		local hw = {UDim2.fromOffset(32,self.Config.ROW_HEIGHT), UDim2.fromOffset(14,self.Config.ROW_HEIGHT),
+			UDim2.new(1,-134,1,0), UDim2.fromOffset(80,self.Config.ROW_HEIGHT)}
+		local h = Instance.new("TextLabel", gcHdr)
+		h.Size = hw[i]; h.Position = hx[i]
+		h.BackgroundTransparency = 1; h.Text = txt
+		h.TextColor3 = self.Config.TEXT_BLACK; h.Font = Enum.Font.GothamBold
+		h.TextSize = 10; h.TextXAlignment = Enum.TextXAlignment.Left
+		local hp = Instance.new("UIPadding", h); hp.PaddingLeft = UDim.new(0,2)
+	end
+	-- Results scroll
+	local gcScroll = Instance.new("ScrollingFrame", gcPanel)
+	gcScroll.Size = UDim2.new(1, 0, 1, -74)
+	gcScroll.Position = UDim2.fromOffset(0, 74)
+	gcScroll.BackgroundColor3 = self.Config.BG_WHITE
+	gcScroll.BorderSizePixel = 0
+	gcScroll.ScrollBarThickness = 8
+	gcScroll.ScrollBarImageColor3 = self.Config.ACCENT
+	gcScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	gcScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+	local gcList = Instance.new("UIListLayout", gcScroll)
+	gcList.Padding = UDim.new(0, 0)
+	-- Wire search debounce
+	local gcDebounce
+	gcSearch.Changed:Connect(function(p)
+		if p == "Text" then
+			if gcDebounce then task.cancel(gcDebounce) end
+			gcDebounce = task.delay(0.4, function()
+				if gcSearch.Text ~= "" then
+					self:PopulateGCPanel(
+						gcFilterTypes[gcFilterIdx] ~= "all" and gcFilterTypes[gcFilterIdx] or nil,
+						gcSearch.Text
+					)
+				end
+			end)
+		end
+	end)
+
 	local function svSwitchTab(toTab)
 		svActiveTab = toTab
+		-- hide all panels
+		inspScroll.Visible = false
+		hdr.Visible = false
+		toolbar.Visible = false
+		scriptPanel.Visible = false
+		gcPanel.Visible = false
+		-- reset tab styles
+		for _, btn in ipairs({svInspTab, svScriptTab, svGCTab}) do
+			btn.BackgroundColor3 = self.Config.BG_PANEL
+			btn.Font = Enum.Font.GothamMedium
+		end
 		if toTab == "inspector" then
 			inspScroll.Visible = true
 			hdr.Visible = true
 			toolbar.Visible = true
-			scriptPanel.Visible = false
 			svInspTab.BackgroundColor3 = self.Config.BG_LIGHT
-			svInspTab.Font = Enum.Font.SourceSansBold
-			svScriptTab.BackgroundColor3 = self.Config.BG_PANEL
-			svScriptTab.Font = Enum.Font.SourceSans
-		else
-			inspScroll.Visible = false
-			hdr.Visible = false
-			toolbar.Visible = false
+			svInspTab.Font = Enum.Font.GothamBold
+		elseif toTab == "scriptviewer" then
 			scriptPanel.Visible = true
-			svInspTab.BackgroundColor3 = self.Config.BG_PANEL
-			svInspTab.Font = Enum.Font.SourceSans
 			svScriptTab.BackgroundColor3 = self.Config.BG_LIGHT
-			svScriptTab.Font = Enum.Font.SourceSansBold
+			svScriptTab.Font = Enum.Font.GothamBold
+		elseif toTab == "gcviewer" then
+			gcPanel.Visible = true
+			svGCTab.BackgroundColor3 = self.Config.BG_LIGHT
+			svGCTab.Font = Enum.Font.GothamBold
 		end
 	end
 	svInspTab.MouseButton1Click:Connect(function()
@@ -5088,11 +5681,15 @@ function TI:CreateUI()
 	svScriptTab.MouseButton1Click:Connect(function()
 		svSwitchTab("scriptviewer")
 	end)
+	svGCTab.MouseButton1Click:Connect(function()
+		svSwitchTab("gcviewer")
+	end)
 	local patchPanel = Instance.new("Frame", content)
 	patchPanel.Size = UDim2.new(0.1799, 0, 1, 0)
 	patchPanel.Position = UDim2.new(0.8220, 0, 0, 0)
 	patchPanel.BackgroundColor3 = self.Config.BG_PANEL
 	patchPanel.BorderSizePixel = 0
+	Instance.new("UICorner", patchPanel).CornerRadius = UDim.new(0, 6)
 	self:_createBorder(patchPanel, false)
 	local patchTitle = Instance.new("TextLabel", patchPanel)
 	patchTitle.Size = UDim2.new(1, -4, 0, 18)
@@ -5101,40 +5698,90 @@ function TI:CreateUI()
 	patchTitle.BorderSizePixel = 0
 	patchTitle.Text = "Active Patches"
 	patchTitle.TextColor3 = self.Config.TEXT_BLACK
-	patchTitle.Font = Enum.Font.SourceSansBold
+	patchTitle.Font = Enum.Font.GothamBold
 	patchTitle.TextSize = 11
 	patchTitle.TextXAlignment = Enum.TextXAlignment.Left
 	local ptp = Instance.new("UIPadding", patchTitle)
 	ptp.PaddingLeft = UDim.new(0, 4)
 	self:_createBorder(patchTitle, true)
+	-- ── Batch controls row 1: Select / Remove ─────────────────────────────────
 	local patchControls = Instance.new("Frame", patchPanel)
 	patchControls.Size = UDim2.new(1, -8, 0, 26)
 	patchControls.Position = UDim2.fromOffset(4, 22)
 	patchControls.BackgroundColor3 = self.Config.BG_DARK
 	patchControls.BorderSizePixel = 0
 	self:_createBorder(patchControls, true)
-	self:_createButton(patchControls, "Clear All", UDim2.fromOffset(72, 20), UDim2.fromOffset(2, 2), function()
-		for id in pairs(self.State.ActivePatches) do
-			self:RemovePatch(id)
-		end
-	end)
-	local patchCount = Instance.new("TextLabel", patchControls)
-	patchCount.Size = UDim2.new(1, -78, 1, 0)
-	patchCount.Position = UDim2.fromOffset(76, 0)
+	-- [Sel All] [Rem Sel] [Rem All]  · N sel
+	local selAllBtn = self:_createButton(patchControls, "Sel All",
+		UDim2.fromOffset(48, 20), UDim2.fromOffset(2, 3), function()
+			self:SelectAllPatches()
+		end)
+	selAllBtn.TextSize = 9
+	selAllBtn.BackgroundColor3 = self.Config.ACCENT
+	local remSelBtn = self:_createButton(patchControls, "Rem Sel",
+		UDim2.fromOffset(48, 20), UDim2.fromOffset(53, 3), function()
+			self:RemoveSelectedPatches()
+		end)
+	remSelBtn.TextSize = 9
+	remSelBtn.BackgroundColor3 = Color3.fromRGB(200, 80, 80)
+	local remAllBtn = self:_createButton(patchControls, "Rem All",
+		UDim2.fromOffset(48, 20), UDim2.fromOffset(104, 3), function()
+			self.State.SelectedPatches = {}
+			for id in pairs(self.State.ActivePatches) do
+				self:RemovePatch(id)
+			end
+		end)
+	remAllBtn.TextSize = 9
+	remAllBtn.BackgroundColor3 = Color3.fromRGB(160, 50, 50)
+	local patchSelCount = Instance.new("TextLabel", patchControls)
+	patchSelCount.Size = UDim2.new(1, -156, 1, 0)
+	patchSelCount.Position = UDim2.fromOffset(156, 0)
+	patchSelCount.BackgroundTransparency = 1
+	patchSelCount.Text = ""
+	patchSelCount.TextColor3 = self.Config.HIGHLIGHT
+	patchSelCount.Font = Enum.Font.GothamBold
+	patchSelCount.TextSize = 10
+	patchSelCount.TextXAlignment = Enum.TextXAlignment.Left
+	-- ── Batch controls row 2: Export / Count ────────────────────────────────────
+	local patchControls2 = Instance.new("Frame", patchPanel)
+	patchControls2.Size = UDim2.new(1, -8, 0, 22)
+	patchControls2.Position = UDim2.fromOffset(4, 50)
+	patchControls2.BackgroundColor3 = self.Config.BG_DARK
+	patchControls2.BorderSizePixel = 0
+	self:_createBorder(patchControls2, true)
+	local expAllBtn = self:_createButton(patchControls2, "Export All",
+		UDim2.fromOffset(62, 16), UDim2.fromOffset(2, 3), function()
+			self:ExportPatches(nil)
+		end)
+	expAllBtn.TextSize = 9
+	expAllBtn.BackgroundColor3 = Color3.fromRGB(40, 140, 80)
+	local expSelBtn = self:_createButton(patchControls2, "Exp Sel",
+		UDim2.fromOffset(52, 16), UDim2.fromOffset(67, 3), function()
+			local ids = {}
+			for id in pairs(self.State.SelectedPatches) do
+				table.insert(ids, id)
+			end
+			self:ExportPatches(ids)
+		end)
+	expSelBtn.TextSize = 9
+	expSelBtn.BackgroundColor3 = Color3.fromRGB(30, 100, 60)
+	local patchCount = Instance.new("TextLabel", patchControls2)
+	patchCount.Size = UDim2.new(1, -124, 1, 0)
+	patchCount.Position = UDim2.fromOffset(124, 0)
 	patchCount.BackgroundTransparency = 1
 	patchCount.Text = "Patches: 0"
 	patchCount.TextColor3 = self.Config.TEXT_BLACK
-	patchCount.Font = Enum.Font.SourceSans
-	patchCount.TextSize = 12
+	patchCount.Font = Enum.Font.Gotham
+	patchCount.TextSize = 10
 	patchCount.TextXAlignment = Enum.TextXAlignment.Left
 	local phdr = Instance.new("Frame", patchPanel)
 	phdr.Size = UDim2.new(1, -8, 0, self.Config.ROW_HEIGHT)
-	phdr.Position = UDim2.fromOffset(4, 52)
+	phdr.Position = UDim2.fromOffset(4, 74)
 	phdr.BackgroundColor3 = self.Config.BG_DARK
 	phdr.BorderSizePixel = 0
 	self:_createBorder(phdr, true)
-	local pHdrs = { "Frz", "Key", "Value", "Del" }
-	local pHW = { 0.13, 0.38, 0.35, 0.14 }
+	local pHdrs = { "Sel", "Frz", "Key", "Value", "Del" }
+	local pHW = { 0.09, 0.11, 0.35, 0.31, 0.14 }
 	local pxp = 0
 	for i, ph in ipairs(pHdrs) do
 		local h = Instance.new("TextLabel", phdr)
@@ -5143,7 +5790,7 @@ function TI:CreateUI()
 		h.BackgroundTransparency = 1
 		h.Text = ph
 		h.TextColor3 = self.Config.TEXT_BLACK
-		h.Font = Enum.Font.SourceSansBold
+		h.Font = Enum.Font.GothamBold
 		h.TextSize = 11
 		h.TextXAlignment = Enum.TextXAlignment.Left
 		local hp = Instance.new("UIPadding", h)
@@ -5151,12 +5798,12 @@ function TI:CreateUI()
 		pxp = pxp + pHW[i]
 	end
 	local patchScroll = Instance.new("ScrollingFrame", patchPanel)
-	patchScroll.Size = UDim2.new(1, -8, 1, -78)
-	patchScroll.Position = UDim2.fromOffset(4, 76)
+	patchScroll.Size = UDim2.new(1, -8, 1, -100)
+	patchScroll.Position = UDim2.fromOffset(4, 98)
 	patchScroll.BackgroundColor3 = self.Config.BG_WHITE
 	patchScroll.BorderSizePixel = 0
-	patchScroll.ScrollBarThickness = 10
-	patchScroll.ScrollBarImageColor3 = self.Config.BG_DARK
+	patchScroll.ScrollBarThickness = 4
+	patchScroll.ScrollBarImageColor3 = self.Config.ACCENT
 	patchScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	patchScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 	self:_createBorder(patchScroll, true)
@@ -5166,7 +5813,7 @@ function TI:CreateUI()
 	tab.Name = "RestoreTab"
 	tab.Size = UDim2.fromOffset(34, 110)
 	tab.Position = UDim2.new(1, -34, 0.5, -55)
-	tab.BackgroundColor3 = self.Config.BG_DARK
+	tab.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
 	tab.BorderSizePixel = 0
 	tab.Visible = false
 	tab.ZIndex = 300
@@ -5183,7 +5830,7 @@ function TI:CreateUI()
 			local cell = Instance.new("Frame", iconFrame)
 			cell.Size = UDim2.fromOffset(cellSz, cellSz)
 			cell.Position = UDim2.fromOffset(col * (cellSz + gap), row * (cellSz + gap))
-			cell.BackgroundColor3 = row == 0 and Color3.fromRGB(180, 180, 180) or self.Config.BG_WHITE
+			cell.BackgroundColor3 = row == 0 and self.Config.ACCENT or self.Config.BG_LIGHT
 			cell.BorderSizePixel = 0
 			cell.ZIndex = 302
 		end
@@ -5194,7 +5841,7 @@ function TI:CreateUI()
 	tabLabel.BackgroundTransparency = 1
 	tabLabel.Text = "TI"
 	tabLabel.TextColor3 = self.Config.TEXT_BLACK
-	tabLabel.Font = Enum.Font.SourceSansBold
+	tabLabel.Font = Enum.Font.GothamBold
 	tabLabel.TextSize = 11
 	tabLabel.TextXAlignment = Enum.TextXAlignment.Center
 	tabLabel.ZIndex = 301
@@ -5203,8 +5850,8 @@ function TI:CreateUI()
 	tabVertLabel.Position = UDim2.new(0.5, -7, 0, 50)
 	tabVertLabel.BackgroundTransparency = 1
 	tabVertLabel.Text = "TABLE\nINSP"
-	tabVertLabel.TextColor3 = self.Config.TEXT_GRAY
-	tabVertLabel.Font = Enum.Font.SourceSans
+	tabVertLabel.TextColor3 = self.Config.ACCENT
+	tabVertLabel.Font = Enum.Font.Gotham
 	tabVertLabel.TextSize = 9
 	tabVertLabel.TextXAlignment = Enum.TextXAlignment.Center
 	tabVertLabel.TextYAlignment = Enum.TextYAlignment.Top
@@ -5219,10 +5866,10 @@ function TI:CreateUI()
 		self:Restore()
 	end)
 	tabBtn.MouseEnter:Connect(function()
-		TweenService:Create(tab, TweenInfo.new(0.1), { BackgroundColor3 = self.Config.BG_LIGHT }):Play()
+		TweenService:Create(tab, TweenInfo.new(0.1), { BackgroundColor3 = Color3.fromRGB(35, 35, 45) }):Play()
 	end)
 	tabBtn.MouseLeave:Connect(function()
-		TweenService:Create(tab, TweenInfo.new(0.1), { BackgroundColor3 = self.Config.BG_DARK }):Play()
+		TweenService:Create(tab, TweenInfo.new(0.1), { BackgroundColor3 = Color3.fromRGB(14, 14, 18) }):Play()
 	end)
 	local tabDragging, tabDragStart, tabStartPos
 	tabBtn.InputBegan:Connect(function(i)
@@ -5251,7 +5898,7 @@ function TI:CreateUI()
 	resizeGrip.Name = "ResizeGrip"
 	resizeGrip.Size = UDim2.fromOffset(14, 14)
 	resizeGrip.Position = UDim2.new(1, -14, 1, -14)
-	resizeGrip.BackgroundColor3 = self.Config.BG_DARK
+	resizeGrip.BackgroundColor3 = self.Config.BORDER_DARK
 	resizeGrip.BorderSizePixel = 0
 	resizeGrip.ZIndex = 500
 	-- draw a small diagonal lines icon in the grip
@@ -5297,11 +5944,14 @@ function TI:CreateUI()
 		PathLabel = pathLabel,
 		PatchScroll = patchScroll,
 		PatchCount = patchCount,
+		PatchSelCount = patchSelCount,
 		Minimized = false,
 		ScriptViewerOutput = svOutput,
 		ScriptViewerStatus = svStatusLbl,
 		ScriptViewerName = svScriptNameLbl,
 		ScriptViewerScroll = svScroll,
+		GCScroll = gcScroll,
+		GCStatus = gcStatus,
 		SVMode = function()
 			return svCurrentMode
 		end,
