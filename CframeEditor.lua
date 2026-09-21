@@ -1,4 +1,4 @@
-local CFrameDesync = {
+local characterplacement = {
 	State = {
 		IsEnabled = false,
 		DesyncActive = false,
@@ -12,11 +12,15 @@ local CFrameDesync = {
 		GhostHighlight = nil,
 		PinnedParts = {},
 		CamAnchor = nil,
+		FakeCamAnchor = nil,
+		CameraViewMode = "real",
 		SavedCameraType = nil,
 	},
 	Config = {
-		HighlightColor = Color3.fromRGB(255, 0, 200),
+		HighlightColor = Color3.fromRGB(255, 255, 255),
 		PinnedColor = Color3.fromRGB(0, 220, 255),
+		GhostTransparency = 0.55,
+		PinnedTransparency = 0.7,
 		ShowFakeCharacter = true,
 	},
 }
@@ -42,10 +46,10 @@ end
 local function isPinned(self, partName)
 	return self.State.PinnedParts[partName] == true
 end
-function CFrameDesync:ActivateDesync()
+function characterplacement:ActivateDesync()
 	local char, hrp = getChar()
 	if not hrp then
-		warn("[CFrameDesync] No character.")
+		warn("[characterplacement] No character.")
 		return
 	end
 	self.State.DesyncActive = true
@@ -76,6 +80,9 @@ function CFrameDesync:ActivateDesync()
 			return
 		end
 		root.CFrame = self.State.RealCFrame
+		if self.Config.ShowFakeCharacter and (not self.State.FakeCharacter or not self.State.FakeCharacter.Parent) then
+			self:CreateFakeCharacter()
+		end
 		self:UpdateVisuals()
 	end)
 	local camera = workspace.CurrentCamera
@@ -92,20 +99,51 @@ function CFrameDesync:ActivateDesync()
 	camAnchor.CFrame = self.State.RealCFrame
 	camAnchor.Parent = workspace
 	self.State.CamAnchor = camAnchor
-	camera.CameraSubject = camAnchor
+	local fakeCamAnchor = Instance.new("Part")
+	fakeCamAnchor.Name = "DesyncFakeCamAnchor"
+	fakeCamAnchor.Size = Vector3.new(0.1, 0.1, 0.1)
+	fakeCamAnchor.Transparency = 1
+	fakeCamAnchor.CanCollide = false
+	fakeCamAnchor.CanTouch = false
+	fakeCamAnchor.CanQuery = false
+	fakeCamAnchor.Anchored = true
+	fakeCamAnchor.CFrame = self.State.RealCFrame
+	fakeCamAnchor.Parent = workspace
+	self.State.FakeCamAnchor = fakeCamAnchor
+	camera.CameraSubject = self.State.CameraViewMode == "fake" and fakeCamAnchor or camAnchor
 	self.State.Connections.CamAnchor = RunService.RenderStepped:Connect(function()
 		if camAnchor and camAnchor.Parent then
 			camAnchor.CFrame = self.State.RealCFrame
 		end
+		if fakeCamAnchor and fakeCamAnchor.Parent then
+			local rotOnly = CFrame.fromMatrix(
+				Vector3.zero,
+				self.State.VisualOffset.RightVector,
+				self.State.VisualOffset.UpVector,
+				-self.State.VisualOffset.LookVector
+			)
+			local spoof = CFrame.new(self.State.RealCFrame.Position + self.State.VisualOffset.Position)
+				* CFrame.fromMatrix(
+					Vector3.zero,
+					self.State.RealCFrame.RightVector,
+					self.State.RealCFrame.UpVector,
+					-self.State.RealCFrame.LookVector
+				)
+				* rotOnly
+			fakeCamAnchor.CFrame = spoof
+		end
 	end)
 	local ui = self.State.UI.MainFrame
-	ui.Content.DesyncToggle.Text = "[ DEACTIVATE ]"
-	ui.Content.DesyncToggle.BackgroundColor3 = Color3.fromRGB(80, 10, 10)
+	local toggle = self.State.DesyncToggleBtn
+	if toggle then
+		toggle.Text = "[ DEACTIVATE ]"
+		toggle.BackgroundColor3 = Color3.fromRGB(80, 10, 10)
+	end
 	ui.TitleBar.StatusBadge.Text = "[ONLINE]"
 	ui.TitleBar.StatusBadge.TextColor3 = Color3.fromRGB(0, 255, 100)
 	self:UpdateDisplay()
 end
-function CFrameDesync:DeactivateDesync()
+function characterplacement:DeactivateDesync()
 	self.State.DesyncActive = false
 	for _, conn in pairs(self.State.Connections) do
 		pcall(function()
@@ -113,13 +151,16 @@ function CFrameDesync:DeactivateDesync()
 		end)
 	end
 	table.clear(self.State.Connections)
+	local char, hrp = getChar()
+	if hrp then
+		hrp.CFrame = self.State.RealCFrame
+	end
 	if self.State.FakeCharacter then
 		self.State.FakeCharacter:Destroy()
 		self.State.FakeCharacter = nil
 		self.State.GhostHighlight = nil
 	end
 	local camera = workspace.CurrentCamera
-	local char, hrp = getChar()
 	if hrp then
 		camera.CameraSubject = hrp
 	elseif char then
@@ -132,24 +173,31 @@ function CFrameDesync:DeactivateDesync()
 		self.State.CamAnchor:Destroy()
 		self.State.CamAnchor = nil
 	end
+	if self.State.FakeCamAnchor then
+		self.State.FakeCamAnchor:Destroy()
+		self.State.FakeCamAnchor = nil
+	end
 	if not self.State.UI then
 		return
 	end
 	local ui = self.State.UI.MainFrame
-	ui.Content.DesyncToggle.Text = "[ ACTIVATE ]"
-	ui.Content.DesyncToggle.BackgroundColor3 = Color3.fromRGB(14, 14, 20)
+	local toggle = self.State.DesyncToggleBtn
+	if toggle then
+		toggle.Text = "[ ACTIVATE ]"
+		toggle.BackgroundColor3 = Color3.fromRGB(14, 14, 20)
+	end
 	ui.TitleBar.StatusBadge.Text = "[OFFLINE]"
 	ui.TitleBar.StatusBadge.TextColor3 = Color3.fromRGB(100, 100, 110)
 	self:UpdateDisplay()
 end
-function CFrameDesync:ToggleDesync()
+function characterplacement:ToggleDesync()
 	if self.State.DesyncActive then
 		self:DeactivateDesync()
 	else
 		self:ActivateDesync()
 	end
 end
-function CFrameDesync:CreateFakeCharacter()
+function characterplacement:CreateFakeCharacter()
 	local char = LocalPlayer.Character
 	if not char then
 		return
@@ -159,12 +207,13 @@ function CFrameDesync:CreateFakeCharacter()
 	for _, part in pairs(char:GetChildren()) do
 		if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
 			local p = part:Clone()
+			p.Anchored = true
 			p.CanCollide = false
 			p.CanTouch = false
 			p.CanQuery = false
 			p.CastShadow = false
-			p.Material = Enum.Material.Neon
-			p.Transparency = isPinned(self, part.Name) and 0.45 or 0.2
+			p.Material = Enum.Material.ForceField
+			p.Transparency = isPinned(self, part.Name) and self.Config.PinnedTransparency or self.Config.GhostTransparency
 			p.Color = isPinned(self, part.Name) and self.Config.PinnedColor or self.Config.HighlightColor
 			p.Parent = fake
 			for _, child in pairs(p:GetChildren()) do
@@ -177,14 +226,14 @@ function CFrameDesync:CreateFakeCharacter()
 	local hl = Instance.new("Highlight", fake)
 	hl.FillColor = self.Config.HighlightColor
 	hl.OutlineColor = Color3.new(1, 1, 1)
-	hl.FillTransparency = 0.4
-	hl.OutlineTransparency = 0.0
+	hl.FillTransparency = 0.6
+	hl.OutlineTransparency = 0.2
 	hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 	self.State.GhostHighlight = hl
 	fake.Parent = workspace
 	self.State.FakeCharacter = fake
 end
-function CFrameDesync:_refreshFakeCharacterColors()
+function characterplacement:_refreshFakeCharacterColors()
 	if not self.State.FakeCharacter then
 		return
 	end
@@ -192,14 +241,14 @@ function CFrameDesync:_refreshFakeCharacterColors()
 		if part:IsA("BasePart") then
 			local pinned = isPinned(self, part.Name)
 			part.Color = pinned and self.Config.PinnedColor or self.Config.HighlightColor
-			part.Transparency = pinned and 0.45 or 0.2
+			part.Transparency = pinned and self.Config.PinnedTransparency or self.Config.GhostTransparency
 		end
 	end
 	if self.State.GhostHighlight then
 		self.State.GhostHighlight.FillColor = self.Config.HighlightColor
 	end
 end
-function CFrameDesync:UpdateVisuals()
+function characterplacement:UpdateVisuals()
 	local char = LocalPlayer.Character
 	if not char or not self.State.FakeCharacter then
 		return
@@ -232,7 +281,7 @@ function CFrameDesync:UpdateVisuals()
 		end
 	end
 end
-function CFrameDesync:AdjustOffset(vec)
+function characterplacement:AdjustOffset(vec)
 	local inc = self.State.Increment
 	if self.State.Mode == "position" then
 		local cur = self.State.VisualOffset.Position
@@ -243,7 +292,7 @@ function CFrameDesync:AdjustOffset(vec)
 	end
 	self:UpdateDisplay()
 end
-function CFrameDesync:UpdateDisplay()
+function characterplacement:UpdateDisplay()
 	if not self.State.UI then
 		return
 	end
@@ -295,13 +344,32 @@ local TERM = {
 		Color3.fromRGB(25, 40, 120),
 	},
 }
-function CFrameDesync:_createUI()
-	local existing = CoreGui:FindFirstChild("CFrameDesync_SA")
+function characterplacement:SetCameraView(mode)
+	self.State.CameraViewMode = mode
+	if self.State.DesyncActive then
+		local camera = workspace.CurrentCamera
+		local anchor = mode == "fake" and self.State.FakeCamAnchor or self.State.CamAnchor
+		if anchor then
+			camera.CameraSubject = anchor
+		end
+	end
+	local buttons = self.State.CameraViewButtons
+	if buttons then
+		for m, info in pairs(buttons) do
+			local active = m == mode
+			info.btn.BackgroundColor3 = active and TERM.ACCENT or TERM.BG2
+			info.btn.TextColor3 = active and TERM.BG or TERM.FG_DIM
+			info.stroke.Color = active and TERM.ACCENT or TERM.BORDER
+		end
+	end
+end
+function characterplacement:_createUI()
+	local existing = CoreGui:FindFirstChild("characterplacement_SA")
 	if existing then
 		existing:Destroy()
 	end
 	local screenGui = Instance.new("ScreenGui")
-	screenGui.Name = "CFrameDesync_SA"
+	screenGui.Name = "characterplacement_SA"
 	screenGui.ResetOnSpawn = false
 	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 	screenGui.DisplayOrder = 9999
@@ -340,7 +408,7 @@ function CFrameDesync:_createUI()
 	titleText.Size = UDim2.new(1, -130, 1, 0)
 	titleText.Position = UDim2.fromOffset(18, 0)
 	titleText.BackgroundTransparency = 1
-	titleText.Text = "cframedesync v2"
+	titleText.Text = "characterplacement v2"
 	titleText.TextColor3 = TERM.FG_DIM
 	titleText.Font = Enum.Font.Code
 	titleText.TextSize = 10
@@ -446,6 +514,7 @@ function CFrameDesync:_createUI()
 	togInner.BorderSizePixel = 0
 	local desyncToggle = termBtn(togInner, "[ ACTIVATE ]", TERM.BG2, TERM.FG, true, TERM.ACCENT)
 	desyncToggle.Name = "DesyncToggle"
+	self.State.DesyncToggleBtn = desyncToggle
 	desyncToggle.MouseButton1Click:Connect(function()
 		self:ToggleDesync()
 	end)
@@ -566,6 +635,37 @@ function CFrameDesync:_createUI()
 		self.State.VisualOffset = CFrame.new()
 		self:UpdateDisplay()
 	end)
+	sectionDiv("CAMERA VIEW  [what you see vs. what the server sees]", 50)
+	local camViewWrap = padFrame(51, 26)
+	local camViewInner = Instance.new("Frame", camViewWrap)
+	camViewInner.Size = UDim2.new(1, -12, 1, -6)
+	camViewInner.Position = UDim2.fromOffset(6, 3)
+	camViewInner.BackgroundTransparency = 1
+	camViewInner.BorderSizePixel = 0
+	local camViewLayout = Instance.new("UIListLayout", camViewInner)
+	camViewLayout.FillDirection = Enum.FillDirection.Horizontal
+	camViewLayout.Padding = UDim.new(0, 4)
+	local cameraViewButtons = {}
+	self.State.CameraViewButtons = cameraViewButtons
+	for _, viewOpt in ipairs({ { mode = "real", label = "REAL" }, { mode = "fake", label = "FAKE" } }) do
+		local isActive = viewOpt.mode == self.State.CameraViewMode
+		local cb = Instance.new("TextButton", camViewInner)
+		cb.Size = UDim2.new(0.5, -2, 1, 0)
+		cb.BackgroundColor3 = isActive and TERM.ACCENT or TERM.BG2
+		cb.BorderSizePixel = 0
+		cb.Text = viewOpt.label
+		cb.TextColor3 = isActive and TERM.BG or TERM.FG_DIM
+		cb.Font = Enum.Font.Code
+		cb.TextSize = 10
+		local cs = Instance.new("UIStroke", cb)
+		cs.Color = isActive and TERM.ACCENT or TERM.BORDER
+		cs.Thickness = 1
+		cs.LineJoinMode = Enum.LineJoinMode.Miter
+		cameraViewButtons[viewOpt.mode] = { btn = cb, stroke = cs }
+		cb.MouseButton1Click:Connect(function()
+			self:SetCameraView(viewOpt.mode)
+		end)
+	end
 	sectionDiv("PART PIN  [cyan=pinned → stays at real pos]", 60)
 	local pinButtons = {}
 	for gi, group in ipairs(PART_GROUPS) do
@@ -728,19 +828,16 @@ function CFrameDesync:_createUI()
 	ibPad.PaddingBottom = UDim.new(0, 4)
 	local spacer = padFrame(99, 4)
 	spacer.BackgroundTransparency = 1
-	desyncToggle.Parent = scroll
-	desyncToggle.LayoutOrder = 10
-	togWrap:Destroy()
 	screenGui.Parent = CoreGui
 end
-function CFrameDesync:Enable()
+function characterplacement:Enable()
 	if self.State.IsEnabled then
 		return
 	end
 	self.State.IsEnabled = true
 	self:_createUI()
 end
-function CFrameDesync:Disable()
+function characterplacement:Disable()
 	self:DeactivateDesync()
 	if self.State.UI then
 		self.State.UI:Destroy()
@@ -748,12 +845,12 @@ function CFrameDesync:Disable()
 	end
 	self.State.IsEnabled = false
 end
-function CFrameDesync:Toggle()
+function characterplacement:Toggle()
 	if self.State.IsEnabled then
 		self:Disable()
 	else
 		self:Enable()
 	end
 end
-CFrameDesync:Enable()
-return CFrameDesync
+characterplacement:Enable()
+return characterplacement
