@@ -3093,6 +3093,13 @@ Modules.TI = {
 		ActivePatches = {},
 		FreezeList = {},
 		SelectedPatches = {},
+		RootScriptPath = nil,   -- full path string of the currently loaded module
+		RootScriptName = nil,   -- short require name (e.g. "Modules.Core")
+		-- LocalScript mode
+		LSMode = false,
+		SelectedLocalScript = nil,
+		LSClosures = {},
+		LSConnections = {},
 		UI = nil,
 		MetatableChain = {},
 		SelectedModule = nil,
@@ -3903,6 +3910,11 @@ function TI:CreatePatch(tbl, key, newValue, freeze)
 			end
 		end
 	end
+	-- snapshot the current path stack so export can resolve the table chain
+	local pathSnapshot = {}
+	for _, v in ipairs(self.State.PathStack) do
+		table.insert(pathSnapshot, v)
+	end
 	local patch = {
 		ID = patchId,
 		Table = tbl,
@@ -3916,6 +3928,9 @@ function TI:CreatePatch(tbl, key, newValue, freeze)
 		Connection = nil,
 		HookMethod = hookMethod,
 		HookOriginalRef = hookOriginalRef,
+		PathStack = pathSnapshot,
+		RootScriptPath = self.State.RootScriptPath,
+		RootScriptName = self.State.RootScriptName,
 	}
 	rawset(tbl, key, newValue)
 	self.State.ActivePatches[patchId] = patch
@@ -4353,82 +4368,287 @@ end
 -- ════════════════════════════════════════════════════════════════════════════
 -- BATCH PATCH OPERATIONS
 -- ════════════════════════════════════════════════════════════════════════════
+-- ── Value serializer for export ─────────────────────────────────────────────
+function TI:_serializeValue(v)
+	local vt = type(v)
+	if vt == "string"  then return string.format("%q", v) end
+	if vt == "boolean" then return tostring(v) end
+	if vt == "number"  then return tostring(v) end
+	if vt == "nil"     then return "nil" end
+	if vt == "function" then
+		-- attempt to get source via string.dump or decompile
+		local ok, dumped = pcall(string.dump, v)
+		if ok then
+			-- encode as loadstring(bytecode) so the export is self-contained
+			local b64 = {}
+			for byte in dumped:gmatch(".") do
+				table.insert(b64, string.format("\\%d", string.byte(byte)))
+			end
+			-- keep it as a comment + loadstring form
+			return "loadstring(" .. string.format("%q", dumped) .. ")"
+		end
+		local dc = rawget(getfenv and getfenv(0) or {}, "decompile") or
+			rawget(getfenv and getfenv(0) or {}, "decomp")
+		if dc then
+			local ok2, src = pcall(dc, v)
+			if ok2 and type(src) == "string" then
+				-- inline as a load()-wrapped string
+				return "load(" .. string.format("%q", src) .. ")"
+			end
+		end
+		return "nil --[[ function: " .. tostring(v) .. " — could not serialize ]]"
+	end
+	if vt == "table" then
+		-- shallow inline for small tables, comment for complex ones
+		local n = 0
+		for _ in pairs(v) do n += 1 end
+		if n <= 6 then
+			local parts = {}
+			for k, val in pairs(v) do
+				local ks = type(k) == "string" and k or ("[" .. tostring(k) .. "]")
+				table.insert(parts, ks .. " = " .. self:_serializeValue(val))
+			end
+			return "{ " .. table.concat(parts, ", ") .. " }"
+		end
+		return "nil --[[ table: too complex to inline ]]"
+	end
+	return "nil --[[ " .. vt .. ": " .. tostring(v) .. " ]]"
+end
+
+-- ── Key-path helper: builds "tbl.A.B.C" access chain from PathStack ──────────
+function TI:_buildKeyPath(patch)
+	-- patch.PathStack is stored at patch creation time (set below in CreatePatch)
+	local stack = patch.PathStack or {}
+	local chain = {}
+	for _, part in ipairs(stack) do
+		if part:match("^[%a_][%w_]*$") then
+			table.insert(chain, "." .. part)
+		else
+			table.insert(chain, "[" .. string.format("%q", tostring(part)) .. "]")
+		end
+	end
+	return "M" .. table.concat(chain)
+end
+
 function TI:_buildPatchSnippet(patch)
 	local keyStr = type(patch.Key) == "string"
 		and string.format("%q", patch.Key)
-		or  tostring(patch.Key)
+		or  "[" .. tostring(patch.Key) .. "]"
+	local valStr = self:_serializeValue(patch.NewValue)
+	local tblPath = self:_buildKeyPath(patch)
 	local vt = type(patch.NewValue)
-	local valStr
-	if vt == "string" then
-		valStr = string.format("%q", patch.NewValue)
-	elseif vt == "boolean" or vt == "number" then
-		valStr = tostring(patch.NewValue)
-	elseif vt == "nil" then
-		valStr = "nil"
-	else
-		valStr = "-- [" .. vt .. ": " .. tostring(patch.NewValue) .. "]"
-	end
 	local lines = {}
-	table.insert(lines, "-- Patch: " .. tostring(patch.Key) .. "  |  Type: " .. vt)
-	if patch.Frozen then
-		table.insert(lines, "RunService.Heartbeat:Connect(function()")
-		table.insert(lines, "\tpcall(function()")
-		table.insert(lines, "\t\tif setreadonly then setreadonly(tbl, false) end")
-		table.insert(lines, "\t\trawset(tbl, " .. keyStr .. ", " .. valStr .. ")")
-		table.insert(lines, "\t\tif setreadonly then setreadonly(tbl, true) end")
+	-- comment header
+	table.insert(lines, ("-- ┌ Patch: %s  |  type: %s%s"):format(
+		tostring(patch.Key), vt,
+		patch.HookMethod and "  |  hooked" or ""))
+	table.insert(lines, ("-- └ Table: %s"):format(tblPath))
+	if vt == "function" and patch.HookMethod == "hookfunction" then
+		-- hookfunction form: more reliable than rawset for functions
+		table.insert(lines, "do")
+		table.insert(lines, "\tlocal _tbl = " .. tblPath)
+		table.insert(lines, "\tlocal _orig = rawget(_tbl, " .. keyStr .. ")")
+		table.insert(lines, "\tif _orig and hookfunction then")
+		table.insert(lines, "\t\thookfunction(_orig, " .. valStr .. ")")
+		table.insert(lines, "\telse")
+		table.insert(lines, "\t\trawset(_tbl, " .. keyStr .. ", " .. valStr .. ")")
+		table.insert(lines, "\tend")
+		table.insert(lines, "end")
+	elseif patch.Frozen then
+		-- freeze form: RunService loop
+		table.insert(lines, "do")
+		table.insert(lines, "\tlocal _tbl = " .. tblPath)
+		table.insert(lines, "\tlocal _val = " .. valStr)
+		table.insert(lines, "\tgame:GetService(\"RunService\").Heartbeat:Connect(function()")
+		table.insert(lines, "\t\tpcall(function()")
+		table.insert(lines, "\t\t\tif setreadonly then setreadonly(_tbl, false) end")
+		table.insert(lines, "\t\t\trawset(_tbl, " .. keyStr .. ", _val)")
+		table.insert(lines, "\t\t\tif setreadonly then setreadonly(_tbl, true) end")
+		table.insert(lines, "\t\tend)")
 		table.insert(lines, "\tend)")
-		table.insert(lines, "end)")
+		table.insert(lines, "end")
 	else
-		table.insert(lines, "pcall(function()")
-		table.insert(lines, "\tif setreadonly then setreadonly(tbl, false) end")
-		table.insert(lines, "\trawset(tbl, " .. keyStr .. ", " .. valStr .. ")")
-		table.insert(lines, "\tif setreadonly then setreadonly(tbl, true) end")
-		table.insert(lines, "end)")
+		-- simple one-shot rawset
+		table.insert(lines, "do")
+		table.insert(lines, "\tlocal _tbl = " .. tblPath)
+		table.insert(lines, "\tpcall(function()")
+		table.insert(lines, "\t\tif setreadonly then setreadonly(_tbl, false) end")
+		table.insert(lines, "\t\trawset(_tbl, " .. keyStr .. ", " .. valStr .. ")")
+		table.insert(lines, "\t\tif setreadonly then setreadonly(_tbl, true) end")
+		table.insert(lines, "\tend)")
+		table.insert(lines, "end")
 	end
 	return table.concat(lines, "\n")
 end
 
 function TI:ExportPatches(idsToExport)
-	-- idsToExport: table of patchId strings, or nil to export all
-	local chunks = {}
-	local count = 0
-	local header = {
-		"-- ╔══════════════════════════════════════════════╗",
-		"-- ║   Overseer · Batch Patch Export              ║",
-		"-- ║   Generated: " .. os.date and os.date("%Y-%m-%d %H:%M") or tick() .. "  ║",
-		"-- ╚══════════════════════════════════════════════╝",
-		"",
-		"-- NOTE: Replace `tbl` with the actual table reference for each patch.",
-		"",
-	}
-	table.insert(chunks, table.concat(header, "\n"))
+	-- Collect target patches
+	local patches = {}
 	if idsToExport then
 		for _, id in ipairs(idsToExport) do
-			local patch = self.State.ActivePatches[id]
-			if patch then
-				table.insert(chunks, self:_buildPatchSnippet(patch))
-				count += 1
-			end
+			local p = self.State.ActivePatches[id]
+			if p then table.insert(patches, p) end
 		end
 	else
-		for _, patch in pairs(self.State.ActivePatches) do
-			table.insert(chunks, self:_buildPatchSnippet(patch))
-			count += 1
+		for _, p in pairs(self.State.ActivePatches) do
+			table.insert(patches, p)
 		end
 	end
-	if count == 0 then
+	if #patches == 0 then
 		self:_showNotification("No patches to export", "warning")
 		return
 	end
-	local full = table.concat(chunks, "\n\n")
-	local ok = pcall(function()
+
+	-- Sort by timestamp so the script runs in patch order
+	table.sort(patches, function(a, b) return a.Timestamp < b.Timestamp end)
+
+	-- Group by root module so we only require() each module once
+	local groups = {}   -- { scriptPath -> { scriptName, patches[] } }
+	local order  = {}   -- preserves insertion order
+	for _, p in ipairs(patches) do
+		local key = p.RootScriptPath or "__unknown__"
+		if not groups[key] then
+			groups[key] = { scriptPath = key, scriptName = p.RootScriptName or key, patches = {} }
+			table.insert(order, key)
+		end
+		table.insert(groups[key].patches, p)
+	end
+
+	-- Build the full script
+	local lines = {}
+	local function L(s) table.insert(lines, s or "") end
+
+	L("-- ╔══════════════════════════════════════════════════════════╗")
+	L("-- ║   Overseer · Patch Export                                ║")
+	L("-- ║   Generated : " .. (os.date and os.date("%Y-%m-%d %H:%M") or tostring(tick())) .. "            ║")
+	L("-- ║   Patches   : " .. tostring(#patches) .. string.rep(" ", 43 - #tostring(#patches)) .. "║")
+	L("-- ╚══════════════════════════════════════════════════════════╝")
+	L()
+	L("-- ── Runtime helpers ────────────────────────────────────────────────────")
+	L("local function _write(tbl, key, val)")
+	L("\tpcall(function()")
+	L("\t\tif setreadonly then setreadonly(tbl, false) end")
+	L("\t\trawset(tbl, key, val)")
+	L("\t\tif setreadonly then setreadonly(tbl, true) end")
+	L("\tend)")
+	L("end")
+	L("local function _freeze(tbl, key, val)")
+	L("\t_write(tbl, key, val)")
+	L("\tgame:GetService(\"RunService\").Heartbeat:Connect(function()")
+	L("\t\t_write(tbl, key, val)")
+	L("\tend)")
+	L("end")
+	L("local function _hook(orig, new)")
+	L("\tif hookfunction then")
+	L("\t\tpcall(hookfunction, orig, new)")
+	L("\telse")
+	L("\t\treturn false")
+	L("\tend")
+	L("\treturn true")
+	L("end")
+	L()
+
+	-- Emit one block per module group
+	for _, key in ipairs(order) do
+		local g = groups[key]
+		L("-- ── Module: " .. g.scriptName .. " ─────────────────────────────────────────")
+		if key ~= "__unknown__" then
+			L("-- Path: " .. key)
+		end
+		L("do")
+		L("\tlocal M = require(game:GetService(\"ReplicatedStorage\"):FindFirstChild("
+			.. string.format("%q", g.scriptName) .. ", true))")
+		-- walk the patch list for this module
+		for _, p in ipairs(g.patches) do
+			L()
+			-- sub-table navigation
+			local subChain = p.PathStack or {}
+			local tblExpr = "M"
+			if #subChain > 0 then
+				local parts = {}
+				for _, part in ipairs(subChain) do
+					if part:match("^[%a_][%w_]*$") then
+						table.insert(parts, "." .. part)
+					else
+						table.insert(parts, "[" .. string.format("%q", tostring(part)) .. "]")
+					end
+				end
+				tblExpr = "M" .. table.concat(parts)
+			end
+			local keyStr = type(p.Key) == "string"
+				and string.format("%q", p.Key)
+				or  tostring(p.Key)
+			local valStr = self:_serializeValue(p.NewValue)
+			local vt = type(p.NewValue)
+			L("\t-- " .. tostring(p.Key) .. "  [" .. vt .. (p.Frozen and ", frozen" or "") .. (p.HookMethod and ", hooked" or "") .. "]")
+			if p.IsLSPatch and p.HookMethod == "setupvalue" then
+				-- upvalue patch: use setupvalue at the stored index
+				L("\t-- upvalue patch on closure — find by GC identity then setupvalue")
+				L("\tdo")
+				L("\t\tlocal _target = " .. self:_serializeValue(p.LSClosure))
+				L("\t\tif setupvalue and _target then")
+				L("\t\t\tpcall(setupvalue, _target, " .. tostring(p.LSUVIndex) .. ", " .. valStr .. ")")
+				L("\t\telseif debug and debug.setupvalue and _target then")
+				L("\t\t\tpcall(debug.setupvalue, _target, " .. tostring(p.LSUVIndex) .. ", " .. valStr .. ")")
+				L("\t\tend")
+				L("\tend")
+			elseif p.IsLSPatch and p.HookMethod == "fenv" then
+				-- fenv patch: rawset into the environment table
+				L("\t-- fenv patch: scan GC for closures from this script and patch their environment")
+				L("\tdo")
+				L("\t\tlocal _key, _val = " .. keyStr .. ", " .. valStr)
+				L("\t\tif getgc then")
+				L("\t\t\tfor _, fn in ipairs(getgc(false) or {}) do")
+				L("\t\t\t\tif type(fn) == \"function\" and getfenv then")
+				L("\t\t\t\t\tpcall(function()")
+				L("\t\t\t\t\t\tlocal fenv = getfenv(fn)")
+				L("\t\t\t\t\t\tif type(fenv) == \"table\" and rawget(fenv, \"script\") == " .. string.format("%q", p.RootScriptName or "?") .. " then")
+				L("\t\t\t\t\t\t\trawset(fenv, _key, _val)")
+				L("\t\t\t\t\t\tend")
+				L("\t\t\t\t\tend)")
+				L("\t\t\t\tend")
+				L("\t\t\tend")
+				L("\t\tend")
+				L("\tend")
+			elseif vt == "function" and p.HookMethod == "hookfunction" then
+				L("\tdo")
+				L("\t\tlocal _orig = rawget(" .. tblExpr .. ", " .. keyStr .. ")")
+				L("\t\tif not _hook(_orig, " .. valStr .. ") then")
+				L("\t\t\t_write(" .. tblExpr .. ", " .. keyStr .. ", " .. valStr .. ")")
+				L("\t\tend")
+				L("\tend")
+			elseif p.Frozen then
+				L("\t_freeze(" .. tblExpr .. ", " .. keyStr .. ", " .. valStr .. ")")
+			else
+				L("\t_write(" .. tblExpr .. ", " .. keyStr .. ", " .. valStr .. ")")
+			end
+		end
+		L()
+		L("end")
+		L()
+	end
+
+	local full = table.concat(lines, "\n")
+
+	-- Try writefile first, then clipboard
+	local saved = false
+	local fname = "overseer_patches_" .. (os.date and os.date("%Y%m%d_%H%M%S") or tostring(math.floor(tick()))) .. ".lua"
+	if writefile then
+		pcall(function()
+			writefile(fname, full)
+			saved = true
+		end)
+	end
+	local clipped = false
+	pcall(function()
 		if setclipboard then setclipboard(full)
 		elseif toclipboard then toclipboard(full) end
+		clipped = true
 	end)
-	self:_showNotification(
-		ok and ("Exported " .. count .. " patch(es) to clipboard") or "Clipboard unavailable",
-		ok and "success" or "warning"
-	)
+	local msg = "Exported " .. #patches .. " patch(es)"
+	if saved then msg = msg .. " → " .. fname end
+	if clipped then msg = msg .. " + clipboard" end
+	self:_showNotification(msg, "success")
 end
 
 function TI:SelectAllPatches()
@@ -4632,6 +4852,564 @@ local ROBLOX_MODULE_BLACKLIST = {
 	["Poppercam"] = true,
 	["TransparencyController"] = true,
 }
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- LocalScript Patching System
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- Scan for LocalScripts in the instance tree + getloadedmodules
+function TI:ScanLocalScripts()
+	local ui = self.State.UI
+	if not ui then return end
+	for _, ch in ipairs(ui.ModuleScroll:GetChildren()) do
+		if not ch:IsA("UIListLayout") then ch:Destroy() end
+	end
+	self.State.ModuleList = {}
+	if ui.ModuleCount then
+		ui.ModuleCount.Text = "Scanning LS..."
+		ui.ModuleCount.TextColor3 = self.Config.TEXT_GRAY
+	end
+	task.spawn(function()
+		local seen = {}
+		local function tryAdd(obj)
+			if seen[obj] then return end
+			if not (obj:IsA("LocalScript") or obj:IsA("Script")) then return end
+			seen[obj] = true
+			self:AddLocalScriptToList(obj)
+		end
+		-- instance tree sweep
+		local roots = { Players.LocalPlayer, Workspace,
+			game:GetService("StarterGui"), game:GetService("StarterPack"),
+			game:GetService("ReplicatedStorage") }
+		for _, root in ipairs(roots) do
+			pcall(function()
+				for _, d in ipairs(root:GetDescendants()) do tryAdd(d) end
+			end)
+			task.wait()
+		end
+		-- getloadedmodules for hidden scripts
+		if getloadedmodules then
+			local ok, mods = pcall(getloadedmodules)
+			if ok and mods then
+				for _, m in ipairs(mods) do
+					pcall(function()
+						if m:IsA("LocalScript") or m:IsA("Script") then
+							tryAdd(m)
+						end
+					end)
+				end
+			end
+		end
+		local count = #self.State.ModuleList
+		if ui.ModuleCount then
+			ui.ModuleCount.Text = count .. " script" .. (count == 1 and "" or "s")
+			ui.ModuleCount.TextColor3 = self.Config.SUCCESS_GREEN
+		end
+	end)
+end
+
+function TI:AddLocalScriptToList(ls)
+	if not self.State.UI then return end
+	local ROW_H = 40
+	local row = Instance.new("TextButton", self.State.UI.ModuleScroll)
+	row.Size = UDim2.new(1, -2, 0, ROW_H)
+	row.BackgroundColor3 = self.Config.BG_WHITE
+	row.Text = ""
+	row.BorderSizePixel = 0
+	row.AutoButtonColor = false
+	Instance.new("UICorner", row).CornerRadius = UDim.new(0, 3)
+	-- type badge: LS = orange, S = red
+	local badge = Instance.new("TextLabel", row)
+	badge.Size = UDim2.fromOffset(22, 14)
+	badge.Position = UDim2.new(0, 3, 0.5, -7)
+	badge.BackgroundColor3 = ls:IsA("LocalScript")
+		and Color3.fromRGB(251, 146, 60)
+		or  Color3.fromRGB(239, 68, 68)
+	badge.Text = ls:IsA("LocalScript") and "LS" or "S"
+	badge.TextColor3 = Color3.new(1,1,1)
+	badge.Font = Enum.Font.GothamBold
+	badge.TextSize = 8
+	badge.BorderSizePixel = 0
+	Instance.new("UICorner", badge).CornerRadius = UDim.new(0,3)
+	local lbl = Instance.new("TextLabel", row)
+	lbl.Size = UDim2.new(1, -30, 0, 20)
+	lbl.Position = UDim2.fromOffset(28, 2)
+	lbl.BackgroundTransparency = 1
+	lbl.Text = ls.Name
+	lbl.TextColor3 = self.Config.TEXT_BLACK
+	lbl.Font = Enum.Font.GothamMedium
+	lbl.TextSize = 12
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	lbl.TextTruncate = Enum.TextTruncate.AtEnd
+	local ok, fp = pcall(function() return ls:GetFullName() end)
+	local fullPath = ok and fp or ls.Name
+	local pathLbl = Instance.new("TextLabel", row)
+	pathLbl.Size = UDim2.new(1, -30, 0, 14)
+	pathLbl.Position = UDim2.fromOffset(28, 22)
+	pathLbl.BackgroundTransparency = 1
+	pathLbl.Text = fullPath
+	pathLbl.TextColor3 = self.Config.TEXT_GRAY
+	pathLbl.Font = Enum.Font.Code
+	pathLbl.TextSize = 9
+	pathLbl.TextXAlignment = Enum.TextXAlignment.Left
+	pathLbl.TextTruncate = Enum.TextTruncate.AtEnd
+	local function deselectAll()
+		for _, ch in ipairs(self.State.UI.ModuleScroll:GetChildren()) do
+			if ch:IsA("TextButton") then
+				ch.BackgroundColor3 = self.Config.BG_WHITE
+			end
+		end
+	end
+	row.MouseButton1Click:Connect(function()
+		deselectAll()
+		row.BackgroundColor3 = Color3.fromRGB(180, 100, 30)
+		self.State.SelectedLocalScript = ls
+		self:LoadLocalScript(ls)
+	end)
+	row.MouseEnter:Connect(function()
+		if row.BackgroundColor3 ~= Color3.fromRGB(180, 100, 30) then
+			row.BackgroundColor3 = self.Config.BG_LIGHT
+		end
+	end)
+	row.MouseLeave:Connect(function()
+		if row.BackgroundColor3 ~= Color3.fromRGB(180, 100, 30) then
+			row.BackgroundColor3 = self.Config.BG_WHITE
+		end
+	end)
+	table.insert(self.State.ModuleList, {
+		Script = ls, Row = row, Name = ls.Name, Path = fullPath,
+	})
+end
+
+-- GC scan to find closures belonging to a given script
+function TI:FindScriptClosures(ls)
+	local results = {}
+	if not getgc then return results end
+	local ok, gc = pcall(getgc, false)
+	if not ok or type(gc) ~= "table" then return results end
+	local getinfo = debug and debug.getinfo
+	local getupv  = getupvalues or (debug and debug.getupvalues)
+	local getfenv_ = getfenv
+	local lsName   = ls.Name
+	local ok2, lsPath = pcall(function() return ls:GetFullName() end)
+	lsPath = ok2 and lsPath or lsName
+	for _, fn in ipairs(gc) do
+		if type(fn) ~= "function" then continue end
+		local match = false
+		-- method 1: getinfo source matches script path
+		if getinfo then
+			local ok3, info = pcall(getinfo, fn, "S")
+			if ok3 and info and info.source then
+				local src = info.source:gsub("^@", "")
+				if src:find(lsName, 1, true) or src:find(lsPath, 1, true) then
+					match = true
+				end
+			end
+		end
+		-- method 2: fenv.script == ls
+		if not match and getfenv_ then
+			local ok4, fenv = pcall(getfenv_, fn)
+			if ok4 and fenv and type(fenv) == "table" then
+				local ok5, fenvScript = pcall(function() return rawget(fenv, "script") end)
+				if ok5 and fenvScript == ls then match = true end
+			end
+		end
+		if match then
+			local upvalues = {}
+			if getupv then
+				local ok6, uvs = pcall(getupv, fn)
+				if ok6 and type(uvs) == "table" then
+					upvalues = uvs
+				end
+			end
+			local fenv = nil
+			if getfenv_ then
+				pcall(function() fenv = getfenv_(fn) end)
+			end
+			local info = {}
+			if getinfo then
+				pcall(function() info = getinfo(fn, "nSl") or {} end)
+			end
+			table.insert(results, {
+				fn       = fn,
+				upvalues = upvalues,
+				fenv     = fenv,
+				info     = info,
+				label    = (info.name or "?") .. "  [" .. (info.source or "?") .. ":" .. (info.linedefined or "?") .. "]",
+			})
+		end
+	end
+	return results
+end
+
+-- Get connections on a LocalScript and its children
+function TI:GetScriptConnections(ls)
+	local results = {}
+	if not getconnections then return results end
+	local function scanObj(obj)
+		local ok, props = pcall(function()
+			return {
+				obj.AncestryChanged, obj.AttributeChanged,
+				obj.ChildAdded, obj.ChildRemoved,
+				obj.DescendantAdded, obj.DescendantRemoving,
+			}
+		end)
+		-- also try common signal names via reflection
+		for _, sigName in ipairs({ "Changed", "Fired", "OnClientEvent",
+			"OnServerEvent", "InputBegan", "InputEnded", "MouseButton1Click" }) do
+			pcall(function()
+				local sig = (obj :: any)[sigName]
+				if sig then
+					local conns = getconnections(sig)
+					for _, conn in ipairs(conns or {}) do
+						table.insert(results, {
+							object  = obj,
+							signal  = sigName,
+							conn    = conn,
+							enabled = conn.Enabled,
+							fn      = conn.Function,
+						})
+					end
+				end
+			end)
+		end
+	end
+	pcall(function() scanObj(ls) end)
+	pcall(function()
+		for _, ch in ipairs(ls:GetDescendants()) do
+			scanObj(ch)
+		end
+	end)
+	return results
+end
+
+function TI:LoadLocalScript(ls)
+	local ui = self.State.UI
+	if not ui then return end
+	local ok, fp = pcall(function() return ls:GetFullName() end)
+	self.State.RootScriptPath = ok and fp or ls.Name
+	self.State.RootScriptName = ls.Name
+	self:_showNotification("Scanning: " .. ls.Name .. "...", "info")
+	task.spawn(function()
+		-- gather closures and connections
+		self.State.LSClosures    = self:FindScriptClosures(ls)
+		self.State.LSConnections = self:GetScriptConnections(ls)
+		local ui2 = self.State.UI
+		if ui2 and ui2.SVSwitchTab then
+			ui2.SVSwitchTab("ls")
+		end
+		self:RefreshLSPanel()
+		self:_showNotification(
+			ls.Name .. "  →  " .. #self.State.LSClosures .. " closure(s)  /  "
+			.. #self.State.LSConnections .. " connection(s)", "success")
+	end)
+end
+
+function TI:PatchUpvalue(closure, uvIndex, uvName, newValue)
+	local setupv = setupvalue or (debug and debug.setupvalue)
+	if not setupv then
+		self:_showNotification("setupvalue not available", "error")
+		return false
+	end
+	local ok, err = pcall(setupv, closure.fn, uvIndex, newValue)
+	if not ok then
+		self:_showNotification("Upvalue patch failed: " .. tostring(err), "error")
+		return false
+	end
+	-- record as a patch
+	local patchId = self:_generateUID()
+	local snap = {}
+	for _, v in ipairs(self.State.PathStack) do table.insert(snap, v) end
+	local patch = {
+		ID              = patchId,
+		Table           = nil,   -- upvalue patch, not a table patch
+		Key             = uvName or ("upv[" .. uvIndex .. "]"),
+		Original        = closure.upvalues[uvIndex],
+		NewValue        = newValue,
+		Frozen          = false,
+		Type            = type(newValue),
+		Timestamp       = tick(),
+		Active          = true,
+		Connection      = nil,
+		HookMethod      = "setupvalue",
+		HookOriginalRef = nil,
+		PathStack       = snap,
+		RootScriptPath  = self.State.RootScriptPath,
+		RootScriptName  = self.State.RootScriptName,
+		-- extra LS fields
+		IsLSPatch       = true,
+		LSClosure       = closure.fn,
+		LSUVIndex       = uvIndex,
+	}
+	self.State.ActivePatches[patchId] = patch
+	self:RefreshPatchList()
+	self:_showNotification("Upvalue patched: " .. tostring(uvName or uvIndex), "success")
+	return true
+end
+
+function TI:PatchFenvKey(closure, key, newValue)
+	local fenv = closure.fenv
+	if type(fenv) ~= "table" then
+		self:_showNotification("No fenv accessible on this closure", "error")
+		return false
+	end
+	local original = rawget(fenv, key)
+	rawset(fenv, key, newValue)
+	local patchId = self:_generateUID()
+	local snap = {}
+	for _, v in ipairs(self.State.PathStack) do table.insert(snap, v) end
+	local patch = {
+		ID              = patchId,
+		Table           = fenv,
+		Key             = key,
+		Original        = original,
+		NewValue        = newValue,
+		Frozen          = false,
+		Type            = type(newValue),
+		Timestamp       = tick(),
+		Active          = true,
+		Connection      = nil,
+		HookMethod      = "fenv",
+		HookOriginalRef = nil,
+		PathStack       = snap,
+		RootScriptPath  = self.State.RootScriptPath,
+		RootScriptName  = self.State.RootScriptName,
+		IsLSPatch       = true,
+	}
+	self.State.ActivePatches[patchId] = patch
+	self:RefreshPatchList()
+	self:_showNotification("fenv." .. tostring(key) .. " patched", "success")
+	return true
+end
+
+function TI:DisconnectConnection(connEntry)
+	pcall(function() connEntry.conn:Disconnect() end)
+	self:_showNotification("Disconnected: " .. connEntry.signal, "success")
+end
+
+function TI:RefreshLSPanel()
+	local ui = self.State.UI
+	if not ui or not ui.LSPanel then return end
+	-- clear
+	for _, ch in ipairs(ui.LSClosureScroll:GetChildren()) do
+		if not ch:IsA("UIListLayout") then ch:Destroy() end
+	end
+	for _, ch in ipairs(ui.LSConnScroll:GetChildren()) do
+		if not ch:IsA("UIListLayout") then ch:Destroy() end
+	end
+	-- update counts
+	ui.LSClosureCount.Text = #self.State.LSClosures .. " closure(s)"
+	ui.LSConnCount.Text    = #self.State.LSConnections .. " connection(s)"
+	local getupv    = getupvalues or (debug and debug.getupvalues)
+	local getupvn   = getupvalnames or (debug and debug.getupvalnames)
+	-- populate closures
+	for ci, closure in ipairs(self.State.LSClosures) do
+		-- closure header row
+		local hdr = Instance.new("TextButton", ui.LSClosureScroll)
+		hdr.Size = UDim2.new(1, -2, 0, 22)
+		hdr.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+		hdr.Text = ""
+		hdr.BorderSizePixel = 0
+		hdr.AutoButtonColor = false
+		Instance.new("UICorner", hdr).CornerRadius = UDim.new(0, 3)
+		local hdrLbl = Instance.new("TextLabel", hdr)
+		hdrLbl.Size = UDim2.new(1, -70, 1, 0)
+		hdrLbl.Position = UDim2.fromOffset(6, 0)
+		hdrLbl.BackgroundTransparency = 1
+		hdrLbl.Text = closure.label
+		hdrLbl.TextColor3 = Color3.fromRGB(251, 146, 60)
+		hdrLbl.Font = Enum.Font.GothamMedium
+		hdrLbl.TextSize = 10
+		hdrLbl.TextXAlignment = Enum.TextXAlignment.Left
+		hdrLbl.TextTruncate = Enum.TextTruncate.AtEnd
+		-- hookfunction button on closure header
+		local hookBtn = self:_createButton(hdr, "Hook",
+			UDim2.fromOffset(44, 14), UDim2.new(1, -48, 0.5, -7),
+			function()
+				-- open a simple input prompt via the existing editor tab
+				self:_showNotification(
+					"Select the closure then use the Script Viewer to write a replacement, then click Apply Hook", "info")
+				if ui.SVSwitchTab then ui.SVSwitchTab("script") end
+				-- store the target closure for deferred hook
+				self.State._PendingHookClosure = closure.fn
+				ui.ScriptViewerOutput.Text =
+					"-- Write your replacement function body here.\n" ..
+					"-- It will be wrapped as: function(...) <your code> end\n" ..
+					"-- Then click 'Apply Hook' to hook this closure.\n\n" ..
+					"-- Original closure: " .. closure.label
+			end)
+		hookBtn.BackgroundColor3 = Color3.fromRGB(99, 102, 241)
+		hookBtn.TextSize = 9
+		-- upvalue rows
+		local uvs = closure.upvalues or {}
+		local uvnames = {}
+		if getupvn then
+			pcall(function()
+				local names = getupvn(closure.fn)
+				if type(names) == "table" then uvnames = names end
+			end)
+		end
+		for uvIdx, uvVal in ipairs(uvs) do
+			local uvName = uvnames[uvIdx] or ("upv[" .. uvIdx .. "]")
+			local uvRow = Instance.new("Frame", ui.LSClosureScroll)
+			uvRow.Size = UDim2.new(1, -2, 0, 20)
+			uvRow.BackgroundColor3 = self.Config.BG_WHITE
+			uvRow.BorderSizePixel = 0
+			Instance.new("UICorner", uvRow).CornerRadius = UDim.new(0, 2)
+			-- indent stripe
+			local stripe = Instance.new("Frame", uvRow)
+			stripe.Size = UDim2.new(0, 2, 1, 0)
+			stripe.BackgroundColor3 = Color3.fromRGB(251, 146, 60)
+			stripe.BorderSizePixel = 0
+			local uvLbl = Instance.new("TextLabel", uvRow)
+			uvLbl.Size = UDim2.new(0.45, -10, 1, 0)
+			uvLbl.Position = UDim2.fromOffset(8, 0)
+			uvLbl.BackgroundTransparency = 1
+			uvLbl.Text = uvName
+			uvLbl.TextColor3 = self.Config.TEXT_GRAY
+			uvLbl.Font = Enum.Font.Code
+			uvLbl.TextSize = 9
+			uvLbl.TextXAlignment = Enum.TextXAlignment.Left
+			uvLbl.TextTruncate = Enum.TextTruncate.AtEnd
+			local uvVal2 = Instance.new("TextLabel", uvRow)
+			uvVal2.Size = UDim2.new(0.35, 0, 1, 0)
+			uvVal2.Position = UDim2.new(0.45, 0, 0, 0)
+			uvVal2.BackgroundTransparency = 1
+			local vt = type(uvVal)
+			uvVal2.Text = vt == "string"  and string.format("%q", uvVal):sub(1,30)
+				or vt == "number" and tostring(uvVal)
+				or vt == "boolean" and tostring(uvVal)
+				or "[" .. vt .. "]"
+			uvVal2.TextColor3 = vt == "number"  and Color3.fromRGB(251,191,36)
+				or vt == "string"  and Color3.fromRGB(134,239,172)
+				or vt == "boolean" and Color3.fromRGB(56,189,248)
+				or self.Config.TEXT_GRAY
+			uvVal2.Font = Enum.Font.Code
+			uvVal2.TextSize = 9
+			uvVal2.TextXAlignment = Enum.TextXAlignment.Left
+			uvVal2.TextTruncate = Enum.TextTruncate.AtEnd
+			-- Patch button
+			local patchBtn = self:_createButton(uvRow, "Patch",
+				UDim2.fromOffset(38, 14), UDim2.new(1, -42, 0.5, -7),
+				function()
+					-- inline edit: turn uvVal2 into a TextBox
+					uvVal2.Visible = false
+					local box = Instance.new("TextBox", uvRow)
+					box.Size = UDim2.new(0.35, 0, 1, 0)
+					box.Position = UDim2.new(0.45, 0, 0, 0)
+					box.BackgroundColor3 = Color3.fromRGB(20,20,30)
+					box.BorderSizePixel = 0
+					box.Text = uvVal2.Text
+					box.TextColor3 = Color3.new(1,1,1)
+					box.Font = Enum.Font.Code
+					box.TextSize = 9
+					box.ClearTextOnFocus = false
+					box:CaptureFocus()
+					box.FocusLost:Connect(function(enter)
+						local raw = box.Text
+						box:Destroy()
+						uvVal2.Visible = true
+						if not enter then return end
+						-- parse
+						local parsed
+						if raw == "true"  then parsed = true
+						elseif raw == "false" then parsed = false
+						elseif raw == "nil"   then parsed = nil
+						else
+							local n = tonumber(raw)
+							if n then parsed = n
+							else
+								-- strip quotes if present
+								parsed = raw:match('^"(.*)"$') or raw:match("^'(.*)'$") or raw
+							end
+						end
+						self:PatchUpvalue(closure, uvIdx, uvName, parsed)
+						uvVal2.Text = tostring(parsed)
+					end)
+				end)
+			patchBtn.BackgroundColor3 = Color3.fromRGB(60, 80, 160)
+			patchBtn.TextSize = 8
+		end
+		-- fenv globals (collapsed by default, show top-level non-service keys)
+		if closure.fenv and type(closure.fenv) == "table" then
+			local fenvRow = Instance.new("Frame", ui.LSClosureScroll)
+			fenvRow.Size = UDim2.new(1, -2, 0, 20)
+			fenvRow.BackgroundColor3 = Color3.fromRGB(24, 32, 24)
+			fenvRow.BorderSizePixel = 0
+			Instance.new("UICorner", fenvRow).CornerRadius = UDim.new(0, 2)
+			local fenvLbl = Instance.new("TextLabel", fenvRow)
+			fenvLbl.Size = UDim2.new(1, -80, 1, 0)
+			fenvLbl.Position = UDim2.fromOffset(6, 0)
+			fenvLbl.BackgroundTransparency = 1
+			fenvLbl.TextColor3 = self.Config.SUCCESS_GREEN
+			fenvLbl.Font = Enum.Font.GothamMedium
+			fenvLbl.TextSize = 9
+			fenvLbl.TextXAlignment = Enum.TextXAlignment.Left
+			local fenvKeys = 0
+			for _ in pairs(closure.fenv) do fenvKeys += 1 end
+			fenvLbl.Text = "fenv  (" .. fenvKeys .. " keys)"
+			local diveBtn = self:_createButton(fenvRow, "Dive",
+				UDim2.fromOffset(38, 14), UDim2.new(1, -84, 0.5, -7),
+				function()
+					self:DrillDown("fenv[" .. ci .. "]", closure.fenv)
+					if ui.SVSwitchTab then ui.SVSwitchTab("inspector") end
+				end)
+			diveBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 60)
+			diveBtn.TextSize = 8
+		end
+		task.wait()
+	end
+	-- populate connections
+	for _, conn in ipairs(self.State.LSConnections) do
+		local row = Instance.new("Frame", ui.LSConnScroll)
+		row.Size = UDim2.new(1, -2, 0, 22)
+		row.BackgroundColor3 = self.Config.BG_WHITE
+		row.BorderSizePixel = 0
+		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 3)
+		local enabledDot = Instance.new("Frame", row)
+		enabledDot.Size = UDim2.fromOffset(6, 6)
+		enabledDot.Position = UDim2.new(0, 4, 0.5, -3)
+		enabledDot.BackgroundColor3 = conn.enabled
+			and self.Config.SUCCESS_GREEN or self.Config.FROZEN_RED
+		enabledDot.BorderSizePixel = 0
+		Instance.new("UICorner", enabledDot).CornerRadius = UDim.new(0.5, 0)
+		local connLbl = Instance.new("TextLabel", row)
+		connLbl.Size = UDim2.new(1, -130, 1, 0)
+		connLbl.Position = UDim2.fromOffset(14, 0)
+		connLbl.BackgroundTransparency = 1
+		local objName = "?"
+		pcall(function() objName = conn.object.Name end)
+		connLbl.Text = objName .. "." .. conn.signal
+		connLbl.TextColor3 = self.Config.TEXT_BLACK
+		connLbl.Font = Enum.Font.Code
+		connLbl.TextSize = 9
+		connLbl.TextXAlignment = Enum.TextXAlignment.Left
+		connLbl.TextTruncate = Enum.TextTruncate.AtEnd
+		-- Disconnect button
+		local dcBtn = self:_createButton(row, "Disc",
+			UDim2.fromOffset(36, 14), UDim2.new(1, -80, 0.5, -7),
+			function()
+				self:DisconnectConnection(conn)
+				enabledDot.BackgroundColor3 = self.Config.FROZEN_RED
+			end)
+		dcBtn.BackgroundColor3 = Color3.fromRGB(150, 40, 40)
+		dcBtn.TextSize = 8
+		-- Hook button
+		local hookConnBtn = self:_createButton(row, "Hook",
+			UDim2.fromOffset(36, 14), UDim2.new(1, -40, 0.5, -7),
+			function()
+				if conn.fn and hookfunction then
+					self:_showNotification("Switch to Script tab and write a replacement, then Apply Hook", "info")
+					self.State._PendingHookClosure = conn.fn
+					if ui.SVSwitchTab then ui.SVSwitchTab("script") end
+				else
+					self:_showNotification("hookfunction not available", "error")
+				end
+			end)
+		hookConnBtn.BackgroundColor3 = Color3.fromRGB(99, 102, 241)
+		hookConnBtn.TextSize = 8
+	end
+end
 function TI:ScanModules()
 	local ui = self.State.UI
 	if not ui then return end
@@ -4822,6 +5600,10 @@ function TI:LoadModule(ms)
 	self.State.CurrentTable = result
 	self.State.PathStack = {}
 	self.State.VisitedTables = {}
+	-- store module path so export can build a proper require() call
+	local ok, fp = pcall(function() return ms:GetFullName() end)
+	self.State.RootScriptPath = ok and fp or ms.Name
+	self.State.RootScriptName = ms.Name
 	self:RefreshInspector()
 	self:_showNotification("Loaded: " .. ms.Name, "success")
 end
@@ -5274,15 +6056,35 @@ function TI:CreateUI()
 	msp.PaddingLeft = UDim.new(0, 4)
 	self:_createBorder(modSearch, true)
 	local rescanBtn = self:_createButton(
-		modPanel,
-		"Rescan",
-		UDim2.new(1, -8, 0, 20),
+		modPanel, "Rescan",
+		UDim2.new(0.5, -6, 0, 20),
 		UDim2.fromOffset(4, 50),
 		function()
-			self:ScanModules()
+			if self.State.LSMode then self:ScanLocalScripts() else self:ScanModules() end
 		end
 	)
 	rescanBtn.TextSize = 10
+	-- LS / Module mode toggle
+	local lsModeBtn = self:_createButton(
+		modPanel, "LocalScripts",
+		UDim2.new(0.5, -6, 0, 20),
+		UDim2.new(0.5, 2, 0, 50),
+		function()
+			self.State.LSMode = not self.State.LSMode
+			if self.State.LSMode then
+				lsModeBtn.BackgroundColor3 = Color3.fromRGB(180, 80, 20)
+				lsModeBtn.Text = "← Modules"
+				modTitle.Text  = "LocalScripts"
+				self:ScanLocalScripts()
+			else
+				lsModeBtn.BackgroundColor3 = self.Config.BG_LIGHT
+				lsModeBtn.Text = "LocalScripts"
+				modTitle.Text  = "Modules"
+				self:ScanModules()
+			end
+		end
+	)
+	lsModeBtn.TextSize = 9
 	local modScroll = Instance.new("ScrollingFrame", modPanel)
 	modScroll.Size = UDim2.new(1, -8, 1, -78)
 	modScroll.Position = UDim2.fromOffset(4, 74)
@@ -5654,6 +6456,7 @@ function TI:CreateUI()
 		toolbar.Visible = false
 		scriptPanel.Visible = false
 		gcPanel.Visible = false
+		if lsPanel then lsPanel.Visible = false end
 		-- reset tab styles
 		for _, btn in ipairs({svInspTab, svScriptTab, svGCTab}) do
 			btn.BackgroundColor3 = self.Config.BG_PANEL
@@ -5673,6 +6476,12 @@ function TI:CreateUI()
 			gcPanel.Visible = true
 			svGCTab.BackgroundColor3 = self.Config.BG_LIGHT
 			svGCTab.Font = Enum.Font.GothamBold
+		elseif toTab == "ls" then
+			if lsPanel then lsPanel.Visible = true end
+			if lsTabBtn then
+				lsTabBtn.BackgroundColor3 = self.Config.BG_LIGHT
+				lsTabBtn.Font = Enum.Font.GothamBold
+			end
 		end
 	end
 	svInspTab.MouseButton1Click:Connect(function()
@@ -5684,6 +6493,110 @@ function TI:CreateUI()
 	svGCTab.MouseButton1Click:Connect(function()
 		svSwitchTab("gcviewer")
 	end)
+	-- LocalScript tab button
+	local lsTabBtn = Instance.new("TextButton", svTabStrip)
+	lsTabBtn.Size = UDim2.fromOffset(100, 20)
+	lsTabBtn.Position = UDim2.fromOffset(325, 0)
+	lsTabBtn.BackgroundColor3 = self.Config.BG_PANEL
+	lsTabBtn.Text = "LocalScript"
+	lsTabBtn.TextColor3 = self.Config.TEXT_BLACK
+	lsTabBtn.Font = Enum.Font.GothamMedium
+	lsTabBtn.TextSize = 10
+	lsTabBtn.BorderSizePixel = 0
+	lsTabBtn.AutoButtonColor = false
+	self:_createBorder(lsTabBtn, true)
+	lsTabBtn.MouseButton1Click:Connect(function()
+		svSwitchTab("ls")
+	end)
+	-- LocalScript panel
+	lsPanel = Instance.new("Frame", inspPanel)
+	lsPanel.Size = UDim2.new(1, -8, 1, -100)
+	lsPanel.Position = UDim2.fromOffset(4, 96)
+	lsPanel.BackgroundColor3 = self.Config.BG_WHITE
+	lsPanel.BorderSizePixel = 0
+	lsPanel.Visible = false
+	Instance.new("UICorner", lsPanel).CornerRadius = UDim.new(0, 4)
+	-- split: top half = closures, bottom half = connections
+	local lsClosureHdr = Instance.new("TextLabel", lsPanel)
+	lsClosureHdr.Size = UDim2.new(1, 0, 0, 18)
+	lsClosureHdr.BackgroundColor3 = Color3.fromRGB(28, 28, 40)
+	lsClosureHdr.BorderSizePixel = 0
+	lsClosureHdr.Font = Enum.Font.GothamBold
+	lsClosureHdr.TextSize = 10
+	lsClosureHdr.TextColor3 = Color3.fromRGB(251, 146, 60)
+	lsClosureHdr.TextXAlignment = Enum.TextXAlignment.Left
+	Instance.new("UIPadding", lsClosureHdr).PaddingLeft = UDim.new(0,6)
+	local lsClosureCount = Instance.new("TextLabel", lsPanel)
+	lsClosureCount.Size = UDim2.new(1, -160, 0, 18)
+	lsClosureCount.Position = UDim2.fromOffset(0, 0)
+	lsClosureCount.BackgroundTransparency = 1
+	lsClosureCount.Text = "0 closure(s)"
+	lsClosureCount.TextColor3 = self.Config.TEXT_GRAY
+	lsClosureCount.Font = Enum.Font.Gotham
+	lsClosureCount.TextSize = 9
+	lsClosureCount.TextXAlignment = Enum.TextXAlignment.Right
+	local lsClosureHdrLabel = Instance.new("TextLabel", lsClosureHdr)
+	lsClosureHdrLabel.Size = UDim2.new(1, -160, 1, 0)
+	lsClosureHdrLabel.BackgroundTransparency = 1
+	lsClosureHdrLabel.Text = "Closures / Upvalues"
+	lsClosureHdrLabel.TextColor3 = Color3.fromRGB(251, 146, 60)
+	lsClosureHdrLabel.Font = Enum.Font.GothamBold
+	lsClosureHdrLabel.TextSize = 10
+	lsClosureHdrLabel.TextXAlignment = Enum.TextXAlignment.Left
+	Instance.new("UIPadding", lsClosureHdrLabel).PaddingLeft = UDim.new(0,4)
+	-- refresh button
+	local lsRefreshBtn = self:_createButton(lsPanel, "↺ Refresh",
+		UDim2.fromOffset(60, 14), UDim2.new(1, -64, 0, 2),
+		function()
+			local ls = self.State.SelectedLocalScript
+			if ls then self:LoadLocalScript(ls) end
+		end)
+	lsRefreshBtn.BackgroundColor3 = Color3.fromRGB(40, 80, 140)
+	lsRefreshBtn.TextSize = 8
+	local lsClosureScroll = Instance.new("ScrollingFrame", lsPanel)
+	lsClosureScroll.Size = UDim2.new(1, 0, 0.55, -18)
+	lsClosureScroll.Position = UDim2.fromOffset(0, 18)
+	lsClosureScroll.BackgroundColor3 = self.Config.BG_WHITE
+	lsClosureScroll.BorderSizePixel = 0
+	lsClosureScroll.ScrollBarThickness = 4
+	lsClosureScroll.ScrollBarImageColor3 = Color3.fromRGB(251, 146, 60)
+	lsClosureScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	lsClosureScroll.CanvasSize = UDim2.new(0,0,0,0)
+	Instance.new("UIListLayout", lsClosureScroll).Padding = UDim.new(0, 1)
+	-- connections section
+	local lsConnHdr = Instance.new("Frame", lsPanel)
+	lsConnHdr.Size = UDim2.new(1, 0, 0, 18)
+	lsConnHdr.Position = UDim2.new(0, 0, 0.55, 0)
+	lsConnHdr.BackgroundColor3 = Color3.fromRGB(28, 28, 40)
+	lsConnHdr.BorderSizePixel = 0
+	local lsConnHdrLabel = Instance.new("TextLabel", lsConnHdr)
+	lsConnHdrLabel.Size = UDim2.new(1, -120, 1, 0)
+	lsConnHdrLabel.BackgroundTransparency = 1
+	lsConnHdrLabel.Text = "Connections"
+	lsConnHdrLabel.TextColor3 = self.Config.HIGHLIGHT
+	lsConnHdrLabel.Font = Enum.Font.GothamBold
+	lsConnHdrLabel.TextSize = 10
+	lsConnHdrLabel.TextXAlignment = Enum.TextXAlignment.Left
+	Instance.new("UIPadding", lsConnHdrLabel).PaddingLeft = UDim.new(0,6)
+	local lsConnCount = Instance.new("TextLabel", lsConnHdr)
+	lsConnCount.Size = UDim2.new(0, 100, 1, 0)
+	lsConnCount.Position = UDim2.new(1, -104, 0, 0)
+	lsConnCount.BackgroundTransparency = 1
+	lsConnCount.Text = "0 connection(s)"
+	lsConnCount.TextColor3 = self.Config.TEXT_GRAY
+	lsConnCount.Font = Enum.Font.Gotham
+	lsConnCount.TextSize = 9
+	lsConnCount.TextXAlignment = Enum.TextXAlignment.Right
+	local lsConnScroll = Instance.new("ScrollingFrame", lsPanel)
+	lsConnScroll.Size = UDim2.new(1, 0, 0.45, -18)
+	lsConnScroll.Position = UDim2.new(0, 0, 0.55, 18)
+	lsConnScroll.BackgroundColor3 = self.Config.BG_WHITE
+	lsConnScroll.BorderSizePixel = 0
+	lsConnScroll.ScrollBarThickness = 4
+	lsConnScroll.ScrollBarImageColor3 = self.Config.HIGHLIGHT
+	lsConnScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	lsConnScroll.CanvasSize = UDim2.new(0,0,0,0)
+	Instance.new("UIListLayout", lsConnScroll).Padding = UDim.new(0, 1)
 	local patchPanel = Instance.new("Frame", content)
 	patchPanel.Size = UDim2.new(0.1799, 0, 1, 0)
 	patchPanel.Position = UDim2.new(0.8220, 0, 0, 0)
@@ -5952,6 +6865,12 @@ function TI:CreateUI()
 		ScriptViewerScroll = svScroll,
 		GCScroll = gcScroll,
 		GCStatus = gcStatus,
+		LSPanel          = lsPanel,
+		LSClosureScroll  = lsClosureScroll,
+		LSConnScroll     = lsConnScroll,
+		LSClosureCount   = lsClosureCount,
+		LSConnCount      = lsConnCount,
+		LSTab            = lsTabBtn,
 		SVMode = function()
 			return svCurrentMode
 		end,
