@@ -4858,6 +4858,440 @@ local ROBLOX_MODULE_BLACKLIST = {
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- Scan for LocalScripts in the instance tree + getloadedmodules
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Attribute + Tool Editing
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- Serialize an attribute value to a string for display
+function TI:_attrToString(v)
+	local t = typeof(v)
+	if t == "string"  then return string.format("%q", v), "string" end
+	if t == "number"  then return tostring(v), "number" end
+	if t == "boolean" then return tostring(v), "boolean" end
+	if t == "Vector3" then
+		return ("(%g, %g, %g)"):format(v.X, v.Y, v.Z), "Vector3"
+	end
+	if t == "Vector2" then
+		return ("(%g, %g)"):format(v.X, v.Y), "Vector2"
+	end
+	if t == "Color3"  then
+		return ("RGB(%d,%d,%d)"):format(
+			math.floor(v.R*255), math.floor(v.G*255), math.floor(v.B*255)), "Color3"
+	end
+	if t == "BrickColor" then return v.Name, "BrickColor" end
+	if t == "UDim2"   then
+		return ("{%g,%g,%g,%g}"):format(
+			v.X.Scale, v.X.Offset, v.Y.Scale, v.Y.Offset), "UDim2"
+	end
+	if t == "UDim"    then return ("%g,%g"):format(v.Scale, v.Offset), "UDim" end
+	if t == "NumberRange" then return ("%g..%g"):format(v.Min, v.Max), "NumberRange" end
+	if t == "Rect"    then
+		return ("{%g,%g,%g,%g}"):format(v.Min.X,v.Min.Y,v.Max.X,v.Max.Y), "Rect"
+	end
+	if t == "CFrame"  then
+		return ("CFrame(%g,%g,%g)"):format(v.X, v.Y, v.Z), "CFrame"
+	end
+	return tostring(v), t
+end
+
+-- Parse a string back into a typed value, trying to match the original type
+function TI:_parseAttrValue(str, origType)
+	if origType == "boolean" then
+		if str == "true"  then return true  end
+		if str == "false" then return false end
+		return nil, "Expected true/false"
+	end
+	if origType == "number" then
+		local n = tonumber(str)
+		if not n then return nil, "Expected number" end
+		return n
+	end
+	if origType == "string" then
+		-- strip outer quotes if present
+		return str:match('^"(.*)"$') or str:match("^'(.*)'$") or str
+	end
+	if origType == "Vector3" then
+		local x,y,z = str:match("([%-%.%d]+)[,%s]+([%-%.%d]+)[,%s]+([%-%.%d]+)")
+		if x then return Vector3.new(tonumber(x),tonumber(y),tonumber(z)) end
+		return nil, "Expected x,y,z"
+	end
+	if origType == "Vector2" then
+		local x,y = str:match("([%-%.%d]+)[,%s]+([%-%.%d]+)")
+		if x then return Vector2.new(tonumber(x),tonumber(y)) end
+		return nil, "Expected x,y"
+	end
+	if origType == "Color3" then
+		local r,g,b = str:match("([%d%.]+)[,%s]+([%d%.]+)[,%s]+([%d%.]+)")
+		if r then
+			local rv,gv,bv = tonumber(r),tonumber(g),tonumber(b)
+			-- auto-detect 0-255 vs 0-1
+			if rv > 1 or gv > 1 or bv > 1 then
+				return Color3.fromRGB(rv,gv,bv)
+			end
+			return Color3.new(rv,gv,bv)
+		end
+		return nil, "Expected r,g,b"
+	end
+	if origType == "UDim2" then
+		local a,b2,d2,e = str:match("([%-%.%d]+)[,%s]+([%-%.%d]+)[,%s]+([%-%.%d]+)[,%s]+([%-%.%d]+)")
+		if a then return UDim2.new(tonumber(a),tonumber(b2),tonumber(d2),tonumber(e)) end
+		return nil, "Expected xs,xo,ys,yo"
+	end
+	if origType == "NumberRange" then
+		local mn,mx = str:match("([%-%.%d]+)[%.%.,%s]+([%-%.%d]+)")
+		if mn then return NumberRange.new(tonumber(mn),tonumber(mx)) end
+		return nil, "Expected min..max"
+	end
+	-- fallback: try number, then string
+	return tonumber(str) or str
+end
+
+-- Build one attribute row (shared between LocalPlayer and Tool editors)
+function TI:_buildAttrRow(parent, obj, attrName, attrVal, rowColor)
+	local ROW_H = 22
+	local row = Instance.new("Frame", parent)
+	row.Size = UDim2.new(1, -2, 0, ROW_H)
+	row.BackgroundColor3 = rowColor or self.Config.BG_WHITE
+	row.BorderSizePixel = 0
+	Instance.new("UICorner", row).CornerRadius = UDim.new(0, 2)
+
+	local displayStr, typeName = self:_attrToString(attrVal)
+	local typeColors = {
+		string  = Color3.fromRGB(134,239,172),
+		number  = Color3.fromRGB(251,191,36),
+		boolean = Color3.fromRGB(56,189,248),
+		Vector3 = Color3.fromRGB(192,132,252),
+		Vector2 = Color3.fromRGB(192,132,252),
+		Color3  = Color3.fromRGB(248,113,113),
+		UDim2   = Color3.fromRGB(167,139,250),
+	}
+	local typeColor = typeColors[typeName] or self.Config.TEXT_GRAY
+
+	-- type badge
+	local badge = Instance.new("TextLabel", row)
+	badge.Size = UDim2.fromOffset(48, ROW_H-2)
+	badge.Position = UDim2.fromOffset(1, 1)
+	badge.BackgroundColor3 = Color3.fromRGB(28,28,36)
+	badge.BorderSizePixel = 0
+	badge.Text = typeName:sub(1,6)
+	badge.TextColor3 = typeColor
+	badge.Font = Enum.Font.Code
+	badge.TextSize = 8
+	Instance.new("UICorner", badge).CornerRadius = UDim.new(0, 2)
+
+	-- attr name
+	local nameLbl = Instance.new("TextLabel", row)
+	nameLbl.Size = UDim2.new(0.35, -52, 1, 0)
+	nameLbl.Position = UDim2.fromOffset(52, 0)
+	nameLbl.BackgroundTransparency = 1
+	nameLbl.Text = attrName
+	nameLbl.TextColor3 = self.Config.TEXT_BLACK
+	nameLbl.Font = Enum.Font.GothamMedium
+	nameLbl.TextSize = 10
+	nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+	nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
+
+	-- current value (clickable to edit)
+	local valLbl = Instance.new("TextLabel", row)
+	valLbl.Size = UDim2.new(0.65, -95, 1, 0)
+	valLbl.Position = UDim2.new(0.35, 0, 0, 0)
+	valLbl.BackgroundTransparency = 1
+	valLbl.Text = displayStr
+	valLbl.TextColor3 = typeColor
+	valLbl.Font = Enum.Font.Code
+	valLbl.TextSize = 9
+	valLbl.TextXAlignment = Enum.TextXAlignment.Left
+	valLbl.TextTruncate = Enum.TextTruncate.AtEnd
+
+	-- edit button
+	local editBtn = self:_createButton(row, "Edit",
+		UDim2.fromOffset(36, 14), UDim2.new(1, -78, 0.5, -7),
+		function()
+			valLbl.Visible = false
+			local box = Instance.new("TextBox", row)
+			box.Size = UDim2.new(0.65, -95, 1, 0)
+			box.Position = UDim2.new(0.35, 0, 0, 0)
+			box.BackgroundColor3 = Color3.fromRGB(16, 20, 30)
+			box.BorderSizePixel = 0
+			box.Text = displayStr:gsub('^"', ""):gsub('"$', "")
+			box.TextColor3 = Color3.new(1,1,1)
+			box.Font = Enum.Font.Code
+			box.TextSize = 9
+			box.ClearTextOnFocus = false
+			box:CaptureFocus()
+			box.FocusLost:Connect(function(enter)
+				local raw = box.Text
+				box:Destroy()
+				valLbl.Visible = true
+				if not enter or raw == displayStr then return end
+				local parsed, err = self:_parseAttrValue(raw, typeName)
+				if err then
+					self:_showNotification("Parse error: " .. err, "error")
+					return
+				end
+				local ok2, e2 = pcall(function()
+					obj:SetAttribute(attrName, parsed)
+				end)
+				if ok2 then
+					local newStr = self:_attrToString(parsed)
+					valLbl.Text = newStr
+					self:_showNotification(
+						obj.Name .. "." .. attrName .. " = " .. tostring(parsed), "success")
+					-- record as patch so it appears in export and patch list
+					self:CreatePatch(
+						{__attrObj = obj, __attrKey = attrName},
+						attrName, parsed, false)
+				else
+					self:_showNotification("SetAttribute failed: " .. tostring(e2), "error")
+				end
+			end)
+		end)
+	editBtn.BackgroundColor3 = Color3.fromRGB(40, 80, 160)
+	editBtn.TextSize = 8
+
+	-- delete button
+	local delBtn = self:_createButton(row, "✕",
+		UDim2.fromOffset(18, 14), UDim2.new(1, -38, 0.5, -7),
+		function()
+			local ok2 = pcall(function() obj:SetAttribute(attrName, nil) end)
+			if ok2 then
+				row:Destroy()
+				self:_showNotification("Deleted attribute: " .. attrName, "success")
+			else
+				self:_showNotification("Cannot delete attribute", "error")
+			end
+		end)
+	delBtn.BackgroundColor3 = Color3.fromRGB(120, 30, 30)
+	delBtn.TextSize = 8
+
+	return row
+end
+
+-- Add a new attribute to an object
+function TI:_buildAddAttrRow(parent, obj)
+	local row = Instance.new("Frame", parent)
+	row.Size = UDim2.new(1, -2, 0, 24)
+	row.BackgroundColor3 = Color3.fromRGB(20, 30, 20)
+	row.BorderSizePixel = 0
+	Instance.new("UICorner", row).CornerRadius = UDim.new(0, 2)
+
+	local nameBox = Instance.new("TextBox", row)
+	nameBox.Size = UDim2.new(0.38, -4, 0, 16)
+	nameBox.Position = UDim2.fromOffset(4, 4)
+	nameBox.BackgroundColor3 = Color3.fromRGB(16, 22, 16)
+	nameBox.BorderSizePixel = 0
+	nameBox.PlaceholderText = "AttrName"
+	nameBox.PlaceholderColor3 = Color3.fromRGB(60,80,60)
+	nameBox.Text = ""
+	nameBox.TextColor3 = Color3.new(1,1,1)
+	nameBox.Font = Enum.Font.Code
+	nameBox.TextSize = 9
+	nameBox.ClearTextOnFocus = false
+	Instance.new("UICorner", nameBox).CornerRadius = UDim.new(0, 2)
+
+	local valBox = Instance.new("TextBox", row)
+	valBox.Size = UDim2.new(0.38, -4, 0, 16)
+	valBox.Position = UDim2.new(0.38, 4, 0, 4)
+	valBox.BackgroundColor3 = Color3.fromRGB(16, 22, 16)
+	valBox.BorderSizePixel = 0
+	valBox.PlaceholderText = "value"
+	valBox.PlaceholderColor3 = Color3.fromRGB(60,80,60)
+	valBox.Text = ""
+	valBox.TextColor3 = Color3.new(1,1,1)
+	valBox.Font = Enum.Font.Code
+	valBox.TextSize = 9
+	valBox.ClearTextOnFocus = false
+	Instance.new("UICorner", valBox).CornerRadius = UDim.new(0, 2)
+
+	local addBtn = self:_createButton(row, "+ Add",
+		UDim2.new(0.24, -8, 0, 16), UDim2.new(0.76, 4, 0, 4),
+		function()
+			local attrName = nameBox.Text
+			if attrName == "" then
+				self:_showNotification("Enter an attribute name", "warning")
+				return
+			end
+			local raw = valBox.Text
+			-- auto-type: number > boolean > string
+			local parsed
+			if raw == "true"  then parsed = true
+			elseif raw == "false" then parsed = false
+			else parsed = tonumber(raw) or raw end
+			local ok2, e2 = pcall(function() obj:SetAttribute(attrName, parsed) end)
+			if ok2 then
+				-- insert a new attr row above the add row
+				self:_buildAttrRow(parent, obj, attrName, parsed)
+				nameBox.Text = ""; valBox.Text = ""
+				self:_showNotification("Added: " .. attrName, "success")
+				self:CreatePatch({__attrObj=obj,__attrKey=attrName}, attrName, parsed, false)
+			else
+				self:_showNotification("SetAttribute failed: " .. tostring(e2), "error")
+			end
+		end)
+	addBtn.BackgroundColor3 = self.Config.SUCCESS_GREEN
+	addBtn.TextColor3 = Color3.fromRGB(10, 10, 10)
+	addBtn.TextSize = 8
+	return row
+end
+
+-- Build a section header for the attr panel
+function TI:_buildAttrSection(parent, label, obj, accentColor)
+	local HDR_H = 24
+	accentColor = accentColor or self.Config.ACCENT
+	local hdr = Instance.new("Frame", parent)
+	hdr.Size = UDim2.new(1, -2, 0, HDR_H)
+	hdr.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+	hdr.BorderSizePixel = 0
+	Instance.new("UICorner", hdr).CornerRadius = UDim.new(0, 3)
+
+	local accent = Instance.new("Frame", hdr)
+	accent.Size = UDim2.new(0, 3, 1, 0)
+	accent.BackgroundColor3 = accentColor
+	accent.BorderSizePixel = 0
+
+	local hdrLbl = Instance.new("TextLabel", hdr)
+	hdrLbl.Size = UDim2.new(1, -60, 1, 0)
+	hdrLbl.Position = UDim2.fromOffset(10, 0)
+	hdrLbl.BackgroundTransparency = 1
+	hdrLbl.Text = label
+	hdrLbl.TextColor3 = accentColor
+	hdrLbl.Font = Enum.Font.GothamBold
+	hdrLbl.TextSize = 10
+	hdrLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+	-- attr count
+	local attrs = {}
+	pcall(function() attrs = obj:GetAttributes() end)
+	local n = 0; for _ in pairs(attrs) do n+=1 end
+	local countLbl = Instance.new("TextLabel", hdr)
+	countLbl.Size = UDim2.fromOffset(50, HDR_H)
+	countLbl.Position = UDim2.new(1, -54, 0, 0)
+	countLbl.BackgroundTransparency = 1
+	countLbl.Text = n .. " attr"
+	countLbl.TextColor3 = self.Config.TEXT_GRAY
+	countLbl.Font = Enum.Font.Gotham
+	countLbl.TextSize = 9
+	countLbl.TextXAlignment = Enum.TextXAlignment.Right
+
+	return hdr
+end
+
+-- Populate the full attribute panel for LocalPlayer + equipped tools
+function TI:RefreshAttrPanel()
+	local ui = self.State.UI
+	if not ui or not ui.AttrScroll then return end
+
+	for _, ch in ipairs(ui.AttrScroll:GetChildren()) do
+		if not ch:IsA("UIListLayout") then ch:Destroy() end
+	end
+
+	local lp = Players.LocalPlayer
+	if not lp then
+		self:_showNotification("LocalPlayer not found", "error")
+		return
+	end
+
+	-- ── LocalPlayer attributes ────────────────────────────────────────────
+	local lpColor = Color3.fromRGB(56, 189, 248)
+	self:_buildAttrSection(ui.AttrScroll, "LocalPlayer  ·  " .. lp.Name, lp, lpColor)
+
+	local lpAttrs = {}
+	pcall(function() lpAttrs = lp:GetAttributes() end)
+	local lpKeys = {}
+	for k in pairs(lpAttrs) do table.insert(lpKeys, k) end
+	table.sort(lpKeys)
+
+	local rowToggle = false
+	if #lpKeys == 0 then
+		local emptyLbl = Instance.new("TextLabel", ui.AttrScroll)
+		emptyLbl.Size = UDim2.new(1, -2, 0, 18)
+		emptyLbl.BackgroundTransparency = 1
+		emptyLbl.Text = "  (no attributes)"
+		emptyLbl.TextColor3 = self.Config.TEXT_GRAY
+		emptyLbl.Font = Enum.Font.Gotham
+		emptyLbl.TextSize = 9
+		emptyLbl.TextXAlignment = Enum.TextXAlignment.Left
+	else
+		for _, k in ipairs(lpKeys) do
+			rowToggle = not rowToggle
+			local bg = rowToggle
+				and Color3.fromRGB(22, 28, 36) or Color3.fromRGB(18, 22, 30)
+			self:_buildAttrRow(ui.AttrScroll, lp, k, lpAttrs[k], bg)
+		end
+	end
+	self:_buildAddAttrRow(ui.AttrScroll, lp)
+
+	-- ── Equipped tools ────────────────────────────────────────────────────
+	local toolColor = Color3.fromRGB(251, 146, 60)
+	local char = lp.Character
+	local tools = {}
+	if char then
+		for _, v in ipairs(char:GetChildren()) do
+			if v:IsA("Tool") then table.insert(tools, v) end
+		end
+	end
+	-- also check Backpack for unequipped tools
+	local bp = lp:FindFirstChildOfClass("Backpack")
+	if bp then
+		for _, v in ipairs(bp:GetChildren()) do
+			if v:IsA("Tool") then table.insert(tools, v) end
+		end
+	end
+
+	if #tools == 0 then
+		local noTools = Instance.new("TextLabel", ui.AttrScroll)
+		noTools.Size = UDim2.new(1, -2, 0, 20)
+		noTools.BackgroundTransparency = 1
+		noTools.Text = "  (no tools equipped or in Backpack)"
+		noTools.TextColor3 = self.Config.TEXT_GRAY
+		noTools.Font = Enum.Font.Gotham
+		noTools.TextSize = 9
+		noTools.TextXAlignment = Enum.TextXAlignment.Left
+	else
+		for _, tool in ipairs(tools) do
+			local inChar = tool.Parent == char
+			local label = "Tool: " .. tool.Name .. (inChar and "  [equipped]" or "  [backpack]")
+			self:_buildAttrSection(ui.AttrScroll, label, tool, toolColor)
+
+			local toolAttrs = {}
+			pcall(function() toolAttrs = tool:GetAttributes() end)
+			local toolKeys = {}
+			for k in pairs(toolAttrs) do table.insert(toolKeys, k) end
+			table.sort(toolKeys)
+
+			if #toolKeys == 0 then
+				local emptyLbl2 = Instance.new("TextLabel", ui.AttrScroll)
+				emptyLbl2.Size = UDim2.new(1, -2, 0, 16)
+				emptyLbl2.BackgroundTransparency = 1
+				emptyLbl2.Text = "  (no attributes on this tool)"
+				emptyLbl2.TextColor3 = self.Config.TEXT_GRAY
+				emptyLbl2.Font = Enum.Font.Gotham
+				emptyLbl2.TextSize = 9
+				emptyLbl2.TextXAlignment = Enum.TextXAlignment.Left
+			else
+				rowToggle = false
+				for _, k in ipairs(toolKeys) do
+					rowToggle = not rowToggle
+					local bg = rowToggle
+						and Color3.fromRGB(28, 24, 18) or Color3.fromRGB(22, 18, 14)
+					self:_buildAttrRow(ui.AttrScroll, tool, k, toolAttrs[k], bg)
+				end
+			end
+			self:_buildAddAttrRow(ui.AttrScroll, tool)
+		end
+	end
+
+	-- live watch: refresh when character or backpack changes
+	if not self.State._AttrWatchConn then
+		self.State._AttrWatchConn = lp.CharacterAdded:Connect(function()
+			task.wait(0.5)
+			if ui.AttrPanel and ui.AttrPanel.Visible then
+				self:RefreshAttrPanel()
+			end
+		end)
+	end
+end
 function TI:ScanLocalScripts()
 	local ui = self.State.UI
 	if not ui then return end
