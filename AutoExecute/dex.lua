@@ -6891,12 +6891,12 @@ local EmbeddedModules = {
 										CleanMode = false,
 										ReaderFloatPrecision = 7,
 										ShowDebugInformation = true,
-										ShowTrivialOperations = true,
-										ShowInstructionLines = true,
+										ShowTrivialOperations = false,
+										ShowInstructionLines = false,
 										ShowOperationIndex = false,
 										ShowOperationNames = false,
 										ListUsedGlobals = true,
-										UseTypeInfo = true,
+										UseTypeInfo = false,
 										EnabledRemarks = { ColdRemark = true, InlineRemark = false },
 										ReturnElapsedTime = true,
 										prettyPrint = true,
@@ -6953,12 +6953,12 @@ local EmbeddedModules = {
 										CleanMode = true,
 										ReaderFloatPrecision = 7,
 										ShowDebugInformation = false,
-										ShowTrivialOperations = true,
-										ShowInstructionLines = true,
+										ShowTrivialOperations = false,
+										ShowInstructionLines = false,
 										ShowOperationIndex = false,
 										ShowOperationNames = false,
 										ListUsedGlobals = true,
-										UseTypeInfo = true,
+										UseTypeInfo = false,
 										EnabledRemarks = { ColdRemark = false, InlineRemark = false },
 										ReturnElapsedTime = true,
 									}
@@ -8959,15 +8959,15 @@ local EmbeddedModules = {
 						local ZUK_OPTS = {
 							DecompilerMode = "disasm",
 							DecompilerTimeout = 20,
-							CleanMode = false,
+							CleanMode = true,
 							ReaderFloatPrecision = 7,
 							ShowDebugInformation = false,
-							ShowTrivialOperations = true,
-							ShowInstructionLines = true,
+							ShowTrivialOperations = false,
+							ShowInstructionLines = false,
 							ShowOperationIndex = false,
-							ShowOperationNames = true,
+							ShowOperationNames = false,
 							ListUsedGlobals = true,
-							UseTypeInfo = true,
+							UseTypeInfo = false,
 							EnabledRemarks = { ColdRemark = false, InlineRemark = true },
 							ReturnElapsedTime = true,
 							prettyPrint = true,
@@ -10870,12 +10870,12 @@ local EmbeddedModules = {
 								CleanMode = false,
 								ReaderFloatPrecision = 7,
 								ShowDebugInformation = false,
-								ShowTrivialOperations = true,
-								ShowInstructionLines = true,
+								ShowTrivialOperations = false,
+								ShowInstructionLines = false,
 								ShowOperationIndex = false,
-								ShowOperationNames = true,
+								ShowOperationNames = false,
 								ListUsedGlobals = true,
-								UseTypeInfo = true,
+								UseTypeInfo = false,
 								EnabledRemarks = { ColdRemark = false, InlineRemark = true },
 								ReturnElapsedTime = true,
 								prettyPrint = true,
@@ -29131,7 +29131,7 @@ local function main()
 			ShowOperationIndex = false,
 			ShowOperationNames = false,
 			ShowTrivialOperations = false,
-			UseTypeInfo = true,
+			UseTypeInfo = false,
 			ListUsedGlobals = true,
 			ReturnElapsedTime = false,
 			CleanMode = true,
@@ -31683,15 +31683,27 @@ local function main()
 		getgenv()._ZUK_CLEANOUTPUT = _coImpl
 	end)
 
-			local ScriptViewer = {}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		local ScriptViewer = {}
+
 			local window, codeFrame
-
 			local execute, clear, dumpbtn
-
 			local PreviousScr = nil
-
 			local ZukPostProcess
-
 			ScriptViewer.DumpFunctions = function(scr)
 				local getgc = getgc or get_gc_objects
 				local getupvalues = (debug and debug.getupvalues) or getupvalues or getupvals
@@ -31976,12 +31988,12 @@ local function main()
 						CleanMode = true,
 						ReaderFloatPrecision = 7,
 						ShowDebugInformation = true,
-						ShowTrivialOperations = true,
-						ShowInstructionLines = true,
+						ShowTrivialOperations = false,
+						ShowInstructionLines = false,
 						ShowOperationIndex = false,
 						ShowOperationNames = false,
 						ListUsedGlobals = true,
-						UseTypeInfo = true,
+						UseTypeInfo = false,
 						EnabledRemarks = { ColdRemark = true, InlineRemark = false },
 						ReturnElapsedTime = true,
 						prettyPrint = true,
@@ -38183,29 +38195,6 @@ local function main()
 						return newButton(name, description, onClick)
 					end
 
-					----- ADD ONS ----- (easily add or remove additonal functionality to the RemoteSpy!)
-					--[[
-			    Some helpful things:
-			        - add your function in here, and create buttons for them through the 'newButton' function
-			        - the first argument provided is the TextButton the player clicks to run the function
-			        - generated scripts are generated when the namecall is initially fired and saved in remoteFrame objects
-			        - blacklisted remotes will be ignored directly in namecall (less lag)
-			        - the properties of a 'remoteFrame' object:
-			            {
-			                Name: (string) The name of the Remote
-			                GenScript: (string) The generated script that appears in the ui.CodeBox (generated when namecall fired)
-			                Source: (Instance (LocalScript)) The script that fired/invoked the remote
-			                Remote: (Instance (RemoteEvent) | Instance (RemoteFunction)) The remote that was fired/invoked
-			                Log: (Instance (TextButton)) The button being used for the remote (same as 'selected.Log')
-			            }
-			        - globals list: (contact @exx#9394 for more information or if you have suggestions for more to be added)
-			            - closed: (boolean) whether or not the GUI is currently minimized
-			            - logs: (table[remoteFrame]) full of remoteFrame objects (properties listed above)
-			            - selected: (remoteFrame) the currently selected remoteFrame (properties listed above)
-			            - blacklist: (string[] | Instance[] (RemoteEvent) | Instance[] (RemoteFunction)) an array of blacklisted names and remotes
-			            - ui.CodeBox: (Instance (Frame)) container for the Highlight code viewer
-			]]
-
 					do
 						ui.NextButton.MouseButton1Click:Connect(function()
 							ui.Background.Visible = not ui.Background.Visible
@@ -39380,12 +39369,12 @@ Main = (function()
 						CleanMode = false,
 						ReaderFloatPrecision = 7,
 						ShowDebugInformation = false,
-						ShowTrivialOperations = true,
-						ShowInstructionLines = true,
+						ShowTrivialOperations = false,
+						ShowInstructionLines = false,
 						ShowOperationIndex = false,
-						ShowOperationNames = true,
+						ShowOperationNames = false,
 						ListUsedGlobals = true,
-						UseTypeInfo = true,
+						UseTypeInfo = false,
 						EnabledRemarks = { ColdRemark = false, InlineRemark = false },
 						ReturnElapsedTime = true,
 						prettyPrint = true,
