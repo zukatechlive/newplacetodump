@@ -28517,7 +28517,6 @@ local RETURN_ELAPSED_TIME = false
 
 
 ]]
-
 local function main()
 	local ZukDecompile
 	local prettyPrint
@@ -28612,8 +28611,6 @@ local function main()
 			function self:seek(n)
 				cursor = n
 			end
-			-- 64-bit varint (LEB128, up to 10 bytes). Returns a Lua number (double);
-			-- only used for the inlining `cost` field, where exactness above 2^53 is irrelevant.
 			function self:nextVarInt64()
 				local result, mult = 0, 1
 				for _ = 1, 10 do
@@ -29292,8 +29289,6 @@ local function main()
 							instructionLineInfo = {},
 						}
 						protoTable[protoId] = proto
-						-- Bytecode v12+: every proto is prefixed with its byte length. The loader
-						-- also seeks to start+size afterwards (skipping unknown trailing data).
 						local protoSize
 						if bytecodeVersion >= 12 then
 							reader:mark(pfx .. "protoSize")
@@ -29398,15 +29393,6 @@ local function main()
 								end
 								constValue = { size = sz, keys = keys }
 							elseif constType == BT.LBC_CONSTANT_INTEGER then
-								-- Real wire format: 1 sign byte (0/1) + 1 varint magnitude,
-								-- NOT two raw 4-byte words - reading the old (wrong) way
-								-- desynced every byte read for the rest of the file on any
-								-- 64-bit integer constant.
-								-- NOTE: nextVarInt() itself is bit32-backed and so is
-								-- clamped to 32 bits; this correctly fixes the byte-stream
-								-- desync but very large (>2^32) integer constants will
-								-- still read back with a truncated magnitude. That's a
-								-- separate, much rarer precision gap - not a resync issue.
 								local isNegative = reader:nextByte()
 								local magnitude = reader:nextVarInt()
 								constValue = (isNegative == 1) and -magnitude or magnitude
@@ -29520,13 +29506,11 @@ local function main()
 							proto.feedbackVector = feedback
 						end
 						if bytecodeVersion >= 12 then
-							local LPF_INLINABLE = 8 -- 1 << 3
+							local LPF_INLINABLE = 8
 							if proto.flags and bit32.btest(proto.flags, LPF_INLINABLE) then
 								reader:mark(pfx .. "cost")
 								proto.cost = reader:nextVarInt64()
 							end
-							-- Invariant: we must not have read PAST the declared proto size.
-							-- (Reading less is fine: the loader skips unknown trailing data.)
 							local expectedEnd = protoStart + protoSize
 							local here = reader:pos()
 							if here > expectedEnd then
@@ -29548,10 +29532,6 @@ local function main()
 					end
 				end
 				readStringTable()
-				-- Upstream (lvmload.cpp) reads the userdata remapping block ONLY when the
-				-- header's type-encoding version is exactly 3, independent of the
-				-- bytecode version. Gating on bytecodeVersion made the reader eat
-				-- proto-table bytes as userdata entries whenever typesversion ~= 3.
 				if typeEncodingVersion == 3 then
 					readUserdataTypes()
 				end
@@ -29607,19 +29587,23 @@ local function main()
 					local function writeInstructions()
 						local auxSkip = false
 						local function reg(act, regs, extra, hide)
-							table.insert(protoRegisterActions, {
-								usedRegisters = regs or {},
-								extraData = extra,
-								opCode = act,
-								hide = hide,
-							})
+							table.insert(
+								protoRegisterActions,
+								{ usedRegisters = regs or {}, extraData = extra, opCode = act, hide = hide }
+							)
 						end
 						for idx, instruction in ipairs(instructions) do
 							if auxSkip then
 								auxSkip = false
 								continue
 							end
-							local oci = LuauOpCode[Luau:INSN_OP(instruction)]
+							-- Luau.OpCode is deliberately scrambled right after construction
+							-- (see the `case = (i-1)*CASE_MULTIPLIER mod 256` remap above) so the
+							-- source doesn't read as a plain opcode->index table. This lookup was
+							-- never updated to match: it indexed the table as if it were still
+							-- sequential, silently resolving every instruction in every decompile
+							-- to the wrong opcode entry.
+							local oci = LuauOpCode[bit32.band(Luau:INSN_OP(instruction) * CASE_MULTIPLIER, 0xFF)]
 							if not oci then
 								continue
 							end
@@ -29888,7 +29872,6 @@ local function main()
 						if proto.main and pflags and pflags.native then
 							emit("--!native\n")
 						end
-
 						local function buildRegNames(instrIdx)
 							local names = {}
 							if proto.debugLocals then
@@ -30092,7 +30075,6 @@ local function main()
 							end
 							return best
 						end
-
 						local function constStr(idx)
 							local c = consts[idx + 1]
 							if c and type(c.value) == "string" then
@@ -30124,12 +30106,7 @@ local function main()
 							FindFirstChildOfClass = true,
 							FindFirstChildWhichIsA = true,
 						}
-						local KNOWN_GLOBAL_NAMES = {
-							game = false,
-							workspace = true,
-							script = true,
-							shared = false,
-						}
+						local KNOWN_GLOBAL_NAMES = { game = false, workspace = true, script = true, shared = false }
 						local function sanitizeName(s)
 							if not s or s == "" then
 								return nil
@@ -30153,8 +30130,9 @@ local function main()
 										if prevAct and prevAct.opCode and prevAct.opCode.name == "NAMECALL" then
 											local method = constStr(prevAct.extraData[2])
 											if
-												method
-												and (SERVICE_LIKE_METHODS[method] or CHILD_LOOKUP_METHODS[method])
+												method and (
+													SERVICE_LIKE_METHODS[method] or CHILD_LOOKUP_METHODS[method]
+												)
 											then
 												local argReg = act.usedRegisters[1] + 1
 												local lit = findRecentStringLiteral(argReg, defAi)
@@ -30189,7 +30167,6 @@ local function main()
 								end
 							end
 						end
-
 						local regNameCache = {}
 						local function fmtReg(r, instrIdx)
 							if r == nil then
@@ -30300,12 +30277,10 @@ local function main()
 							local body = fmtProto(p)
 							if p.name then
 								emit("\n" .. body)
-
 								writeActions(registerActions[p.id])
 								emit("end\n" .. fmtReg(reg) .. " = " .. p.name)
 							else
 								emit(fmtReg(reg) .. " = " .. body)
-
 								writeActions(registerActions[p.id])
 								emit("end")
 							end
@@ -30363,13 +30338,6 @@ local function main()
 							local function R(r)
 								return fmtReg(r, i)
 							end
-							-- Like R(), but resolves the register's name using its value
-							-- as of just BEFORE this instruction executes. Needed for the
-							-- self/callee operand of CALL, which shares its physical
-							-- register with the call's result: formatting it with the
-							-- current instruction index (like R()) picks the post-call
-							-- generation for both the read and the write, producing
-							-- self-referential lines like `local v1 = v1:Method(...)`.
 							local function Rpre(r)
 								return fmtReg(r, i - 1)
 							end
@@ -30399,7 +30367,6 @@ local function main()
 								emit(ind() .. R(ur[1]) .. " = nil")
 							elseif opn == "LOADB" then
 								emit(ind() .. R(ur[1]) .. " = " .. toEscapedString(toBoolean(ed[1])))
-
 								if ed[2] ~= 0 then
 									emit(" +" .. ed[2])
 								end
@@ -30474,7 +30441,8 @@ local function main()
 								local nmMethod = ""
 								local argOff = 0
 								local prev = actions[i - 1]
-								if prev and prev.opCode and prev.opCode.name == "NAMECALL" then
+								local isNamecall = prev and prev.opCode and prev.opCode.name == "NAMECALL"
+								if isNamecall then
 									nmMethod = ":"
 										.. tostring(
 											consts[prev.extraData[2] + 1] and consts[prev.extraData[2] + 1].value or ""
@@ -30495,7 +30463,25 @@ local function main()
 									end
 									callBody = rb .. " = "
 								end
-								callBody ..= Rpre(baseR) .. nmMethod .. "("
+								-- The self-object for a method call is NAMECALL's own B operand
+								-- (the register it read the object FROM), not baseR (A). NAMECALL
+								-- copies B into A (`R(A) := R(B)`), and the generation-tracking
+								-- treats that copy plus the following CALL's result as one
+								-- unbroken generation of A whenever A and B happen to be the SAME
+								-- physical register (e.g. `v0 = v0:GetService(...)`, where that's
+								-- correct). But when the compiler places the self-object and the
+								-- call's destination in DIFFERENT registers (A ~= B), Rpre(baseR)
+								-- reads A's value, not the actual object B held - printing the
+								-- destination's own (about-to-be-overwritten) name as if it were
+								-- the receiver, e.g. `v1 = v1:WaitForChild(...)` instead of the
+								-- correct `v1 = v0:WaitForChild(...)`. Read B directly instead.
+								local selfRef
+								if isNamecall and prev.usedRegisters and prev.usedRegisters[2] ~= nil then
+									selfRef = fmtReg(prev.usedRegisters[2], i - 1)
+								else
+									selfRef = Rpre(baseR)
+								end
+								callBody ..= selfRef .. nmMethod .. "("
 								if nArgs == -1 then
 									callBody ..= "..."
 								elseif nArgs > 0 then
@@ -30612,7 +30598,6 @@ local function main()
 								emit(ind() .. R(ur[1]) .. " = #" .. R(ur[2]))
 							elseif opn == "NEWTABLE" then
 								emit(R(ur[1]) .. " = {}")
-
 								if options.ShowDebugInformation and ed[2] and ed[2] > 0 then
 									emit(" ")
 								end
@@ -30664,8 +30649,7 @@ local function main()
 										local tgtName = R(tgt)
 										for rp = #resultParts, math.max(1, #resultParts - 10), -1 do
 											if
-												resultParts[rp]
-												and resultParts[rp]:find(tgtName .. " = {}", 1, true)
+												resultParts[rp] and resultParts[rp]:find(tgtName .. " = {}", 1, true)
 											then
 												if tot2 <= 4 then
 													resultParts[rp] = tgtName
@@ -31072,13 +31056,7 @@ local function main()
 				table.insert(protos, ok and proto or { error = tostring(proto), depth = 0 })
 			end
 			local entryProto = reader2:nextVarInt()
-			return {
-				version = ver,
-				typesVersion = typesVer,
-				stringTable = stringTable,
-				protos = protos,
-				entryProto = entryProto,
-			}
+			return { version = ver, typesVersion = typesVer, stringTable = stringTable, protos = protos, entryProto = entryProto }
 		end
 		local function buildReport(parsed, scriptName)
 			local lines = {}
@@ -31146,7 +31124,6 @@ local function main()
 			end
 			return table.concat(lines, "\n")
 		end
-
 		local function _ppImpl(text)
 			local result = {}
 			local depth = 0
@@ -31205,21 +31182,17 @@ local function main()
 			end
 			return table.concat(result)
 		end
-
 		local function _coImpl(text)
 			local rawLines = {}
 			for line in (text .. "\n"):gmatch("[^\n]*\n") do
 				rawLines[#rawLines + 1] = line:gsub("\n$", "")
 			end
-
 			local function escpat(s)
 				return s:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
 			end
-
 			local function escrep(s)
 				return (s:gsub("%%", "%%%%"))
 			end
-
 			local function nextNonBlank(start)
 				local j = start
 				while j <= #rawLines and (rawLines[j] == nil or rawLines[j]:match("^%s*$")) do
@@ -31227,7 +31200,6 @@ local function main()
 				end
 				return j
 			end
-
 			do
 				local i = 1
 				while i <= #rawLines do
@@ -31255,7 +31227,6 @@ local function main()
 					i += 1
 				end
 			end
-
 			do
 				local i = 1
 				while i <= #rawLines do
@@ -31278,7 +31249,6 @@ local function main()
 					i += 1
 				end
 			end
-
 			local function tryCollapse(i)
 				local line = rawLines[i]
 				if not line then
@@ -31388,7 +31358,6 @@ local function main()
 				rawLines[i] = nil
 				return true
 			end
-
 			local function tryFoldUpv(i)
 				local line = rawLines[i]
 				if not line then
@@ -31422,7 +31391,6 @@ local function main()
 				rawLines[i] = nil
 				return true
 			end
-
 			do
 				local changed = true
 				local guard = 0
@@ -31446,7 +31414,6 @@ local function main()
 					end
 				end
 			end
-
 			do
 				local i = 1
 				while i <= #rawLines do
@@ -31475,8 +31442,8 @@ local function main()
 								key = numkey
 							end
 							if key and val then
-								entries[#entries + 1] =
-									{ key = key, val = val:match("^(.-)%s*$"), idx = j, num = numkey ~= nil }
+								entries[#entries + 1] = { key = key, val = val:match("^(.-)%s*$"), idx = j, num = numkey
+									~= nil }
 								j += 1
 							else
 								break
@@ -31512,7 +31479,6 @@ local function main()
 					i += 1
 				end
 			end
-
 			do
 				local changed = true
 				local guard = 0
@@ -31536,7 +31502,6 @@ local function main()
 					end
 				end
 			end
-
 			local pass2 = {}
 			for idx = 1, #rawLines do
 				local line = rawLines[idx]
@@ -31576,7 +31541,6 @@ local function main()
 				line = line:gsub("%s*%-%- iterate %+ jump to #%d+", "")
 				pass2[#pass2 + 1] = line
 			end
-
 			local pass2b = {}
 			for _, line in ipairs(pass2) do
 				local r = line
@@ -31606,7 +31570,6 @@ local function main()
 				end
 				pass2b[#pass2b + 1] = r
 			end
-
 			local pass3 = {}
 			local i3 = 1
 			while i3 <= #pass2b do
@@ -31622,7 +31585,6 @@ local function main()
 					i3 += 1
 				end
 			end
-
 			local pass3b = {}
 			local i3b = 1
 			while i3b <= #pass3 do
@@ -31639,7 +31601,6 @@ local function main()
 				pass3b[#pass3b + 1] = line
 				i3b += 1
 			end
-
 			local seen4 = {}
 			local pass4 = {}
 			for _, line in ipairs(pass3b) do
@@ -31650,7 +31611,6 @@ local function main()
 				end
 				pass4[#pass4 + 1] = line
 			end
-
 			local seen4b = {}
 			local pass4b = {}
 			for _, line in ipairs(pass4) do
@@ -31661,7 +31621,6 @@ local function main()
 				end
 				pass4b[#pass4b + 1] = line
 			end
-
 			local final = {}
 			local lastBlank = false
 			for _, line in ipairs(pass4b) do
@@ -31672,7 +31631,6 @@ local function main()
 				lastBlank = isBlank
 				final[#final + 1] = line
 			end
-
 			return table.concat(final, "\n")
 		end
 		ZukDecompile = Decompile
