@@ -28517,6 +28517,7 @@ local RETURN_ELAPSED_TIME = false
 
 
 ]]
+
 local function main()
 	local ZukDecompile
 	local prettyPrint
@@ -29597,13 +29598,7 @@ local function main()
 								auxSkip = false
 								continue
 							end
-							-- Luau.OpCode is deliberately scrambled right after construction
-							-- (see the `case = (i-1)*CASE_MULTIPLIER mod 256` remap above) so the
-							-- source doesn't read as a plain opcode->index table. This lookup was
-							-- never updated to match: it indexed the table as if it were still
-							-- sequential, silently resolving every instruction in every decompile
-							-- to the wrong opcode entry.
-							local oci = LuauOpCode[bit32.band(Luau:INSN_OP(instruction) * CASE_MULTIPLIER, 0xFF)]
+							local oci = LuauOpCode[Luau:INSN_OP(instruction)]
 							if not oci then
 								continue
 							end
@@ -30441,8 +30436,7 @@ local function main()
 								local nmMethod = ""
 								local argOff = 0
 								local prev = actions[i - 1]
-								local isNamecall = prev and prev.opCode and prev.opCode.name == "NAMECALL"
-								if isNamecall then
+								if prev and prev.opCode and prev.opCode.name == "NAMECALL" then
 									nmMethod = ":"
 										.. tostring(
 											consts[prev.extraData[2] + 1] and consts[prev.extraData[2] + 1].value or ""
@@ -30463,25 +30457,7 @@ local function main()
 									end
 									callBody = rb .. " = "
 								end
-								-- The self-object for a method call is NAMECALL's own B operand
-								-- (the register it read the object FROM), not baseR (A). NAMECALL
-								-- copies B into A (`R(A) := R(B)`), and the generation-tracking
-								-- treats that copy plus the following CALL's result as one
-								-- unbroken generation of A whenever A and B happen to be the SAME
-								-- physical register (e.g. `v0 = v0:GetService(...)`, where that's
-								-- correct). But when the compiler places the self-object and the
-								-- call's destination in DIFFERENT registers (A ~= B), Rpre(baseR)
-								-- reads A's value, not the actual object B held - printing the
-								-- destination's own (about-to-be-overwritten) name as if it were
-								-- the receiver, e.g. `v1 = v1:WaitForChild(...)` instead of the
-								-- correct `v1 = v0:WaitForChild(...)`. Read B directly instead.
-								local selfRef
-								if isNamecall and prev.usedRegisters and prev.usedRegisters[2] ~= nil then
-									selfRef = fmtReg(prev.usedRegisters[2], i - 1)
-								else
-									selfRef = Rpre(baseR)
-								end
-								callBody ..= selfRef .. nmMethod .. "("
+								callBody ..= Rpre(baseR) .. nmMethod .. "("
 								if nArgs == -1 then
 									callBody ..= "..."
 								elseif nArgs > 0 then
@@ -30906,224 +30882,6 @@ local function main()
 				return manager(false, "UNSUPPORTED_LBC_VERSION")
 			end
 		end
-		local CONST_TYPE = {
-			[0] = "nil",
-			[1] = "boolean",
-			[2] = "number(f64)",
-			[3] = "string",
-			[4] = "import",
-			[5] = "table",
-			[6] = "closure",
-			[7] = "vector",
-			[8] = "table_with_constants",
-			[9] = "integer",
-			[10] = "class_shape",
-			[11] = "vectord",
-		}
-		local function parseProto(p, stringTable, depth, bytecodeVer)
-			local result = {
-				depth = depth or 0,
-				maxStack = p:nextByte(),
-				numParams = p:nextByte(),
-				numUpvals = p:nextByte(),
-				isVararg = p:nextByte() ~= 0,
-				constants = {},
-				protos = {},
-				upvalues = {},
-				debugName = "",
-				strings = {},
-				imports = {},
-			}
-			if (bytecodeVer or 4) >= 4 then
-				result.flags = p:nextByte()
-				local typeSize = p:nextVarInt()
-				if typeSize > 0 then
-					for _ = 1, typeSize do
-						p:nextByte()
-					end
-				end
-			end
-			local instrCount = p:nextVarInt()
-			for _ = 1, instrCount do
-				p:nextUInt32()
-			end
-			local constCount = p:nextVarInt()
-			for i = 1, constCount do
-				local kind = p:nextByte()
-				local name = CONST_TYPE[kind] or ("unknown(" .. kind .. ")")
-				local value
-				if kind == 0 then
-					value = "nil"
-				elseif kind == 1 then
-					value = p:nextByte() ~= 0 and "true" or "false"
-				elseif kind == 2 then
-					value = tostring(p:nextDouble())
-				elseif kind == 7 then
-					value = tostring(p:nextFloat())
-				elseif kind == 8 then
-					local lo, hi = p:nextByte(), p:nextByte()
-					local n = lo + hi * 256
-					if n >= 32768 then
-						n = n - 65536
-					end
-					value = tostring(n)
-				elseif kind == 3 then
-					local idx = p:nextVarInt()
-					value = stringTable[idx] or ("<string #" .. idx .. ">")
-					table.insert(result.strings, value)
-				elseif kind == 4 then
-					local id = p:nextUInt32()
-					local k0 = bit32.band(bit32.rshift(id, 20), 0x3FF)
-					local k1 = bit32.band(bit32.rshift(id, 10), 0x3FF)
-					local k2 = bit32.band(id, 0x3FF)
-					local parts = {}
-					for _, k in ipairs({ k0, k1, k2 }) do
-						if stringTable[k] then
-							table.insert(parts, stringTable[k])
-						end
-					end
-					value = table.concat(parts, ".")
-					table.insert(result.imports, value)
-				elseif kind == 5 then
-					local keys, ks = p:nextVarInt(), {}
-					for _ = 1, keys do
-						local kidx = p:nextVarInt()
-						table.insert(ks, stringTable[kidx] or "?")
-					end
-					value = "{" .. table.concat(ks, ", ") .. "}"
-				elseif kind == 6 then
-					value = "<proto #" .. p:nextVarInt() .. ">"
-				else
-					value = "?"
-				end
-				table.insert(result.constants, { kind = name, value = value, index = i - 1 })
-			end
-			local innerProtoCount = p:nextVarInt()
-			for _ = 1, innerProtoCount do
-				table.insert(result.protos, p:nextVarInt())
-			end
-			result.lineDefined = p:nextVarInt()
-			local nameId = p:nextVarInt()
-			result.debugName = stringTable[nameId] or ""
-			local hasLines = p:nextByte()
-			if hasLines ~= 0 then
-				local lgap = p:nextByte()
-				local baselineSize = bit32.rshift(instrCount - 1, lgap) + 1
-				for _ = 1, instrCount do
-					p:nextSignedByte()
-				end
-				for _ = 1, baselineSize do
-					p:nextInt32()
-				end
-			end
-			local hasDebug = p:nextByte()
-			if hasDebug ~= 0 then
-				local lc = p:nextVarInt()
-				for _ = 1, lc do
-					p:nextVarInt()
-					p:nextVarInt()
-					p:nextVarInt()
-					p:nextByte()
-				end
-				local uc = p:nextVarInt()
-				for j = 1, uc do
-					local ui = p:nextVarInt()
-					table.insert(result.upvalues, stringTable[ui] or ("upval_" .. j))
-				end
-			end
-			return result
-		end
-		local function parseBytecode(bytes)
-			local reader2 = Reader.new(bytes)
-			local ver = reader2:nextByte()
-			if ver == 0 then
-				return nil, "Compile error: " .. reader2:nextString(reader2:len() - 1)
-			end
-			local typesVer = 0
-			if ver >= 4 then
-				typesVer = reader2:nextByte()
-			end
-			local stringCount = reader2:nextVarInt()
-			local stringTable = {}
-			for i = 1, stringCount do
-				local len = reader2:nextVarInt()
-				stringTable[i] = reader2:nextString(len)
-			end
-			local protoCount = reader2:nextVarInt()
-			local protos = {}
-			for i = 1, protoCount do
-				local ok, proto = pcall(parseProto, reader2, stringTable, 0, ver)
-				table.insert(protos, ok and proto or { error = tostring(proto), depth = 0 })
-			end
-			local entryProto = reader2:nextVarInt()
-			return { version = ver, typesVersion = typesVer, stringTable = stringTable, protos = protos, entryProto = entryProto }
-		end
-		local function buildReport(parsed, scriptName)
-			local lines = {}
-			local function w(s)
-				table.insert(lines, s or "")
-			end
-			w("  code reconstructor — " .. (scriptName or "unknown"))
-			w("  Luau version : " .. parsed.version)
-			w("  Types version: " .. parsed.typesVersion)
-			w("  Proto count  : " .. #parsed.protos)
-			w("  Entry proto  : #" .. parsed.entryProto)
-			w("  Strings total: " .. #parsed.stringTable)
-			w("  STRING TABLE ")
-			for i, s in ipairs(parsed.stringTable) do
-				w(string.format("  [%3d] %q", i, s))
-			end
-			w("")
-			local function walkProto(proto, idx)
-				if proto.error then
-					w("  [Proto #" .. idx .. "] PARSE ERROR: " .. proto.error)
-					return
-				end
-				local ind = string.rep("  ", proto.depth + 1)
-				local dn = proto.debugName ~= "" and (" '" .. proto.debugName .. "'") or ""
-				w(string.format("%s Proto #%d%s", ind, idx, dn))
-				w(
-					string.format(
-						"%s   params=%d  upvals=%d  maxStack=%d  vararg=%s",
-						ind,
-						proto.numParams,
-						proto.numUpvals,
-						proto.maxStack,
-						tostring(proto.isVararg)
-					)
-				)
-				if #proto.upvalues > 0 then
-					w(ind .. "   Upvalues: " .. table.concat(proto.upvalues, ", "))
-				end
-				if #proto.imports > 0 then
-					w(ind .. "   Imports:")
-					for _, imp in ipairs(proto.imports) do
-						w(ind .. "     " .. imp)
-					end
-				end
-				if #proto.strings > 0 then
-					w(ind .. "   String literals:")
-					for _, s in ipairs(proto.strings) do
-						w(ind .. '     "' .. s .. '"')
-					end
-				end
-				if #proto.constants > 0 then
-					w(ind .. "   All constants:")
-					for _, c in ipairs(proto.constants) do
-						w(string.format("%s     [%2d] %-14s %s", ind, c.index, c.kind, tostring(c.value)))
-					end
-				end
-				w("")
-				for i2, inner in ipairs(proto.protos) do
-					walkProto(inner, i2)
-				end
-			end
-			w(" PROTO TREE ")
-			for i, proto in ipairs(parsed.protos) do
-				walkProto(proto, i)
-			end
-			return table.concat(lines, "\n")
-		end
 		local function _ppImpl(text)
 			local result = {}
 			local depth = 0
@@ -31249,6 +31007,50 @@ local function main()
 					i += 1
 				end
 			end
+			-- Collapse register self-chains such as:
+			-- local v0 = game
+			-- v0 = v0:GetService("Players")
+			-- into a single expression. This is especially important for
+			-- Roblox method/property chains produced as multiple VM registers.
+			local function tryFoldSelfChain(i)
+				local line = rawLines[i]
+				if not line then
+					return false
+				end
+				local indent, localKw, reg, rhs = line:match("^(%s*)(local%s+)?(v%d+_?%d*)%s*=%s*(.+)%s*$")
+				if not reg or not rhs then
+					return false
+				end
+				local ep = escpat(reg)
+				local suffix = rhs:match("^" .. ep .. "([%.:].+)$")
+				if not suffix then
+					return false
+				end
+				local j = i - 1
+				while j >= 1 and (rawLines[j] == nil or rawLines[j]:match("^%s*$")) do
+					j -= 1
+				end
+				if j < 1 or not rawLines[j] then
+					return false
+				end
+				local prevIndent, prevLocal, prevReg, prevVal = rawLines[j]:match("^(%s*)(local%s+)?(v%d+_?%d*)%s*=%s*(.+)%s*$")
+				if prevReg ~= reg or not prevVal then
+					return false
+				end
+				-- Do not fold if the previous value already references the same register;
+				-- that would create a recursive expression instead of a chain.
+				local prevUses = 0
+				for _ in prevVal:gmatch(ep) do
+					prevUses += 1
+				end
+				if prevUses > 0 then
+					return false
+				end
+				rawLines[j] = prevIndent .. (prevLocal or "") .. reg .. " = " .. prevVal .. suffix
+				rawLines[i] = nil
+				return true
+			end
+
 			local function tryCollapse(i)
 				local line = rawLines[i]
 				if not line then
@@ -31322,12 +31124,47 @@ local function main()
 				rawLines[i] = nil
 				return true
 			end
+			local function tryFoldExpression(i)
+				local line = rawLines[i]
+				if not line then
+					return false
+				end
+				local reg, expr = line:match("^%s*local%s+(v%d+_?%d*)%s*=%s*(.+)%s*$")
+				if not reg then
+					reg, expr = line:match("^%s*(v%d+_?%d*)%s*=%s*(.+)%s*$")
+				end
+				if not reg or not expr then
+					return false
+				end
+				-- A register assignment is only safe to inline when its next meaningful
+				-- use is not another assignment to that same register.
+				local ep = escpat(reg)
+				local j = nextNonBlank(i + 1)
+				if j > #rawLines or not rawLines[j] then
+					return false
+				end
+				local nxt = rawLines[j]
+				local cnt = 0
+				for _ in nxt:gmatch(ep) do
+					cnt += 1
+				end
+				if cnt ~= 1 or nxt:match("^%s*local%s+" .. ep .. "%s*=") or nxt:match("^%s*" .. ep .. "%s*=") then
+					return false
+				end
+				rawLines[j] = nxt:gsub(ep, escrep(expr), 1)
+				rawLines[i] = nil
+				return true
+			end
+
 			local function tryFoldField(i)
 				local line = rawLines[i]
 				if not line then
 					return false
 				end
-				local lreg, src, field = line:match("^%s*(v%d+_?%d*) = (v%d+_?%d*)%.([%a_][%w_]*)%s*$")
+				local lreg, src, field = line:match("^%s*local%s+(v%d+_?%d*) = (v%d+_?%d*)%.([%a_][%w_]*)%s*$")
+				if not lreg then
+					lreg, src, field = line:match("^%s*(v%d+_?%d*) = (v%d+_?%d*)%.([%a_][%w_]*)%s*$")
+				end
 				if not lreg then
 					lreg, src, field = line:match("^%s*(v%d+_?%d*) = (v%d+_?%d*)%[(.-)%]%s*$")
 					if lreg then
@@ -31398,7 +31235,17 @@ local function main()
 					changed = false
 					guard += 1
 					for i = 1, #rawLines do
+						if tryFoldSelfChain(i) then
+							changed = true
+						end
+					end
+					for i = 1, #rawLines do
 						if tryCollapse(i) then
+							changed = true
+						end
+					end
+					for i = 1, #rawLines do
+						if tryFoldExpression(i) then
 							changed = true
 						end
 					end
@@ -31502,6 +31349,30 @@ local function main()
 					end
 				end
 			end
+			-- Remove register declarations that became unused after chain folding.
+			-- This keeps `local vN` from being left behind when the assignment
+			-- that used to initialize it was folded directly into its consumer.
+			do
+				for i = 1, #rawLines do
+					local line = rawLines[i]
+					local reg = line and line:match("^%s*local%s+(v%d+_?%d*)%s*$")
+					if reg then
+						local ep = escpat(reg)
+						local used = false
+						for j = i + 1, #rawLines do
+							local other = rawLines[j]
+							if other and other:find(ep) then
+								used = true
+								break
+							end
+						end
+						if not used then
+							rawLines[i] = nil
+						end
+					end
+				end
+			end
+
 			local pass2 = {}
 			for idx = 1, #rawLines do
 				local line = rawLines[idx]
