@@ -28479,44 +28479,11 @@ local RETURN_ELAPSED_TIME = false
 			end
 		end
 
-		--[[
 
 
 
 
 
- _____     _           ____  
-|__  /   _| | ____   _|___ \ 
-  / / | | | |/ /\ \ / / __) |
- / /| |_| |   <  \ V / / __/ 
-/____\__,_|_|\_\  \_/ |_____|
-                             
-
-
-
-
-
-
-]]
---[[
-
-
-
-
-
- _____     _           ____  
-|__  /   _| | ____   _|___ \ 
-  / / | | | |/ /\ \ / / __) |
- / /| |_| |   <  \ V / / __/ 
-/____\__,_|_|\_\  \_/ |_____|
-                             
-
-
-
-
-
-
-]]
 
 local function main()
 	local ZukDecompile
@@ -31124,6 +31091,88 @@ local function main()
 				rawLines[i] = nil
 				return true
 			end
+\t\t\t-- Collapse register chains deterministically.
+			-- Examples:
+			--   local v0 = game
+			--   v0 = v0:GetService("Players")
+			--   local v1 = v0.LocalPlayer.Character
+			-- becomes:
+			--   game:GetService("Players").LocalPlayer.Character
+			--
+			-- This intentionally runs before the generic expression folding so
+			-- register temporaries don't survive just because they were declared
+			-- with `local`.
+			local function tryFoldRegisterChain(i)
+				local line = rawLines[i]
+				if not line then
+					return false
+				end
+
+				local indent, localKw, reg, rhs =
+					line:match("^(%s*)(local%s+)?(v%d+_?%d*)%s*=%s*(.+)%s*$")
+
+				if not reg or not rhs then
+					return false
+				end
+
+				-- A chain continuation must reference the register as its
+				-- complete base expression, e.g. v0:GetService(...) or v0.Foo.
+				local ep = escpat(reg)
+				local suffix = rhs:match("^" .. ep .. "([%.:].+)$")
+
+				-- First form: local v0 = game, followed by v0 = v0:...
+				-- Also handles local v0 = <expression>, followed by v0 = v0....
+				if suffix then
+					local j = i + 1
+					while j <= #rawLines and
+						(rawLines[j] == nil or rawLines[j]:match("^%s*$")) do
+						j += 1
+					end
+
+					if j <= #rawLines and rawLines[j] then
+						local ni, nk, nr, nrhs =
+							rawLines[j]:match("^(%s*)(local%s+)?(v%d+_?%d*)%s*=%s*(.+)%s*$")
+
+						if nr == reg and nrhs then
+							local np = nrhs:match("^" .. ep .. "([%.:].+)$")
+							if np then
+								-- Avoid recursively building v0 from itself.
+								return false
+							end
+						end
+					end
+				end
+
+				-- Form: local v0 = <expression>
+				-- Find the immediately following assignment to the same register
+				-- and fold only when that assignment is a pure chain from v0.
+				local j = i + 1
+				while j <= #rawLines and
+					(rawLines[j] == nil or rawLines[j]:match("^%s*$")) do
+					j += 1
+				end
+
+				if j <= #rawLines and rawLines[j] then
+					local _, _, nextReg, nextRhs =
+						rawLines[j]:match("^(%s*)(local%s+)?(v%d+_?%d*)%s*=%s*(.+)%s*$")
+
+					if nextReg == reg and nextRhs then
+						local nextSuffix = nextRhs:match("^" .. ep .. "([%.:].+)$")
+						if nextSuffix then
+							-- Do not fold a self-referential base.
+							if not rhs:find(ep) then
+								rawLines[i] =
+									indent .. (localKw or "") .. reg .. " = " .. rhs .. nextSuffix
+								rawLines[j] = nil
+								return true
+							end
+						end
+					end
+				end
+
+				return false
+			end
+
 			local function tryFoldExpression(i)
 				local line = rawLines[i]
 				if not line then
@@ -31235,7 +31284,12 @@ local function main()
 					changed = false
 					guard += 1
 					for i = 1, #rawLines do
-						if tryFoldSelfChain(i) then
+						if tryFoldRegisterChain(i) then
+							changed = true
+						end
+					end
+					for i = 1, #rawLines do
+						if tryFoldRegisterChain(i) then
 							changed = true
 						end
 					end
@@ -31511,13 +31565,6 @@ local function main()
 		getgenv()._ZUK_PRETTYPRINT = _ppImpl
 		getgenv()._ZUK_CLEANOUTPUT = _coImpl
 	end)
-
-
-
-
-
-
-
 
 
 
