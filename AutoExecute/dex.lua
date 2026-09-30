@@ -1,6 +1,5 @@
 --[[
 
-line  31888  / zukv2
 
 oooooooooo.                                                 o8o o8o
 `888'   `Y8b                                                YP' `YP
@@ -28480,10 +28479,25 @@ local RETURN_ELAPSED_TIME = false
 			end
 		end
 
+		--[[
 
 
 
 
+
+ _____     _           ____  
+|__  /   _| | ____   _|___ \ 
+  / / | | | |/ /\ \ / / __) |
+ / /| |_| |   <  \ V / / __/ 
+/____\__,_|_|\_\  \_/ |_____|
+                             
+
+
+
+
+
+
+]]
 --[[
 
 
@@ -29117,7 +29131,7 @@ local function main()
 			ShowOperationIndex = false,
 			ShowOperationNames = false,
 			ShowTrivialOperations = false,
-			UseTypeInfo = true,
+			UseTypeInfo = false,
 			ListUsedGlobals = true,
 			ReturnElapsedTime = false,
 			CleanMode = true,
@@ -29567,10 +29581,6 @@ local function main()
 								local cap = instructions[baseIdx + j]
 								local ctype = Luau:INSN_A(cap)
 								local sreg = Luau:INSN_B(cap)
-								p.captureKinds = p.captureKinds or {}
-								p.captureRegs = p.captureRegs or {}
-								p.captureKinds[j - 1] = ctype
-								p.captureRegs[j - 1] = sreg
 								if ctype == LuauCaptureType.LCT_VAL or ctype == LuauCaptureType.LCT_REF then
 									_c[j - 1] = sreg
 								elseif ctype == LuauCaptureType.LCT_UPVAL then
@@ -29609,13 +29619,7 @@ local function main()
 								auxSkip = false
 								continue
 							end
-							-- Luau.OpCode is deliberately scrambled right after construction
-							-- (see the `case = (i-1)*CASE_MULTIPLIER mod 256` remap a few hundred
-							-- lines up) so the source doesn't read as a plain opcode->index table.
-							-- The lookup here was never updated to match: it was indexing the
-							-- table as if it were still sequential, which silently resolved every
-							-- single instruction in every decompile to the wrong opcode entry.
-							local oci = LuauOpCode[bit32.band(Luau:INSN_OP(instruction) * CASE_MULTIPLIER, 0xFF)]
+							local oci = LuauOpCode[Luau:INSN_OP(instruction)]
 							if not oci then
 								continue
 							end
@@ -29843,9 +29847,6 @@ local function main()
 			local function finalize(mainProtoId, registerActions, protoTable)
 				local finalResult = ""
 				local totalParameters = 0
-				-- Every proto gets its own slice of vN numbers so an inner function's locals can
-				-- never collide with (or shadow) the enclosing function's variables.
-				local regNameCounter = 0
 				local usedGlobals = {}
 				local usedGlobalsSet = {}
 				local function isValidGlobal(key)
@@ -29884,9 +29885,6 @@ local function main()
 							return string.rep("\t", indentLevel)
 						end
 						totalParameters += numParams
-						local nameBase = regNameCounter
-						regNameCounter += (proto.maxStackSize or 0)
-						local lastMultretBase = nil
 						if proto.main and pflags and pflags.native then
 							emit("--!native\n")
 						end
@@ -29909,10 +29907,6 @@ local function main()
 							local du = proto.debugUpvalues
 							if du and du[r + 1] and du[r + 1].name ~= "" then
 								return du[r + 1].name
-							end
-							local un = proto.upvalueNames
-							if un and un[r + 1] then
-								return un[r + 1]
 							end
 							return "upv_" .. tostring(r)
 						end
@@ -30223,7 +30217,7 @@ local function main()
 									return inferred
 								end
 							end
-							local baseName = "v" .. tostring(r - safeNumParams + nameBase)
+							local baseName = "v" .. tostring(r - safeNumParams)
 							if instrIdx and regNeedsSuffix[r] then
 								local g = regGenAt(r, instrIdx)
 								if g > 1 then
@@ -30302,15 +30296,15 @@ local function main()
 							end
 							return body
 						end
-						local function writeProto(reg, p, atIdx)
+						local function writeProto(reg, p)
 							local body = fmtProto(p)
 							if p.name then
 								emit("\n" .. body)
 
 								writeActions(registerActions[p.id])
-								emit("end\n" .. fmtReg(reg, atIdx) .. " = " .. p.name)
+								emit("end\n" .. fmtReg(reg) .. " = " .. p.name)
 							else
-								emit(fmtReg(reg, atIdx) .. " = " .. body)
+								emit(fmtReg(reg) .. " = " .. body)
 
 								writeActions(registerActions[p.id])
 								emit("end")
@@ -30460,38 +30454,14 @@ local function main()
 							elseif opn == "NEWCLOSURE" then
 								local p2 = inner[ed[1] + 1]
 								if p2 then
-									local upNames = {}
-									for j = 1, (p2.numUpvalues or 0) do
-										local sreg = p2.captureRegs and p2.captureRegs[j - 1]
-										if sreg ~= nil then
-											if p2.captureKinds[j - 1] == LuauCaptureType.LCT_UPVAL then
-												upNames[j] = fmtUpv(sreg)
-											else
-												upNames[j] = fmtReg(sreg, i)
-											end
-										end
-									end
-									p2.upvalueNames = upNames
-									writeProto(ur[1], p2, i)
+									writeProto(ur[1], p2)
 								end
 							elseif opn == "DUPCLOSURE" then
 								local c = consts[ed[1] + 1]
 								if c then
 									local p2 = protoTable[c.value - 1]
 									if p2 then
-										local upNames = {}
-										for j = 1, (p2.numUpvalues or 0) do
-											local sreg = p2.captureRegs and p2.captureRegs[j - 1]
-											if sreg ~= nil then
-												if p2.captureKinds[j - 1] == LuauCaptureType.LCT_UPVAL then
-													upNames[j] = fmtUpv(sreg)
-												else
-													upNames[j] = fmtReg(sreg, i)
-												end
-											end
-										end
-										p2.upvalueNames = upNames
-										writeProto(ur[1], p2, i)
+										writeProto(ur[1], p2)
 									end
 								end
 							elseif opn == "NAMECALL" then
@@ -30539,24 +30509,13 @@ local function main()
 									callBody ..= ab
 								end
 								callBody ..= ")"
-								lastMultretBase = (nRes == -1) and baseR or nil
 								emit(ind() .. callBody)
 							elseif opn == "RETURN" then
 								local baseR = ur[1]
 								local tot = ed[1] - 2
 								local rb = ""
 								if tot == -2 then
-									if lastMultretBase ~= nil and lastMultretBase >= baseR then
-										-- values baseR..(multretBase-1) are fixed, the rest is the open call result
-										local parts = {}
-										for rr = baseR, lastMultretBase - 1 do
-											parts[#parts + 1] = R(rr)
-										end
-										parts[#parts + 1] = "..."
-										rb = " " .. table.concat(parts, ", ")
-									else
-										rb = " " .. R(baseR) .. ", ..."
-									end
+									rb = " " .. R(baseR) .. ", ..."
 								elseif tot > -1 then
 									rb = " "
 									for k = 0, tot do
@@ -30866,7 +30825,6 @@ local function main()
 									callBody ..= ab
 								end
 								callBody ..= ")"
-								lastMultretBase = (nRes == -1) and baseR or nil
 								emit(ind() .. callBody)
 							elseif opn == "CMPPROTO" then
 								local ei = i + (ed[1] or 0)
@@ -31255,12 +31213,7 @@ local function main()
 			end
 
 			local function escpat(s)
-				local e = s:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
-				-- Plain identifiers get word boundaries so `v3` never matches inside `v3_2` / `v31`.
-				if s:match("^[%a_][%w_]*$") then
-					return "%f[%w_]" .. e .. "%f[^%w_]"
-				end
-				return e
+				return s:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
 			end
 
 			local function escrep(s)
@@ -31521,11 +31474,6 @@ local function main()
 								numkey, val = nl:match("^%s*" .. ep .. "%[(%d+)%]%s*=%s*(.+)$")
 								key = numkey
 							end
-							if key and val and val:find("%f[%w_]" .. tbl .. "%f[^%w_]") then
-								-- e.g. `v0.__index = v0`: value refers to the table itself, so it cannot
-								-- live inside its own constructor. Stop folding here (order matters).
-								break
-							end
 							if key and val then
 								entries[#entries + 1] =
 									{ key = key, val = val:match("^(.-)%s*$"), idx = j, num = numkey ~= nil }
@@ -31682,54 +31630,19 @@ local function main()
 				local nxt = pass3[i3b + 1]
 				if line and nxt then
 					local ind, expr = line:match("^(%s*)%.%.%. = (.+)$")
-					if ind and expr and not nxt:find("function%s*[%w_%.:]*%(") then
-						local _, nDots = nxt:gsub("%.%.%.", "")
-						if nDots == 1 then
-							pass3b[#pass3b + 1] = (nxt:gsub("%.%.%.", function()
-								return expr
-							end, 1))
-							i3b += 2
-							continue
-						end
+					if ind and expr and nxt:match("^%s*return %.%.%.$") then
+						pass3b[#pass3b + 1] = ind .. "return " .. expr
+						i3b += 2
+						continue
 					end
 				end
 				pass3b[#pass3b + 1] = line
 				i3b += 1
 			end
 
-			local pass3c = {}
-			do
-				local KEYWORD = { ["nil"] = true, ["true"] = true, ["false"] = true }
-				local k = 1
-				while k <= #pass3b do
-					local line, nxt = pass3b[k], pass3b[k + 1]
-					local merged = false
-					if line and nxt then
-						local ind, reg, callee = line:match("^(%s*)local (v%d+_?%d*) = ([%a_][%w_%.]*)%s*$")
-						local hadLocal = ind ~= nil
-						if not ind then
-							ind, reg, callee = line:match("^(%s*)(v%d+_?%d*) = ([%a_][%w_%.]*)%s*$")
-						end
-						if ind and not KEYWORD[callee] then
-							local er = escpat(reg)
-							local args = nxt:match("^%s*" .. er .. " = " .. er .. "(%b())%s*$")
-							if args and not args:find("%f[%w_]" .. reg .. "%f[^%w_]") then
-								pass3c[#pass3c + 1] = ind .. (hadLocal and "local " or "") .. reg .. " = " .. callee .. args
-								k += 2
-								merged = true
-							end
-						end
-					end
-					if not merged then
-						pass3c[#pass3c + 1] = line
-						k += 1
-					end
-				end
-			end
-
 			local seen4 = {}
 			local pass4 = {}
-			for _, line in ipairs(pass3c) do
+			for _, line in ipairs(pass3b) do
 				local reg = line:match("^%s*(v%d+_?%d*)%s*=")
 				if reg and not seen4[reg] then
 					seen4[reg] = true
@@ -31778,7 +31691,15 @@ local function main()
 
 
 
+
+
+
+
+
+
+
 		local ScriptViewer = {}
+
 			local window, codeFrame
 			local execute, clear, dumpbtn
 			local PreviousScr = nil
