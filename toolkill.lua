@@ -7,8 +7,8 @@ local lp             = Players.LocalPlayer
 local State = {
 	Enabled        = false,
 	Target         = nil,
-	Offset         = CFrame.new(0, 0, 3),  -- Z = distance behind target
-	BlinkFrequency = 2,                     -- fire every N Heartbeat ticks
+	Offset         = CFrame.new(0, 0, 9),  -- Z = distance behind target
+	BlinkFrequency = 5,                     -- fire every N Heartbeat ticks
 }
 
 -- originalCFrame is only non-nil between a Heartbeat blink write and the
@@ -539,15 +539,34 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
-RunService.Stepped:Connect(function()
-	-- Only restore if Heartbeat actually wrote a blink this cycle
-	if not blinkArmed then return end
-	blinkArmed = false
+RunService.RenderStepped:Connect(function()
+	if not State.Enabled then
+		return
+	end
+
+	local target = State.Target
+	if not target or not target.Character then
+		return
+	end
 
 	local myChar = lp.Character
-	local myHRP  = myChar and myChar:FindFirstChild("HumanoidRootPart")
-	if myHRP and originalCFrame then
-		myHRP.CFrame = originalCFrame
+	local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+	local targetHRP = target.Character:FindFirstChild("HumanoidRootPart")
+
+	if not myHRP or not targetHRP then
+		return
 	end
-	originalCFrame = nil
+
+	local targetPosition = Vector3.new(
+		targetHRP.Position.X,
+		myHRP.Position.Y,
+		targetHRP.Position.Z
+	)
+
+	if (targetPosition - myHRP.Position).Magnitude > 0.01 then
+		myHRP.CFrame = CFrame.lookAt(
+			myHRP.Position,
+			targetPosition
+		)
+	end
 end)
