@@ -41,20 +41,16 @@ loadstring(
 
 ]]
 
+
+
 local genv = getgenv()
-
 local SPOOF_NAME, SPOOF_VER = "real nigga", "niggasploit" -- funny name
-
 genv.identifyexecutor = function()
 	return SPOOF_NAME, SPOOF_VER
-end
-genv.getexecutorname = function()
+end genv.getexecutorname = function()
 	return SPOOF_NAME, SPOOF_VER
-end
-genv.getexecutorversion = function()
-	return SPOOF_VER
-end
-
+end genv.getexecutorversion = function()
+	return SPOOF_VER end
 local function detectEnvironment()
 	local env = {
 		executor = identifyexecutor and identifyexecutor() or "Unknown",
@@ -216,7 +212,7 @@ for Name, Value in pairs(API_Table) do
 	get_genv()[Name] = Value
 end
 
-print(string.format("[ZukaTech]: Loaded in %.4f seconds.", os.clock() - clock))
+print(string.format("Loaded in %.4f seconds.", os.clock() - clock))
 
 local Workspace = game:GetService("Workspace")
 local ContentProvider = game:GetService("ContentProvider")
@@ -239,8 +235,8 @@ local PlayerMouse = LocalPlayer:GetMouse()
 local CurrentCamera = Workspace.CurrentCamera
 do
 	local THEME = {
-		Title = "Success..",
-		Subtitle = "Loading Zuka Tech...",
+		Title = "YOOOO",
+		Subtitle = "WE'RE BACKKKK",
 		IconAssetId = "rbxassetid://7243158473",
 		BackgroundColor = Color3.fromRGB(20, 20, 25),
 		AccentColor = Color3.fromRGB(0, 255, 255),
@@ -431,12 +427,12 @@ function DoNotif(text, duration)
 end
 function zukacmd(info, func)
 	if not info or not info.Name or not func then
-		warn("Command registration failed: Missing info, name, or function.")
+		warn("Command failed: something broke somewhere nigga please. ")
 		return
 	end
 	local name = info.Name:lower()
 	if cmds[name] then
-		warn("Command registration skipped: Command '" .. name .. "' already exists.")
+		warn("skipped: Command '" .. name .. "' already exists somewhere.")
 		return
 	end
 	cmds[name] = func
@@ -458,7 +454,7 @@ function zukacmd(info, func)
 	end
 	table.insert(CommandInfo, info)
 end
-print("This Panel is managed by Zuka")
+print("This Panel is managed by ME")
 function zukacmdDual(info, func)
 	zukacmd(info, func)
 	if cmd and cmd.add and info.Aliases then
@@ -1422,10 +1418,7 @@ function Modules.CommandList:Toggle()
 	end
 end
 
--- CommandBar.lua
--- Paste directly in place of the old Modules.CommandBar block.
--- Uses the `Modules`, `Prefix`, `processCommand`, `CoreGui`, `TweenService`,
--- and `UserInputService` that already exist in the outer script.
+
 local MAX_SUGGESTIONS = 12
 local HISTORY_LIMIT = 80
 
@@ -1443,7 +1436,7 @@ Modules.CommandBar = {
 		SuggestionsFrame = nil,
 		KeybindConnection = nil,
 		NavConnection = nil,
-		PrefixKey = Enum.KeyCode.Comma,
+		PrefixKey = Enum.KeyCode.Semicolon,
 		IsAnimating = false,
 		IsEnabled = false,
 		IsScriptUpdatingText = false,
@@ -1494,10 +1487,6 @@ function Modules.CommandBar:Toggle()
 		slide:Play()
 		fade:Play()
 		s.TextBox:CaptureFocus()
-
-		-- the keypress that opened the bar can still land in the box
-		-- this same frame (CaptureFocus doesn't preempt it), so clear
-		-- it one frame later once that keystroke has landed
 		task.spawn(function()
 			task.wait()
 			if s.IsEnabled then
@@ -1885,7 +1874,7 @@ Modules.ESP = {
 		OutlineTransparency = 0.3,
 		DistanceClose = 100,
 		DistanceMid = 500,
-		MaxDistance = 10000,
+		MaxDistance = 100000,
 		UpdateRate = 0.1,
 		CharLoadTimeout = 15,
 		CharLoadRetries = 3,
@@ -2345,8 +2334,8 @@ end)
 Modules.FovChanger = {
 	State = {
 		IsEnabled = false,
-		TargetFov = 70,
-		DefaultFov = 70,
+		TargetFov = 90,
+		DefaultFov = 90,
 		Connection = nil,
 	},
 }
@@ -2402,6 +2391,7 @@ zukacmd({ Name = "fov", Aliases = { "fieldofview", "camfov" }, Description = "Ch
 	enableFovLock()
 	DoNotif("FOV locked to " .. clampedFov, 2)
 end)
+
 
 zukacmd({ Name = "cmds", Aliases = {}, Description = "Command List." }, function()
 	Modules.CommandList:Toggle()
@@ -2479,8 +2469,8 @@ Modules.Fly = {
 		Gamepad = { Left = Vector3.zero, RightTrigger = 0, LeftTrigger = 0 },
 	},
 	Config = {
-		Speed = 100,
-		SprintMultiplier = 8.5,
+		Speed = 250,
+		SprintMultiplier = 10.5,
 		Acceleration = 18,
 		Deceleration = 14,
 		TiltAngle = 20,
@@ -3113,7 +3103,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
 		return
 	end
-	if input.KeyCode == Enum.KeyCode.L then
+	if input.KeyCode == Enum.KeyCode.F then
 		Fly:Toggle()
 	elseif input.KeyCode == Enum.KeyCode.U then
 		Fly:ToggleUI()
@@ -39789,121 +39779,161 @@ end)
 
 local AntiCFrameState = nil
 local function InitializeAntiCFrame()
-	local Players = game:GetService("Players")
-	local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
 
-	local State = {
-		Enabled = false,
-		Debug = true,
-		Connections = {
-			Global = {},
-			Character = {},
-		},
-		Allowed = {},
-		LastCFrame = {},
-		ProtectedParts = {},
-	}
 
-	local function Log(msg)
-		if State.Debug then
-			print(string.format("[Anti-CFrame]: %s", msg))
-		end
-	end
+    local State = {
+        Enabled = false,
+        Debug = true,
+        Connections = {
+            Global = {},
+            Character = {},
+        },
+        Allowed = {},
+        LastCFrame = {},
+        ProtectedParts = {},
+    }
 
-	local function ClearConnections(group)
-		if State.Connections[group] then
-			for _, con in ipairs(State.Connections[group]) do
-				con:Disconnect()
-			end
-			State.Connections[group] = {}
-		end
-	end
 
-	local function HookPart(part)
-		if not part:IsA("BasePart") or State.Allowed[part] ~= nil then
-			return
-		end
-		State.Allowed[part] = false
-		State.LastCFrame[part] = part.CFrame
-		table.insert(State.ProtectedParts, part)
+    local function Log(msg)
+        if State.Debug then
+            print(string.format("[Anti-CFrame]: %s", msg))
+        end
+    end
 
-		local con = part:GetPropertyChangedSignal("CFrame"):Connect(function()
-			if not State.Enabled then
-				return
-			end
-			if State.Allowed[part] then
-				return
-			end
 
-			local last = State.LastCFrame[part]
-			if last then
-				State.Allowed[part] = true
-				part.CFrame = last
-				task.wait()
-				State.Allowed[part] = false
-				Log("Blocked forced movement on: " .. part.Name)
-			end
-		end)
-		table.insert(State.Connections["Character"], con)
-	end
+    local function ClearConnections(group)
+        if State.Connections[group] then
+            for _, con in ipairs(State.Connections[group]) do
+                con:Disconnect()
+            end
+            State.Connections[group] = {}
+        end
+    end
 
-	local function SetupCharacter(char)
-		ClearConnections("Character")
-		State.Allowed = {}
-		State.LastCFrame = {}
-		State.ProtectedParts = {}
 
-		for _, part in ipairs(char:GetDescendants()) do
-			if part:IsA("BasePart") then
-				HookPart(part)
-			end
-		end
+    local function HookPart(part)
+        if not part:IsA("BasePart") or State.Allowed[part] ~= nil then
+            return
+        end
+        State.Allowed[part] = false
+        State.LastCFrame[part] = part.CFrame
+        table.insert(State.ProtectedParts, part)
 
-		local descCon = char.DescendantAdded:Connect(function(desc)
-			if desc:IsA("BasePart") then
-				HookPart(desc)
-			end
-		end)
-		table.insert(State.Connections["Character"], descCon)
 
-		task.spawn(function()
-			while State.Enabled and char and char.Parent do
-				for _, part in ipairs(State.ProtectedParts) do
-					if part and part.Parent and not State.Allowed[part] then
-						State.LastCFrame[part] = part.CFrame
-					end
-				end
-				task.wait(0.1)
-			end
-		end)
-	end
+        local con = part:GetPropertyChangedSignal("CFrame"):Connect(function()
+            if not State.Enabled then
+                return
+            end
+            if State.Allowed[part] then
+                return
+            end
 
-	function State:Toggle(state)
-		self.Enabled = state
-		if state then
-			local char = LocalPlayer.Character
-			if char then
-				SetupCharacter(char)
-			end
 
-			local respawnCon = LocalPlayer.CharacterAdded:Connect(function(newChar)
-				task.wait(0.5)
-				SetupCharacter(newChar)
-			end)
-			self.Connections["Global"] = { respawnCon }
-			Log("Anti-CFrame Teleport Protection Active.")
-		else
-			ClearConnections("Global")
-			ClearConnections("Character")
-			self.Allowed = {}
-			self.LastCFrame = {}
-			self.ProtectedParts = {}
-			Log("Anti-CFrame Teleport Protection Disabled.")
-		end
-	end
+            local last = State.LastCFrame[part]
+            if last then
+                State.Allowed[part] = true
+                part.CFrame = last
+                task.wait()
+                State.Allowed[part] = false
+                Log("Blocked forced movement on: " .. part.Name)
+            end
+        end)
+        table.insert(State.Connections["Character"], con)
+    end
 
-	return State
+
+    local function SetupCharacter(char)
+        ClearConnections("Character")
+        State.Allowed = {}
+        State.LastCFrame = {}
+        State.ProtectedParts = {}
+
+
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                HookPart(part)
+            end
+        end
+
+
+        local descCon = char.DescendantAdded:Connect(function(desc)
+            if desc:IsA("BasePart") then
+                HookPart(desc)
+            end
+        end)
+        table.insert(State.Connections["Character"], descCon)
+
+
+        task.spawn(function()
+            while State.Enabled and char and char.Parent do
+                for _, part in ipairs(State.ProtectedParts) do
+                    if part and part.Parent and not State.Allowed[part] then
+                        State.LastCFrame[part] = part.CFrame
+                    end
+                end
+                task.wait(0.1)
+            end
+        end)
+    end
+
+
+    function State:Toggle(state)
+        self.Enabled = state
+        if state then
+            local char = LocalPlayer.Character
+            if char then
+                SetupCharacter(char)
+            end
+
+
+            local respawnCon = LocalPlayer.CharacterAdded:Connect(function(newChar)
+                task.wait(0.5)
+                SetupCharacter(newChar)
+            end)
+            self.Connections["Global"] = { respawnCon }
+            Log("Anti-CFrame Teleport Protection Active.")
+        else
+            ClearConnections("Global")
+            ClearConnections("Character")
+            self.Allowed = {}
+            self.LastCFrame = {}
+            self.ProtectedParts = {}
+            Log("Anti-CFrame Teleport Protection Disabled.")
+        end
+    end
+
+
+    return State
 end
+
+zukacmd({
+	Name = "anticframetp",
+	Aliases = { "antic" },
+	Description = "Anti Cframe Teleporter.",
+	ArgsDesc = {},
+	Permissions = {},
+}, function(args, speaker)
+	if not AntiCFrameState then
+		AntiCFrameState = InitializeAntiCFrame()
+	end
+	AntiCFrameState:Toggle(true)
+end)
+
+zukacmd({
+	Name = "unanticframetp",
+	Aliases = { "unantic" },
+	Description = "Disables Anti Cframe Teleporter.",
+	ArgsDesc = {},
+	Permissions = {},
+}, function(args, speaker)
+	if AntiCFrameState then
+		AntiCFrameState:Toggle(false)
+	else
+		print("[Anti-CFrame]: System was not running.")
+	end
+end)
 zukacmd({
 	Name = "feanim",
 	Aliases = {},
@@ -39912,7 +39942,7 @@ zukacmd({
 	local Players = game:GetService("Players")
 	local LocalPlayer = Players.LocalPlayer
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
-	getgenv().ChosenBundleName = "Levitation" -- Change this to whatever pack you want
+	getgenv().ChosenBundleName = "Oldschool" -- Change this to whatever pack you want
 	getgenv().EnableHybridCustom = true
 
 	print("Animation Changer loaded! Pack: " .. getgenv().ChosenBundleName)
@@ -40017,32 +40047,6 @@ zukacmd({
 	ApplyAnimations()
 	LocalPlayer.CharacterAdded:Connect(ApplyAnimations)
 end)
-zukacmd({
-	Name = "anticframetp",
-	Aliases = { "antic" },
-	Description = "Anti Cframe Teleporter.",
-	ArgsDesc = {},
-	Permissions = {},
-}, function(args, speaker)
-	if not AntiCFrameState then
-		AntiCFrameState = InitializeAntiCFrame()
-	end
-	AntiCFrameState:Toggle(true)
-end)
-
-zukacmd({
-	Name = "unanticframetp",
-	Aliases = { "unantic" },
-	Description = "Disables Anti Cframe Teleporter.",
-	ArgsDesc = {},
-	Permissions = {},
-}, function(args, speaker)
-	if AntiCFrameState then
-		AntiCFrameState:Toggle(false)
-	else
-		print("[Anti-CFrame]: System was not running.")
-	end
-end)
 Modules.Disarmer = {
 	State = {
 		IsEnabled = false,
@@ -40129,109 +40133,6 @@ function Modules.Disarmer:Initialize()
 		end
 	end)
 end
-Modules.SuperPush = {
-	State = {
-		IsEnabled = false,
-		Connections = {},
-		Originals = setmetatable({}, { __mode = "k" }),
-	},
-	Config = {
-		PUSH_FORCE = 900,
-		DENSITY = 100,
-		COOLDOWN = 0,
-		lastPushTime = 0,
-	},
-}
-local HEAVY_PROPERTIES = PhysicalProperties.new(Modules.SuperPush.Config.DENSITY, 0.5, 0.5)
-function Modules.SuperPush:_cleanupCharacter(character)
-	if not character then
-		return
-	end
-	if self.State.Connections.Touch then
-		self.State.Connections.Touch:Disconnect()
-		self.State.Connections.Touch = nil
-	end
-	for _, part in ipairs(character:GetDescendants()) do
-		if part:IsA("BasePart") and self.State.Originals[part] then
-			part.CustomPhysicalProperties = self.State.Originals[part]
-			self.State.Originals[part] = nil
-		end
-	end
-end
-function Modules.SuperPush:_applyToCharacter(character)
-	if not character then
-		return
-	end
-	local hrp = character:WaitForChild("HumanoidRootPart", 5)
-	if not hrp then
-		return
-	end
-	for _, part in ipairs(character:GetDescendants()) do
-		if part:IsA("BasePart") then
-			if not self.State.Originals[part] then
-				self.State.Originals[part] = part.CustomPhysicalProperties
-			end
-			part.CustomPhysicalProperties = HEAVY_PROPERTIES
-		end
-	end
-	self.State.Connections.Touch = hrp.Touched:Connect(function(otherPart)
-		if os.clock() - self.Config.lastPushTime < self.Config.COOLDOWN then
-			return
-		end
-		local targetModel = otherPart:FindFirstAncestorWhichIsA("Model")
-		if not targetModel then
-			return
-		end
-		local targetPlayer = Players:GetPlayerFromCharacter(targetModel)
-		if not targetPlayer or targetPlayer == LocalPlayer then
-			return
-		end
-		local direction = hrp.CFrame.LookVector
-		hrp.AssemblyLinearVelocity = direction * self.Config.PUSH_FORCE
-		self.Config.lastPushTime = os.clock()
-		task.wait()
-		if hrp and hrp.Parent then
-			hrp.AssemblyLinearVelocity = Vector3.zero
-		end
-	end)
-end
-function Modules.SuperPush:Toggle()
-	self.State.IsEnabled = not self.State.IsEnabled
-	if self.State.IsEnabled then
-		DoNotif(
-			"Super Push Enabled (Force: " .. self.Config.PUSH_FORCE .. ", Density: " .. self.Config.DENSITY .. ")",
-			3
-		)
-		if LocalPlayer.Character then
-			self:_applyToCharacter(LocalPlayer.Character)
-		end
-		self.State.Connections.CharacterAdded = LocalPlayer.CharacterAdded:Connect(function(character)
-			self:_applyToCharacter(character)
-		end)
-		self.State.Connections.CharacterRemoving = LocalPlayer.CharacterRemoving:Connect(function(character)
-			self:_cleanupCharacter(character)
-		end)
-	else
-		DoNotif("Super Push Disabled", 2)
-		if self.State.Connections.CharacterAdded then
-			self.State.Connections.CharacterAdded:Disconnect()
-		end
-		if self.State.Connections.CharacterRemoving then
-			self.State.Connections.CharacterRemoving:Disconnect()
-		end
-		table.clear(self.State.Connections)
-		if LocalPlayer.Character then
-			self:_cleanupCharacter(LocalPlayer.Character)
-		end
-	end
-end
-zukacmd({
-	Name = "superpush",
-	Aliases = {},
-	Description = "Increases your mass and adds a velocity push when you bump into players.",
-}, function()
-	Modules.SuperPush:Toggle()
-end)
 
 Modules.UnlockMouse = {
 	State = {
@@ -41546,6 +41447,135 @@ end)
 --
 -- addcmd section / infyield
 --
+
+
+-- ── Imported: cutgrass3  [raw → addcmd] ──────────────────────
+
+addcmd("cutgrass3", {}, function(args, speaker)
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+    local TweenService = game:GetService("TweenService")
+    local HttpService = game:GetService("HttpService")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local CoreGui = game:GetService("CoreGui")
+    local Players = game:GetService("Players")
+    local LP = Players.LocalPlayer
+
+    local MODS = {
+    	["AC001"] = 890.04,
+
+
+                  ["AnimationId"] = "rbxassetid://117059598094471", --spear
+                 -- ["AnimationId"] = "rbxassetid://132847207376843", -- chainsaw
+    	--["AnimationId"] = "rbxassetid://106887855409061", --Sword
+                  --["AnimationId"] = "rbxassetid://102567168912846", -- Guitar
+    	["AnimationTime"] = 1.1,
+    	["BaseArea"] = 90,
+    	["BaseCooldown"] = 1.2,
+    	["Rarity"] = 6,
+    	["SizePercent"] = 800,
+    }
+
+    local function Inject(Tool)
+    	if not Tool:IsA("Tool") then
+    		return
+    	end
+
+    	for Name, Value in pairs(MODS) do
+    		Tool:SetAttribute(Name, Value)
+    	end
+
+    	local WS = Tool:FindFirstChild("WeaponLocalScript")
+    	if WS then
+    		WS.Disabled = true
+    		task.wait(0.1)
+    		WS.Disabled = false
+    	end
+    end
+
+    LP.CharacterAdded:Connect(function(C)
+    	C.ChildAdded:Connect(Inject)
+    end)
+    if LP.Character then
+    	LP.Character.ChildAdded:Connect(Inject)
+    	for _, v in ipairs(LP.Character:GetChildren()) do
+    		Inject(v)
+    	end
+    end
+end)
+
+
+addcmd("lockprop", { "lockp" }, function(args, speaker)
+	local Players = game:GetService("Players")
+	local RunService = game:GetService("RunService")
+	local LocalPlayer = Players.LocalPlayer
+
+	local humProps = {
+		WalkSpeed = 18,
+		JumpPower = 50,
+		JumpHeight = 9.2,
+		HipHeight = 1,
+		AutoRotate = true,
+		MaxSlopeAngle = 45,
+		PlatformStand = false,
+	}
+
+	local function guard(character)
+		local hum = character:WaitForChild("Humanoid", 5)
+		if not hum then
+			return
+		end
+
+		for prop, val in pairs(humProps) do
+			pcall(function()
+				hum[prop] = val
+			end)
+		end
+
+		local running = true
+		local loop
+		loop = RunService.Heartbeat:Connect(function()
+			if not running or not character.Parent then
+				loop:Disconnect()
+				return
+			end
+
+			for prop, val in pairs(humProps) do
+				if hum[prop] ~= val then
+					pcall(function()
+						hum[prop] = val
+					end)
+				end
+			end
+
+			for _, part in ipairs(character:GetDescendants()) do
+				if part:IsA("BasePart") and part.Anchored then
+					pcall(function()
+						part.Anchored = false
+					end)
+				end
+			end
+		end)
+
+		character.AncestryChanged:Connect(function(_, parent)
+			if not parent then
+				running = false
+				loop:Disconnect()
+			end
+		end)
+	end
+
+	if LocalPlayer.Character then
+		guard(LocalPlayer.Character)
+	end
+	LocalPlayer.CharacterAdded:Connect(function(char)
+		task.wait()
+		guard(char)
+	end)
+end)
+
+
 
 addcmd("ctrllock", { "cl" }, function(args, speaker)
 	local mouseLockController = speaker.PlayerScripts
@@ -43434,179 +43464,119 @@ addcmd("viewer", { "vi" }, function(args, speaker)
 	end
 end)
 
-addcmd("grass", { "fucking hate this game" }, function(args, speaker)
-	local ProtectedInstances = {}
-	local _Instance = Instance.new
-	local _tostring = tostring
+addcmd("instancebypass", { "fucking hate this game" }, function(args, speaker)
+local Sandbox = {
+	Protected = {},
+	RealNew = Instance.new,
+	RealToString = tostring,
+}
 
-	local InstanceHook
-	InstanceHook = hookfunction(
-		Instance.new,
-		newcclosure(function(...)
-			if checkcaller() then
-				local NewInstance = InstanceHook(...)
-				sethiddenproperty(NewInstance, "DefinesCapabilities", true)
-				ProtectedInstances[NewInstance] = true
-				return NewInstance
+local function WhisperHide(inst)
+	sethiddenproperty(inst, "DefinesCapabilities", true)
+	Sandbox.Protected[inst] = true
+	return inst
+end
+
+-- instance.new => spawn + immediately mark
+Sandbox.NewHook = hookfunction(Instance.new, newcclosure(function(...)
+	if checkcaller() then
+		return WhisperHide(Sandbox.NewHook(...))
+	end
+	return Sandbox.NewHook(...)
+end))
+
+-- tostring => give intruders an empty string for our babies
+Sandbox.ToStringHook = hookfunction(Sandbox.RealToString, newcclosure(function(...)
+	local args = { ... }
+	if not checkcaller() and Sandbox.Protected[args[1]] then
+		return ""
+	end
+	return Sandbox.ToStringHook(...)
+end))
+Sandbox.NamecallHook = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+	local Method = getnamecallmethod()
+	if not checkcaller() then
+		if Sandbox.Protected[self] then
+			return nil
+		end
+		local low = Method:lower()
+		if low:match("^findfirst") or low:match("^waitforchild") then
+			local found = Sandbox.NamecallHook(self, ...)
+			if found and Sandbox.Protected[found] then
+				return nil
 			end
-			return InstanceHook(...)
-		end)
-	)
+		end
+	end
+	return Sandbox.NamecallHook(self, ...)
+end))
 
-	local tostringHook
-	tostringHook = hookfunction(
-		_tostring,
-		newcclosure(function(...)
-			local args = { ... }
-			if not checkcaller() then
-				if ProtectedInstances[args[1]] then
-					return ""
-				end
-			end
-			return tostringHook(...)
-		end)
-	)
+-- index => same energy, but for properties
+Sandbox.IndexHook = hookmetamethod(game, "__index", newcclosure(function(self, index)
+	if not checkcaller() then
+		local low = index:lower()
+		local isProtected = Sandbox.Protected[self]
 
-	local FunctionHook
-	FunctionHook = hookmetamethod(
-		game,
-		"__namecall",
-		newcclosure(function(self, ...)
-			local Method = getnamecallmethod()
-			if not checkcaller() then
-				if ProtectedInstances[self] then
-					return nil
-				end
-				local methodLower = Method:lower()
-				if methodLower:match("^findfirst") or methodLower:match("^waitforchild") then
-					local Inst = FunctionHook(self, ...)
-					if Inst and ProtectedInstances[Inst] then
+		if (isProtected and low:match("^is")) or low:match("^findfirst") then
+			local func = Sandbox.IndexHook(self, index)
+			if typeof(func) == "function" and not isfunctionhooked(func) then
+				hookfunction(func, newcclosure(function(...)
+					local args = { ... }
+					local result = func(self, args[2])
+					if (result and Sandbox.Protected[result]) or isProtected then
 						return nil
 					end
-				end
+				end))
 			end
-			return FunctionHook(self, ...)
-		end)
-	)
-
-	local PropertiesHook
-	PropertiesHook = hookmetamethod(
-		game,
-		"__index",
-		newcclosure(function(self, index)
-			if not checkcaller() then
-				local indexLower = index:lower()
-				local selfProtected = ProtectedInstances[self]
-
-				if (selfProtected and indexLower:match("^is")) or indexLower:match("^findfirst") then
-					local IndexFunction = PropertiesHook(self, index)
-					if typeof(IndexFunction) == "function" and not isfunctionhooked(IndexFunction) then
-						hookfunction(
-							IndexFunction,
-							newcclosure(function(...)
-								local args = { ... }
-								local Inst = IndexFunction(self, args[2])
-								if (Inst and ProtectedInstances[Inst]) or selfProtected then
-									return nil
-								end
-							end)
-						)
-					end
-				end
-
-				if selfProtected and typeof(PropertiesHook(self, index)) ~= "function" then
-					return nil
-				end
-			end
-			return PropertiesHook(self, index)
-		end)
-	)
-
-	for _, Thread in next, getactorthreads() do
-		run_on_thread(
-			Thread,
-			[[
-            local _tostring = tostring
-            local args
-
-            hookfunction(tostring, newcclosure(function(...)
-                args = {...}
-                if not checkcaller() and gethiddenproperty(args[1], "DefinesCapabilities") then
-                    return ""
-                end
-                return _tostring(...)
-            end))
-
-            hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-                if not checkcaller() and gethiddenproperty(self, "DefinesCapabilities") then
-                    return nil
-                end
-                return old(self, ...)
-            end))
-        ]]
-		)
-	end
-	local Players = game:GetService("Players")
-	local ReplicatedStorage = game:GetService("ReplicatedStorage")
-	local LP = Players.LocalPlayer
-	local Remotes = ReplicatedStorage:WaitForChild("RemoteEvents")
-
-	local WEAPON_MODS = {
-
-		["AnimationTime"] = 0.5,
-		["BaseCooldown"] = 0.6,
-	}
-
-	local function Inject(Tool)
-		if not Tool:IsA("Tool") then
-			return
 		end
 
-		for Name, Value in pairs(WEAPON_MODS) do
-			Tool:SetAttribute(Name, Value)
-		end
-
-		local WS = Tool:FindFirstChild("WeaponLocalScript")
-		if WS then
-			WS.Disabled = true
-			task.wait(0.1)
-			WS.Disabled = false
+		if isProtected and typeof(Sandbox.IndexHook(self, index)) ~= "function" then
+			return nil
 		end
 	end
-
-	LP.CharacterAdded:Connect(function(Character)
-		Character.ChildAdded:Connect(Inject)
-	end)
-
-	if LP.Character then
-		LP.Character.ChildAdded:Connect(Inject)
-		for _, v in ipairs(LP.Character:GetChildren()) do
-			Inject(v)
-		end
-	end
-
-	task.spawn(function()
-		while task.wait(0.01) do
-			local Character = LP.Character
-			local Tool = Character and Character:FindFirstChildOfClass("Tool")
-			local Swing = Tool and Tool:FindFirstChild("WeaponSwingEvent")
-
-			if Swing then
-				Swing:FireServer("SwingStart")
-				Swing:FireServer("HitboxStart")
-				Swing:FireServer("HitboxEnd")
-				Swing:FireServer("SwingEnd")
+	return Sandbox.IndexHook(self, index)
+end))
+for _, Thread in next, getactorthreads() do
+	run_on_thread(Thread, [[
+		local _tostring = tostring
+		local args
+		hookfunction(tostring, newcclosure(function(...)
+			args = {...}
+			if not checkcaller() and gethiddenproperty(args[1], "DefinesCapabilities") then
+				return ""
 			end
-
-			local LootModels = workspace:FindFirstChild("LootModels")
-			if LootModels then
-				for _, Loot in ipairs(LootModels:GetChildren()) do
-					Remotes.LootPickedUpEvent:FireServer(Loot.Name)
-				end
+			return _tostring(...)
+		end))
+		hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+			if not checkcaller() and gethiddenproperty(self, "DefinesCapabilities") then
+				return nil
 			end
-		end
-	end)
+			return old(self, ...)
+		end))
+	]])
+end
 end)
+
+zukacmd("toucher", {"ta"}, function(args, speaker)
+    local player = game.Players.LocalPlayer
+    local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not root then
+    	return
+    end
+
+    local descendants = workspace:GetDescendants()
+    for i = 1, #descendants do
+    	local obj = descendants[i]
+    	if obj:IsA("BasePart") then
+    		local touch = obj:FindFirstChildOfClass("TouchTransmitter")
+    		if touch then
+    			firetouchinterest(root, obj, 0)
+    			firetouchinterest(root, obj, 1)
+    		end
+    	end
+    end
+end)
+
+
 
 --
 -- end of addcmd section --
@@ -43615,6 +43585,14 @@ end)
 --
 -- addcmd loadstrings --
 --
+
+
+addcmd("cutgrass", {}, function(args, speaker)
+	loadstring(
+		game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/CutGrassMenu.lua")
+	)()
+end)
+
 
 addcmd("illumina", { "gi" }, function(args, speaker)
 	loadstring(game:HttpGet("https://github.com/zukatechlive/newplacetodump/blob/main/AutoExecute/IlluminaGiver.lua"))()
@@ -45418,3 +45396,7 @@ return {
 }
 
 -- loadstring(game:HttpGet(" "))()
+
+
+
+
