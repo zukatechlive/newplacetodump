@@ -28480,25 +28480,10 @@ local RETURN_ELAPSED_TIME = false
 			end
 		end
 
-		--[[
 
 
 
 
-
- _____     _           ____  
-|__  /   _| | ____   _|___ \ 
-  / / | | | |/ /\ \ / / __) |
- / /| |_| |   <  \ V / / __/ 
-/____\__,_|_|\_\  \_/ |_____|
-                             
-
-
-
-
-
-
-]]
 --[[
 
 
@@ -31260,67 +31245,7 @@ local function main()
 					end
 				end
 			end
-			-- Fold `local v1 = function(...) ... end` immediately followed by
-			-- `tbl.key = v1`, when v1 is never referenced anywhere else, into
-			-- `function tbl.key(...) ... end`. This only touches closures whose
-			-- only use is that one assignment, so it can't change behavior -
-			-- matching `end` is found by indentation depth, which is reliable
-			-- now that this runs after the indent pass above.
-			local lines = {}
-			for _, l in ipairs(result) do
-				lines[#lines + 1] = (l:gsub("\n$", ""))
-			end
-			local usage = {}
-			for _, l in ipairs(lines) do
-				for tok in l:gmatch("v%d+_?%d*") do
-					usage[tok] = (usage[tok] or 0) + 1
-				end
-			end
-			local folded = {}
-			local i, n = 1, #lines
-			while i <= n do
-				local indent, reg, args = lines[i]:match("^(%s*)local (v%d+_?%d*) = function%((.-)%)%s*$")
-				local didFold = false
-				if indent and usage[reg] == 2 then
-					local depth = #indent
-					local j = i + 1
-					local endLine = nil
-					while j <= n do
-						local ind2, rest = lines[j]:match("^(%s*)(.*)$")
-						if #ind2 == depth and rest == "end" then
-							endLine = j
-							break
-						elseif #ind2 <= depth and rest ~= "" then
-							break -- dedented past our own level without finding `end` - not a clean block
-						end
-						j += 1
-					end
-					if endLine then
-						local nextLine = lines[endLine + 1]
-						-- NOTE: `nextLine and nextLine:match(...)` would truncate match()'s
-						-- multiple captures down to a single value (the `and` operator only
-						-- ever yields one value), silently dropping `target`. Guard with an
-						-- `if` instead so match() stays in tail position.
-						local nind, target
-						if nextLine then
-							nind, target = nextLine:match("^(%s*)([%a_][%w_]*[%.%:]?[%w_%.%:]*) = " .. reg .. "$")
-						end
-						if nind and #nind == depth and target then
-							folded[#folded + 1] = indent .. "function " .. target .. "(" .. args .. ")"
-							for k = i + 1, endLine do
-								folded[#folded + 1] = lines[k]
-							end
-							i = endLine + 2
-							didFold = true
-						end
-					end
-				end
-				if not didFold then
-					folded[#folded + 1] = lines[i]
-					i += 1
-				end
-			end
-			return table.concat(folded, "\n") .. "\n"
+			return table.concat(result)
 		end
 
 		local function _coImpl(text)
@@ -31789,12 +31714,7 @@ local function main()
 							local er = escpat(reg)
 							local args = nxt:match("^%s*" .. er .. " = " .. er .. "(%b())%s*$")
 							if args and not args:find("%f[%w_]" .. reg .. "%f[^%w_]") then
-								pass3c[#pass3c + 1] = ind
-									.. (hadLocal and "local " or "")
-									.. reg
-									.. " = "
-									.. callee
-									.. args
+								pass3c[#pass3c + 1] = ind .. (hadLocal and "local " or "") .. reg .. " = " .. callee .. args
 								k += 2
 								merged = true
 							end
@@ -31807,47 +31727,9 @@ local function main()
 				end
 			end
 
-			-- Inline a single-use temporary directly into its sole consumer, e.g.
-			-- `v3 = require(x)` immediately followed by `tbl.field = v3` becomes
-			-- `tbl.field = require(x)`, when v3 is referenced nowhere else. Adjacency
-			-- (nothing between the two lines) means there's nothing whose ordering
-			-- could be disturbed by inlining. Skipped for closure bodies
-			-- (`= function(...)`), which span multiple lines and are handled
-			-- separately by the fold in _ppImpl once indentation exists.
-			local pass3d = {}
-			do
-				local usage = {}
-				for _, l in ipairs(pass3c) do
-					for tok in l:gmatch("v%d+_?%d*") do
-						usage[tok] = (usage[tok] or 0) + 1
-					end
-				end
-				local k = 1
-				while k <= #pass3c do
-					local line, nxt = pass3c[k], pass3c[k + 1]
-					local merged = false
-					if line and nxt then
-						local indent, reg, expr = line:match("^(%s*)(v%d+_?%d*) = (.+)$")
-						if indent and reg and usage[reg] == 2 and not expr:find("function%s*%(") then
-							local er = escpat(reg)
-							local pre, post = nxt:match("^(.-)" .. er .. "(.-)$")
-							if pre and not (pre .. post):find(er) then
-								pass3d[#pass3d + 1] = indent .. pre .. expr .. post
-								k += 2
-								merged = true
-							end
-						end
-					end
-					if not merged then
-						pass3d[#pass3d + 1] = line
-						k += 1
-					end
-				end
-			end
-
 			local seen4 = {}
 			local pass4 = {}
-			for _, line in ipairs(pass3d) do
+			for _, line in ipairs(pass3c) do
 				local reg = line:match("^%s*(v%d+_?%d*)%s*=")
 				if reg and not seen4[reg] then
 					seen4[reg] = true
@@ -31887,13 +31769,6 @@ local function main()
 		getgenv()._ZUK_PRETTYPRINT = _ppImpl
 		getgenv()._ZUK_CLEANOUTPUT = _coImpl
 	end)
-
-
-
-
-
-
-
 
 
 
