@@ -31091,17 +31091,7 @@ local function main()
 				rawLines[i] = nil
 				return true
 			end
-\t\t\t-- Collapse register chains deterministically.
-			-- Examples:
-			--   local v0 = game
-			--   v0 = v0:GetService("Players")
-			--   local v1 = v0.LocalPlayer.Character
-			-- becomes:
-			--   game:GetService("Players").LocalPlayer.Character
-			--
-			-- This intentionally runs before the generic expression folding so
-			-- register temporaries don't survive just because they were declared
-			-- with `local`.
+
 			local function tryFoldRegisterChain(i)
 				local line = rawLines[i]
 				if not line then
@@ -31863,16 +31853,16 @@ local function main()
 						DecompilerTimeout = 10,
 						CleanMode = true,
 						ReaderFloatPrecision = 7,
-						ShowDebugInformation = true,
-						ShowTrivialOperations = false,
-						ShowInstructionLines = false,
+						ShowDebugInformation = false,
+						ShowTrivialOperations = true,
+						ShowInstructionLines = true,
 						ShowOperationIndex = false,
 						ShowOperationNames = false,
 						ListUsedGlobals = true,
-						UseTypeInfo = false,
+						UseTypeInfo = true,
 						EnabledRemarks = { ColdRemark = true, InlineRemark = false },
 						ReturnElapsedTime = true,
-						prettyPrint = true,
+						prettyPrint = false,
 					}
 					local okD, result, elapsed = pcall(ZukDecompile, bytecode, opts)
 					local zukFailed = not okD
