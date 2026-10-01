@@ -28535,6 +28535,8 @@ local RETURN_ELAPSED_TIME = false
 
 
 
+
+
 local function main()
 	local ZukDecompile
 	local cleanOutput
@@ -32115,7 +32117,7 @@ local function main()
 				lastBlank = isBlank
 				final[#final + 1] = line
 			end
-			return table.concat(final)
+			return table.concat(final, "\n")
 		end
 
 		ZukDecompile = Decompile
@@ -32123,10 +32125,6 @@ local function main()
 		getgenv()._ZUK_DECOMPILE = Decompile
 		getgenv()._ZUK_CLEANOUTPUT = _coImpl
 	end)
-
-
-
-
 
 
 
