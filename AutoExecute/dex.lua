@@ -32150,131 +32150,259 @@ local function main()
 			local execute, clear, dumpbtn
 			local PreviousScr = nil
 			local ZukPostProcess
-			ScriptViewer.DumpFunctions = function(scr)
-				local getgc = getgc or get_gc_objects
-				local getupvalues = (debug and debug.getupvalues) or getupvalues or getupvals
-				local getconstants = (debug and debug.getconstants) or getconstants or getconsts
-				local getinfo = (debug and (debug.getinfo or debug.info)) or getinfo
-				local original = ("\n // [zukv2] Function Dump\n-- // Script: %s\n\n "):format(getPath(scr))
-				local dump = original
-				local functions, function_count, data_base = {}, 0, {}
-				function functions:add_to_dump(str, indentation, new_line)
-					local new_line = new_line or true
-					dump = dump
-						.. ("%s%s%s"):format(string.rep("		", indentation), tostring(str), new_line and "\n" or "")
-				end
-				function functions:get_function_name(func)
-					local n = getinfo(func).name
-					return n ~= "" and n or "Unknown Name"
-				end
-				function functions:dump_table(input, indent, index)
-					local indent = indent < 0 and 0 or indent
-					functions:add_to_dump(
-						("%s [%s] %s"):format(tostring(index), tostring(typeof(input)), tostring(input)),
-						indent - 1
-					)
-					local count = 0
-					for index, value in pairs(input) do
-						count = count + 1
-						if type(value) == "function" then
-							functions:add_to_dump(
-								("%d [function] = %s"):format(count, functions:get_function_name(value)),
-								indent
-							)
-						elseif type(value) == "table" then
-							if not data_base[value] then
-								data_base[value] = true
-								functions:add_to_dump(("%d [table]:"):format(count), indent)
-								functions:dump_table(value, indent + 1, index)
-							else
-								functions:add_to_dump(("%d [table] (Recursive table )"):format(count), indent)
-							end
-						else
-							functions:add_to_dump(
-								("%d [%s] = %s"):format(count, tostring(typeof(value)), tostring(value)),
-								indent
-							)
-						end
-					end
-				end
-				function functions:dump_function(input, indent)
-					functions:add_to_dump(("\nFunction Dump: %s"):format(functions:get_function_name(input)), indent)
-					functions:add_to_dump(
-						("\nFunction Upvalues: %s"):format(functions:get_function_name(input)),
-						indent
-					)
-					for index, upvalue in pairs(getupvalues(input)) do
-						if type(upvalue) == "function" then
-							functions:add_to_dump(
-								("%d [function] = %s"):format(index, functions:get_function_name(upvalue)),
-								indent + 1
-							)
-						elseif type(upvalue) == "table" then
-							if not data_base[upvalue] then
-								data_base[upvalue] = true
-								functions:add_to_dump(("%d [table]:"):format(index), indent + 1)
-								functions:dump_table(upvalue, indent + 2, index)
-							else
-								functions:add_to_dump(
-									("%d [table] (Recursive table detected)"):format(index),
-									indent + 1
-								)
-							end
-						else
-							functions:add_to_dump(
-								("%d [%s] = %s"):format(index, tostring(typeof(upvalue)), tostring(upvalue)),
-								indent + 1
-							)
-						end
-					end
-					functions:add_to_dump(
-						("\nFunction Constants: %s"):format(functions:get_function_name(input)),
-						indent
-					)
-					for index, constant in pairs(getconstants(input)) do
-						if type(constant) == "function" then
-							functions:add_to_dump(
-								("%d [function] = %s"):format(index, functions:get_function_name(constant)),
-								indent + 1
-							)
-						elseif type(constant) == "table" then
-							if not data_base[constant] then
-								data_base[constant] = true
-								functions:add_to_dump(("%d [table]:"):format(index), indent + 1)
-								functions:dump_table(constant, indent + 2, index)
-							else
-								functions:add_to_dump(
-									("%d [table] (Recursive table detected)"):format(index),
-									indent + 1
-								)
-							end
-						else
-							functions:add_to_dump(
-								("%d [%s] = %s"):format(index, tostring(typeof(constant)), tostring(constant)),
-								indent + 1
-							)
-						end
-					end
-				end
-				for _, _function in pairs(env.getgc()) do
-					if
-						typeof(_function) == "function"
-						and getfenv(_function).script
-						and getfenv(_function).script == scr
-					then
-						functions:dump_function(_function, 0)
-						functions:add_to_dump("\n" .. ("="):rep(100), 0, false)
-					end
-				end
-				local source = codeFrame:GetText()
+ScriptViewer.ViewScript = function(scr)
+	local oldtick = tick()
+	local source = nil
+	local zukResult = nil
+	local zukElapsed = nil
+	local zukError = nil
+	local bytecode = nil
+	local okBC = false
 
-				if dump ~= original then
-					source = source .. dump .. "-- We lit "
-				end
-				codeFrame:SetText(source)
+	-- Wait briefly for ZUKV2 to become available.
+	if not ZukDecompile then
+		local deadline = tick() + 5
+		repeat
+			task.wait()
+		until (ZukDecompile and cleanOutput) or tick() > deadline
+	end
 
-				window:Show()
+	-- Get bytecode.
+	okBC, bytecode = pcall(getscriptbytecode, scr)
+
+	if not okBC then
+		zukError = "getscriptbytecode threw: " .. tostring(bytecode)
+		bytecode = nil
+	end
+
+	-- ModuleScript fallback.
+	if (not bytecode or bytecode == "") and getloadedmodules then
+		local ok2, mods = pcall(getloadedmodules)
+
+		if ok2 and mods then
+			for _, mod in ipairs(mods) do
+				local ok3, name = pcall(function()
+					return mod.Name
+				end)
+
+				if ok3 and name == scr.Name then
+					local ok4, fullA = pcall(function()
+						return mod:GetFullName()
+					end)
+
+					local ok5, fullB = pcall(function()
+						return scr:GetFullName()
+					end)
+
+					local match =
+						(ok4 and ok5 and fullA == fullB)
+						or (not ok4 or not ok5)
+
+					if match then
+						local ok6, bc = pcall(getscriptbytecode, mod)
+
+						if ok6 and bc and bc ~= "" then
+							bytecode = bc
+							okBC = true
+							break
+						end
+					end
+				end
 			end
+		end
+	end
+
+	----------------------------------------------------------------
+	-- ZUKV2
+	----------------------------------------------------------------
+
+	if okBC and bytecode and bytecode ~= "" and ZukDecompile then
+		local opts = {
+			DecompilerMode = "disasm",
+			DecompilerTimeout = 10,
+
+			CleanMode = true,
+			ReaderFloatPrecision = 7,
+
+			ShowDebugInformation = false,
+			ShowTrivialOperations = true,
+			ShowInstructionLines = true,
+			ShowOperationIndex = false,
+			ShowOperationNames = false,
+
+			ListUsedGlobals = true,
+			UseTypeInfo = true,
+
+			EnabledRemarks = {
+				ColdRemark = true,
+				InlineRemark = true
+			},
+
+			ReturnElapsedTime = true,
+		}
+
+		local okD, result, elapsed = pcall(function()
+			return ZukDecompile(bytecode, opts)
+		end)
+
+		zukElapsed = elapsed
+
+		if not okD then
+			zukError = "ZUKV2 threw an error:\n" .. tostring(result)
+
+		else
+			zukResult = result
+
+			if result == nil then
+				zukError = "ZUKV2 returned nil."
+
+			elseif type(result) ~= "string" then
+				zukError =
+					"ZUKV2 returned "
+					.. typeof(result)
+					.. " instead of a string:\n"
+					.. tostring(result)
+
+			elseif result == "" then
+				zukError = "ZUKV2 returned an empty result."
+
+			else
+				--------------------------------------------------------
+				-- Detect actual ZUKV2 failure strings.
+				--------------------------------------------------------
+
+				local failure =
+					result:find("PASSED BYTECODE IS TOO OLD", 1, true)
+					or result:find("SCRIPT FAILED TO COMPILE", 1, true)
+					or result:find("DECOMPILER TIMEOUT", 1, true)
+					or result:find("ZUKV2 PARSE ERROR", 1, true)
+					or result:find("ZUKV2 RUNTIME ERROR", 1, true)
+					or result:find("-- RUNTIME ERROR:", 1, true)
+					or result:find("UNSUPPORTED_LBC_VERSION", 1, true)
+					or result:find("COMPILATION_FAILURE", 1, true)
+
+				if not failure then
+					local co = getgenv()._ZUK_CLEANOUTPUT
+
+					local out
+
+					if pp and co then
+						out = co(pp(result))
+					elseif pp then
+						out = pp(result)
+					elseif co then
+						out = co(result)
+					else
+						out = result
+					end
+
+					if out and out ~= "" then
+						local elapsed_s =
+							zukElapsed
+							and tostring(math.floor(zukElapsed * 100) / 100)
+							or tostring(math.floor((tick() - oldtick) * 100) / 100)
+
+						source =
+							"-- Script Path: "
+							.. getPath(scr)
+							.. "\n"
+							.. "-- Decompiled with zukv2: "
+							.. elapsed_s
+							.. "s\n"
+							.. out
+
+						PreviousScr = scr
+						dumpbtn.TextColor3 = Color3.new(1, 1, 1)
+					else
+						zukError = "ZUKV2 produced an empty cleaned result."
+					end
+				else
+					-- IMPORTANT:
+					-- Preserve the actual ZUK diagnostic instead of hiding it.
+					zukError = result
+				end
+			end
+		end
+	end
+
+	----------------------------------------------------------------
+	-- LuauReader fallback
+	----------------------------------------------------------------
+
+	if not source and okBC and bytecode and bytecode ~= "" then
+		local LuauReader = getgenv()._LUAUREADER
+
+		if LuauReader then
+			local chunk, err = LuauReader.read(bytecode)
+
+			if chunk then
+				local okR, lifted = pcall(
+					LuauReader.liftToLua,
+					chunk
+				)
+
+				if okR and lifted and lifted ~= "" then
+					source =
+						"-- Script Path: "
+						.. getPath(scr)
+						.. "\n"
+						.. "-- Decompiled in "
+						.. tostring(math.floor((tick() - oldtick) * 100) / 100)
+						.. "s\n\n"
+						.. lifted
+
+					PreviousScr = scr
+					dumpbtn.TextColor3 = Color3.new(1, 1, 1)
+
+				elseif not okR then
+					if not zukError then
+						zukError =
+							"LuauReader lift error:\n"
+							.. tostring(lifted)
+					end
+				end
+
+			elseif not zukError then
+				zukError =
+					"LuauReader parse error:\n"
+					.. tostring(err)
+			end
+		end
+	end
+
+	----------------------------------------------------------------
+	-- Final diagnostic instead of generic failure
+	----------------------------------------------------------------
+
+	if not source then
+		source = "-- Unable to decompile.\n"
+		source = source .. "-- Script Path: " .. getPath(scr) .. "\n\n"
+
+		if zukError then
+			source = source
+				.. "-- ===== ZUKV2 DIAGNOSTIC =====\n"
+				.. tostring(zukError)
+				.. "\n"
+		else
+			source = source
+				.. "-- ===== DIAGNOSTIC =====\n"
+				.. "-- No bytecode was available and ZUKV2 could not be invoked.\n"
+		end
+
+		source = source
+			.. "\n-- Executor: "
+			.. executorName
+			.. " ("
+			.. executorVersion
+			.. ")"
+
+		PreviousScr = nil
+		dumpbtn.TextColor3 = Color3.new(0.5, 0.5, 0.5)
+	end
+
+	codeFrame:SetText(source)
+	window:Show()
+end
 
 			ScriptViewer.Init = function()
 				window = Lib.Window.new()
@@ -32440,9 +32568,8 @@ local function main()
 						ShowOperationNames = false,
 						ListUsedGlobals = true,
 						UseTypeInfo = true,
-						EnabledRemarks = { ColdRemark = true, InlineRemark = false },
+						EnabledRemarks = { ColdRemark = true, InlineRemark = true },
 						ReturnElapsedTime = true,
-						prettyPrint = false,
 					}
 					local okD, result, elapsed = pcall(ZukDecompile, bytecode, opts)
 					local zukFailed = not okD
@@ -32452,7 +32579,6 @@ local function main()
 						or result:find("SCRIPT FAILED TO COMPILE", 1, true)
 						or result:find("DECOMPILER TIMEOUT", 1, true)
 					if not zukFailed then
-						local pp = getgenv()._ZUK_PRETTYPRINT
 						local co = getgenv()._ZUK_CLEANOUTPUT
 						local out = (pp and co) and co(pp(result)) or (pp and pp(result) or result)
 						local elapsed_s = elapsed and tostring(math.floor(elapsed * 100) / 100)
@@ -39796,7 +39922,7 @@ Main = (function()
 			env.ZukAutoDecode = getgenv()._ZUK_AUTODECODE
 			env.ZukB64Decode = getgenv()._ZUK_B64DECODE
 			env.ZukXorDecode = getgenv()._ZUK_XORDECODE
-			env.ZukPprint = getgenv()._ZUK_PPRINT
+
 			local _konstant = env.decompile
 			env.decompile = function(scriptObj)
 				local okBC, bytecode = pcall(env.getscriptbytecode, scriptObj)
@@ -39811,25 +39937,22 @@ Main = (function()
 					end
 					local opts = {
 						DecompilerMode = "disasm",
-						DecompilerTimeout = 20,
-						CleanMode = false,
+						DecompilerTimeout = 10,
+						CleanMode = true,
 						ReaderFloatPrecision = 7,
 						ShowDebugInformation = false,
-						ShowTrivialOperations = false,
-						ShowInstructionLines = false,
+						ShowTrivialOperations = true,
+						ShowInstructionLines = true,
 						ShowOperationIndex = false,
 						ShowOperationNames = false,
 						ListUsedGlobals = true,
-						UseTypeInfo = false,
-						EnabledRemarks = { ColdRemark = false, InlineRemark = false },
+						UseTypeInfo = true,
+						EnabledRemarks = { ColdRemark = true, InlineRemark = false },
 						ReturnElapsedTime = true,
-						prettyPrint = true,
 					}
 					local okD, result = pcall(zuk, bytecode, opts)
 					if okD and result then
-						local _pp = getgenv()._ZUK_PRETTYPRINT
 						local _co = getgenv()._ZUK_CLEANOUTPUT
-						return (_pp and _co) and _co(_pp(result)) or (_pp and _pp(result)) or result
 					end
 				end
 				if _konstant then
