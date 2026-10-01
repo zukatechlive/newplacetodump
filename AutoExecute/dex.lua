@@ -28485,6 +28485,60 @@ local RETURN_ELAPSED_TIME = false
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 local function main()
 	local ZukDecompile
 	local cleanOutput
@@ -29138,6 +29192,9 @@ local function main()
 			return s .. string.rep(ch, math.max(0, n - #s))
 		end
 		local ROBLOX_GLOBALS = {
+                                                            "isfolder",
+                                                            "loadstring",
+                                                            "makefolder",
 			"game",
 			"workspace",
 			"script",
@@ -29848,25 +29905,34 @@ local function main()
 							if r == nil then
 								return "upv_?"
 							end
+							-- A resolved parent capture is more authoritative than a child
+							-- debug-upvalue label. Debug labels describe the slot; the
+							-- capture mapping tells us the actual source value.
+							if proto._captureNames and proto._captureNames[r] then
+								return proto._captureNames[r]
+							end
 							local du = proto.debugUpvalues
 							if du and du[r + 1] and du[r + 1].name ~= "" then
 								return du[r + 1].name
 							end
 							return "upv_" .. tostring(r)
 						end
-						local function getSourceRegisters(opName, ur2)
+						local function getSourceRegisters(opName, ur2, ed2)
 							if opName == "CALL" or opName == "CALLFB" then
 								local srcs = {}
-								if ur2 then
-									for k = 1, #ur2 do
-										srcs[#srcs + 1] = ur2[k]
+								local base = ur2 and ur2[1]
+								if base ~= nil then
+									srcs[#srcs + 1] = base
+									local count = (ed2 and ed2[1]) or 1
+									for k = 1, count - 1 do
+										srcs[#srcs + 1] = base + k
 									end
 								end
 								return srcs
 							end
 							if opName == "NAMECALL" then
-								if ur2 and ur2[1] ~= nil then
-									return { ur2[1] }
+								if ur2 and ur2[2] ~= nil then
+									return { ur2[2] }
 								end
 								return {}
 							end
@@ -29962,7 +30028,7 @@ local function main()
 							return {}
 						end
 						local function isChainedRedefine(opName, ur2, ed2, defR, priorAct)
-							local srcs = getSourceRegisters(opName, ur2)
+							local srcs = getSourceRegisters(opName, ur2, ed2)
 							for k = 1, #srcs do
 								if srcs[k] == defR then
 									return true
@@ -29987,7 +30053,7 @@ local function main()
 							local actOpn = act.opCode and act.opCode.name
 							if actOpn then
 								local aur, aed = act.usedRegisters, act.extraData
-								local srcs = getSourceRegisters(actOpn, aur)
+								local srcs = getSourceRegisters(actOpn, aur, aed)
 								for k = 1, #srcs do
 									local r = srcs[k]
 									ensureRegTimeline(r)
@@ -29998,19 +30064,19 @@ local function main()
 									end
 								end
 								local defs = getDefinedRegisters(actOpn, aur, aed)
-								local priorAct = actions[ai - 1]
 								for k = 1, #defs do
 									local r = defs[k]
 									ensureRegTimeline(r)
-									local chained = isChainedRedefine(actOpn, aur, aed, r, priorAct)
 									local tl = regGenTimeline[r]
-									if chained and tl[#tl] then
-										tl[#tl].endIdx = ai
-										tl[#tl].defAi = ai
-									else
-										regGeneration[r] += 1
-										tl[#tl + 1] = { gen = regGeneration[r], startIdx = ai, endIdx = ai, defAi = ai }
+									-- A VM write is a new SSA generation.  NAMECALL + CALL is an
+									-- expression dependency, not the same value.  Treating it as
+									-- one generation produced bogus self assignments such as
+									-- `v5 = v5:WaitForChild(...)`.
+									if tl[#tl] then
+										tl[#tl].endIdx = math.max(tl[#tl].endIdx or ai, ai - 1)
 									end
+									regGeneration[r] += 1
+									tl[#tl + 1] = { gen = regGeneration[r], startIdx = ai, endIdx = ai, defAi = ai }
 								end
 							end
 						end
@@ -30067,7 +30133,7 @@ local function main()
 							FindFirstChildOfClass = true,
 							FindFirstChildWhichIsA = true,
 						}
-						local KNOWN_GLOBAL_NAMES = { game = false, workspace = true, script = true, shared = false }
+						local KNOWN_GLOBAL_NAMES = { game = true, workspace = true, script = true, shared = true }
 						local function sanitizeName(s)
 							if not s or s == "" then
 								return nil
@@ -30234,14 +30300,51 @@ local function main()
 							end
 							return body
 						end
-						local function writeProto(reg, p)
-							local body = fmtProto(p)
+						local function canonicalFunctionName(name)
+							if type(name) ~= "string" or name == "" then
+								return name
+							end
+							-- Luau frequently appends a numeric discriminator to closure
+							-- debug names when several lexical functions share a source name.
+							-- Keep the readable lexical base for emitted source.
+							local base = name:match("^(.-)_%d+$")
+							if base and base ~= "" then
+								return base
+							end
+							return name
+						end
+						local function writeProto(reg, p, captureInstrIdx)
+							-- Resolve child closure captures against the parent register
+							-- namespace before emitting the child.  collectCaptures()
+							-- has already flattened LCT_UPVAL captures to their source
+							-- register, so this is a direct parent->child mapping.
+							p._captureNames = p._captureNames or {}
+							if p.captures then
+								for capIndex, source in pairs(p.captures) do
+									if type(source) == "number" then
+										local parentName = fmtReg(source, captureInstrIdx or 1)
+										if parentName and parentName ~= "v?" then
+											-- The capture source is authoritative.  Compiler debug-upvalue
+											-- names can describe the slot (or an old lexical name), while
+											-- the parent register tells us what value is actually captured.
+											p._captureNames[capIndex] = parentName
+										end
+									end
+								end
+							end
+							local emittedName = canonicalFunctionName(p.name)
+							local body
+							if p.name and emittedName ~= p.name then
+								body = fmtProto(p):gsub("local function " .. p.name, "local function " .. emittedName, 1)
+							else
+								body = fmtProto(p)
+							end
 							if p.name then
 								emit("\n" .. body)
 								writeActions(registerActions[p.id])
-								emit("end\n" .. fmtReg(reg) .. " = " .. p.name)
+								emit("end\n" .. fmtReg(reg, captureInstrIdx) .. " = " .. emittedName)
 							else
-								emit(fmtReg(reg) .. " = " .. body)
+								emit(fmtReg(reg, captureInstrIdx) .. " = " .. body)
 								writeActions(registerActions[p.id])
 								emit("end")
 							end
@@ -30382,14 +30485,14 @@ local function main()
 							elseif opn == "NEWCLOSURE" then
 								local p2 = inner[ed[1] + 1]
 								if p2 then
-									writeProto(ur[1], p2)
+									writeProto(ur[1], p2, i)
 								end
 							elseif opn == "DUPCLOSURE" then
 								local c = consts[ed[1] + 1]
 								if c then
 									local p2 = protoTable[c.value - 1]
 									if p2 then
-										writeProto(ur[1], p2)
+										writeProto(ur[1], p2, i)
 									end
 								end
 							elseif opn == "NAMECALL" then
@@ -30397,8 +30500,10 @@ local function main()
 								emit(ind() .. "-- :" .. method)
 							elseif opn == "CALL" then
 								local baseR = ur[1]
-								local nArgs = ed[1] - 1
-								local nRes = ed[2] - 1
+								local nArgs = (ed[1] or 1) - 1
+								local resultCount = ed[2] or 1
+								local isMultiReturn = resultCount == 0
+								local nRes = isMultiReturn and -1 or (resultCount - 1)
 								local nmMethod = ""
 								local argOff = 0
 								local prev = actions[i - 1]
@@ -30411,7 +30516,7 @@ local function main()
 									argOff += 1
 								end
 								local callBody = ""
-								if nRes == -1 then
+								if isMultiReturn then
 									callBody = "... = "
 								elseif nRes > 0 then
 									local rb = ""
@@ -30423,13 +30528,19 @@ local function main()
 									end
 									callBody = rb .. " = "
 								end
-								callBody ..= Rpre(baseR) .. nmMethod .. "("
+								local receiverR = baseR
+								if prev and prev.opCode and prev.opCode.name == "NAMECALL" then
+									if prev.usedRegisters and prev.usedRegisters[2] ~= nil then
+										receiverR = prev.usedRegisters[2]
+									end
+								end
+								callBody ..= Rpre(receiverR) .. nmMethod .. "("
 								if nArgs == -1 then
 									callBody ..= "..."
 								elseif nArgs > 0 then
 									local ab = ""
 									for k = 1, nArgs do
-										ab ..= R(baseR + k + argOff)
+										ab ..= Rpre(baseR + k + argOff)
 										if k ~= nArgs then
 											ab ..= ", "
 										end
@@ -30851,7 +30962,7 @@ local function main()
 		-- ZUKV2 reconstruction helpers: pure formatting/value utilities.
 		-- These are intentionally kept separate from runtime closure discovery.
 		local MAX_DEPTH = 60
-		local INDENT_UNIT = "  "
+		local INDENT_UNIT = "    "
 
 		local LUA_KW = {
 			["and"] = true, ["break"] = true, ["do"] = true, ["else"] = true,
@@ -30980,6 +31091,180 @@ local function main()
 			for line in (text .. "\n"):gmatch("[^\n]*\n") do
 				rawLines[#rawLines + 1] = line:gsub("\n$", "")
 			end
+
+			-- Register IR reconstruction.
+			--
+			-- The bytecode emitter intentionally exposes VM registers.  The old
+			-- cleanup stage tried to recover source expressions with local regex
+			-- rewrites, which is fragile when a register is reused.  This pass is
+			-- deliberately conservative: it only folds a value when the register
+			-- dependency is unambiguous.
+			local function reconstructRegisterIR(lines)
+				local regPat = "v%d+_?%d*"
+				local function isRegister(name)
+					return name and name:match("^" .. regPat .. "$") ~= nil
+				end
+				local function assignment(line)
+					local ind, kw, reg, rhs = line:match("^(%s*)(local%s+)?(" .. regPat .. ")%s*=%s*(.-)%s*$")
+					if not reg then
+						return nil
+					end
+					return { indent = ind, localKw = kw, reg = reg, rhs = rhs }
+				end
+				local function tokenCount(text, reg)
+					local n = 0
+					local ep = reg:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
+					for _ in text:gmatch("%f[%w_]" .. ep .. "%f[^%w_]") do
+						n += 1
+					end
+					return n
+				end
+				local function containsToken(text, reg)
+					return tokenCount(text, reg) > 0
+				end
+				local function replaceToken(text, reg, value)
+					local ep = reg:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
+					local rp = value:gsub("%%", "%%%%")
+					return text:gsub("%f[%w_]" .. ep .. "%f[^%w_]", rp, 1)
+				end
+				local function rhsUsesOnly(line, reg)
+					local a = assignment(line)
+					if a then
+						return containsToken(a.rhs, reg)
+					end
+					return containsToken(line, reg)
+				end
+				local function safeExpr(expr)
+					if not expr or expr == "" then return false end
+					if expr:find("--", 1, true) then return false end
+					if expr:find("\n", 1, true) then return false end
+					return true
+				end
+				local function safeName(name)
+					return name and name:match("^[%a_][%w_]*$") and name ~= "game" and name ~= "workspace"
+				end
+
+				for _pass = 1, 12 do
+					local changed = false
+
+					-- 0) Merge generation-suffixed register chains.
+					--   local v0 = game
+					--   v0_2 = v0:GetService("Players")
+					-- becomes a single expression instead of leaking VM generations.
+					local latestDef = {}
+					for i = 1, #lines do
+						local line = lines[i]
+						if line then
+							local a = assignment(line)
+							if a then
+								local base, suffix = a.rhs:match("^%s*(v%d+)([%.:].+)$")
+								if base and suffix and base ~= a.reg then
+									local prev = latestDef[base]
+									if prev and lines[prev] and prev < i then
+										local pa = assignment(lines[prev])
+										if pa and safeExpr(pa.rhs) and not containsToken(pa.rhs, a.reg) then
+											local between = false
+											for j = prev + 1, i - 1 do
+												if lines[j] and containsToken(lines[j], base) then
+													between = true
+													break
+												end
+											end
+											if not between then
+												lines[i] = a.indent .. (a.localKw or "") .. a.reg .. " = " .. pa.rhs .. suffix
+												lines[prev] = nil
+												changed = true
+											end
+										end
+									end
+								end
+								latestDef[a.reg] = i
+							end
+						end
+					end
+
+
+					local lastDef = {}
+					for i = 1, #lines do
+						local line = lines[i]
+						if line then
+							local a = assignment(line)
+							if a then
+								local base, suffix = a.rhs:match("^%s*(" .. regPat .. ")([%.:].+)$")
+								if base == a.reg and suffix then
+									local prev = lastDef[a.reg]
+									if prev and lines[prev] then
+										local pa = assignment(lines[prev])
+										if pa and safeExpr(pa.rhs) and not containsToken(pa.rhs, a.reg) then
+											local betweenUses = false
+											for j = prev + 1, i - 1 do
+												if lines[j] and containsToken(lines[j], a.reg) then
+													betweenUses = true
+													break
+												end
+											end
+											if not betweenUses then
+												a.rhs = pa.rhs .. suffix
+												lines[i] = a.indent .. (a.localKw or "") .. a.reg .. " = " .. a.rhs
+												lines[prev] = nil
+												changed = true
+											end
+										end
+										end
+									end
+									lastDef[a.reg] = i
+								end
+						end
+					end
+
+					-- 2) Inline constants / single-use temporaries.  A definition is
+					-- removed only when its register has exactly one remaining use and
+					-- that use is on the RHS (never a write target).
+					local defs = {}
+					local uses = {}
+					for i = 1, #lines do
+						local line = lines[i]
+						if line then
+							local a = assignment(line)
+							if a and safeExpr(a.rhs) then
+								defs[a.reg] = { index = i, rhs = a.rhs, indent = a.indent, localKw = a.localKw }
+							end
+							for reg in line:gmatch("%f[%w_](v%d+_?%d*)%f[^%w_]") do
+								uses[reg] = (uses[reg] or 0) + 1
+							end
+						end
+					end
+					for reg, d in pairs(defs) do
+						local totalUses = uses[reg] or 0
+						if totalUses == 2 then
+							-- One occurrence is the LHS definition itself; one is the consumer.
+							local consumer = nil
+							for j = d.index + 1, #lines do
+								if lines[j] and rhsUsesOnly(lines[j], reg) then
+									consumer = j
+									break
+								end
+							end
+							if consumer and consumer ~= d.index and safeExpr(d.rhs) and not containsToken(d.rhs, reg) then
+								local ca = assignment(lines[consumer])
+								if not ca or containsToken(ca.rhs, reg) then
+									lines[consumer] = replaceToken(lines[consumer], reg, d.rhs)
+									lines[d.index] = nil
+									changed = true
+								end
+							end
+						end
+					end
+
+					if not changed then break end
+				end
+				return lines
+			end
+
+			-- Run before the older cleanup passes so those passes operate on
+			-- expressions instead of a forest of VM temporaries.
+			reconstructRegisterIR(rawLines)
+
 			local function escpat(s)
 				return s:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
 			end
@@ -31159,17 +31444,8 @@ local function main()
 				rawLines[i] = nil
 				return true
 			end
-\t\t\t-- Collapse register chains deterministically.
-			-- Examples:
-			--   local v0 = game
-			--   v0 = v0:GetService("Players")
-			--   local v1 = v0.LocalPlayer.Character
-			-- becomes:
-			--   game:GetService("Players").LocalPlayer.Character
-			--
-			-- This intentionally runs before the generic expression folding so
-			-- register temporaries don't survive just because they were declared
-			-- with `local`.
+
+		
 			local function tryFoldRegisterChain(i)
 				local line = rawLines[i]
 				if not line then
@@ -31183,13 +31459,10 @@ local function main()
 					return false
 				end
 
-				-- A chain continuation must reference the register as its
-				-- complete base expression, e.g. v0:GetService(...) or v0.Foo.
 				local ep = escpat(reg)
 				local suffix = rhs:match("^" .. ep .. "([%.:].+)$")
 
-				-- First form: local v0 = game, followed by v0 = v0:...
-				-- Also handles local v0 = <expression>, followed by v0 = v0....
+	
 				if suffix then
 					local j = i + 1
 					while j <= #rawLines and
@@ -31594,6 +31867,110 @@ local function main()
 				pass3b[#pass3b + 1] = line
 				i3b += 1
 			end
+
+			for i = 1, #pass3b - 1 do
+				local line = pass3b[i]
+				local nxt = pass3b[i + 1]
+				if line and nxt then
+					local ind, fnreg, callee = line:match("^(%s*)(v%d+_?%d*)%s*=%s*([%a_][%w_]*)%s*$")
+					local outreg, callbase, args = nxt:match("^(%s*)(v%d+_?%d*)%s*=%s*(v%d+_?%d*)%((.*)%)%s*$")
+					if fnreg and callee and outreg and callbase == fnreg then
+						local argPattern = "[%w_]" .. fnreg .. "[%w_]"
+						if args:match("^" .. fnreg .. "%s*,") or args:match(",%s*" .. fnreg .. "%s*$") then
+
+							local prefix = ind or ""
+							pass3b[i] = ""
+							pass3b[i + 1] = prefix .. outreg .. " = " .. callee .. "(" .. args:gsub("^" .. fnreg, fnreg, 1) .. ")"
+						end
+					end
+				end
+			end
+
+
+			for i = 1, #pass3b - 1 do
+				local defLine = pass3b[i]
+				local callLine = pass3b[i + 1]
+				if defLine and callLine then
+					local di, dk, freg, fexpr = defLine:match("^(%s*)(local%s+)?(v%d+_?%d*)%s*=%s*(.-)%s*$")
+					local ci, outreg, target, args = callLine:match("^(%s*)(v%d+_?%d*)%s*=%s*(v%d+_?%d*)%s*%((.*)%)%s*$")
+					if freg and fexpr and ci and target == freg and safeExpr(fexpr) then
+						local ep = freg:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
+						local uses = 0
+						for j = i, #pass3b do
+							if pass3b[j] then
+								for _ in pass3b[j]:gmatch("%f[%w_]" .. ep .. "%f[^%w_]") do uses += 1 end
+							end
+						end
+						if uses == 2 then
+							pass3b[i] = ""
+							pass3b[i + 1] = ci .. outreg .. " = " .. fexpr .. "(" .. args .. ")"
+							changed = true
+						end
+					end
+				end
+			end
+
+
+			for i = 1, #pass3b - 1 do
+				local defLine = pass3b[i]
+				local callLine = pass3b[i + 1]
+				if defLine and callLine then
+					local di, dk, dst, src = defLine:match("^(%s*)(local%s+)?(v%d+_?%d*)%s*=%s*(v%d+_?%d*)%s*$")
+					local ci, outreg, target, args = callLine:match("^(%s*)(v%d+_?%d*)%s*=%s*(v%d+_?%d*)%s*%((.*)%)%s*$")
+					if dst and src and ci and target == dst then
+						local ep = dst:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
+						local uses = 0
+						for j = i, #pass3b do
+							if pass3b[j] then
+								for _ in pass3b[j]:gmatch("%f[%w_]" .. ep .. "%f[^%w_]") do uses += 1 end
+							end
+						end
+						if uses == 2 then
+							pass3b[i] = ""
+							pass3b[i + 1] = ci .. outreg .. " = " .. src .. "(" .. args .. ")"
+							changed = true
+						end
+					end
+				end
+			end
+
+			-- A module/class idiom often starts as `{ __index = <same table> }`.
+			-- A local cannot legally refer to itself in its initializer, so preserve
+			-- the semantics as two statements instead of emitting invalid self-reference.
+			for i, line in ipairs(pass3b) do
+				if line then
+					local ind, reg, value = line:match("^(%s*)local%s+(v%d+_?%d*)%s*=%s*{%s*__index%s*=%s*(v%d+_?%d*)%s*}%s*$")
+					if reg and value and reg == value then
+						pass3b[i] = ind .. "local " .. reg .. " = {}"
+						table.insert(pass3b, i + 1, ind .. reg .. ".__index = " .. reg)
+				end
+				end
+			end
+
+			-- Normalize compiler-generated closure names. Luau may carry a debug
+			-- proto name such as GetCameras_2 even though the source assigns that
+			-- closure to PlayerModule.GetCameras. If the unsuffixed function exists,
+			-- prefer the source-level name at the assignment site. This is deliberately
+			-- limited to an exact field assignment and never renames arbitrary values.
+			local knownFunctions = {}
+			for _, line in ipairs(pass3b) do
+				local fn = line:match("^%s*local%s+function%s+([%a_][%w_]*)%s*\(")
+				if fn then
+					knownFunctions[fn] = true
+				end
+			end
+			for i, line in ipairs(pass3b) do
+				if line then
+					local target, field, fn = line:match("^(%s*v%d+_?%d*)%.([%a_][%w_]*)%s*=%s*([%a_][%w_]*)$")
+					if fn then
+						local base = fn:match("^(.+)_([0-9]+)$")
+						if base and knownFunctions[base] then
+							pass3b[i] = target .. "." .. field .. " = " .. base
+						end
+					end
+				end
+			end
+
 			local seen4 = {}
 			local pass4 = {}
 			for _, line in ipairs(pass3b) do
@@ -31641,6 +32018,7 @@ local function main()
 			end
 			return table.concat(final, "\n")
 		end
+
 		ZukDecompile = Decompile
 		cleanOutput = _coImpl
 		getgenv()._ZUK_DECOMPILE = Decompile
@@ -31653,8 +32031,7 @@ local function main()
 
 
 
-
-
+--ZUKV2 HOLY fUCK
 
 		local ScriptViewer = {}
 
