@@ -1325,8 +1325,17 @@ local function main()
 				end
 				if options.DecompilerMode == "disasm" then
 					local resultParts = {}
-					local function emit(s)
+					-- emitRaw: push a string fragment with no automatic newline.
+					-- Use only for tokens that are intentionally glued to the previous/next emit
+					-- on the same logical line (debug prefix columns, LOADB skip annotation, etc.)
+					local function emitRaw(s)
 						resultParts[#resultParts + 1] = s
+					end
+					-- emit: push a complete statement/line. Strips any trailing \n the caller
+					-- already included, then appends exactly one \n so _coImpl always sees
+					-- one statement per split-line.
+					local function emit(s)
+						resultParts[#resultParts + 1] = s:gsub("\n*$", "") .. "\n"
 					end
 					local function writeActions(protoActions)
 						local actions = protoActions.actions
@@ -1904,13 +1913,13 @@ local function main()
 							handleJumps()
 							if not options.CleanMode then
 								if options.ShowOperationIndex then
-									emit("[" .. padLeft(i, "0", 3) .. "] ")
+									emitRaw("[" .. padLeft(i, "0", 3) .. "] ")
 								end
 								if options.ShowInstructionLines and lineInfo and lineInfo[i] then
-									emit(":" .. padLeft(lineInfo[i], "0", 3) .. ":")
+									emitRaw(":" .. padLeft(lineInfo[i], "0", 3) .. ":")
 								end
 								if options.ShowOperationNames then
-									emit(padRight(opn, " ", 15))
+									emitRaw(padRight(opn, " ", 15))
 								end
 							end
 							if opn == "LOADNIL" then
@@ -1918,7 +1927,7 @@ local function main()
 							elseif opn == "LOADB" then
 								emit(ind() .. R(ur[1]) .. " = " .. toEscapedString(toBoolean(ed[1])))
 								if ed[2] ~= 0 then
-									emit(" +" .. ed[2])
+									emitRaw(" +" .. ed[2])
 								end
 							elseif opn == "LOADN" then
 								emit(ind() .. R(ur[1]) .. " = " .. ed[1])
@@ -2140,7 +2149,7 @@ local function main()
 							elseif opn == "NEWTABLE" then
 								emit(R(ur[1]) .. " = {}")
 								if options.ShowDebugInformation and ed[2] and ed[2] > 0 then
-									emit(" ")
+									emitRaw(" ")
 								end
 							elseif opn == "DUPTABLE" then
 								local cv = consts[ed[1] + 1]
@@ -2399,7 +2408,6 @@ local function main()
 										.. ")"
 								)
 							end
-							emit(" ")
 						end
 					end
 					writeActions(registerActions[mainProtoId])
