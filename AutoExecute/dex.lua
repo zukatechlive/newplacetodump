@@ -28487,7 +28487,6 @@ local RETURN_ELAPSED_TIME = false
 
 local function main()
 	local ZukDecompile
-	local prettyPrint
 	local cleanOutput
 	task.defer(function()
 		local FLOAT_PRECISION = 7
@@ -30849,64 +30848,133 @@ local function main()
 				return manager(false, "UNSUPPORTED_LBC_VERSION")
 			end
 		end
-		local function _ppImpl(text)
-			local result = {}
-			local depth = 0
-			local DEDENT_BEFORE = { ["end"] = true, ["until"] = true }
-			local INDENT_AFTER = { ["then"] = true, ["do"] = true, ["repeat"] = true }
-			local DEDENT_THEN_INDENT = { ["else"] = true, ["elseif"] = true }
-			local function stripStrings(s)
-				s = s:gsub('"[^"]*"', '""')
-				s = s:gsub("'[^']*'", "''")
-				s = s:gsub("%-%-.*$", "")
-				return s
-			end
-			local function firstWord(s)
-				return (stripStrings(s):match("^%s*([%a_][%w_]*)")) or ""
-			end
-			local function containsOpener(s)
-				local clean = stripStrings(s)
-				local fw = clean:match("^%s*([%a_][%w_]*)")
-				if fw == "elseif" or fw == "else" then
-					return false
-				end
-				for w2 in clean:gmatch("[%a_][%w_]*") do
-					if INDENT_AFTER[w2] then
-						return true
-					end
-					if w2 == "function" then
-						return true
-					end
-				end
-				return false
-			end
-			local function stripDisasm(line)
-				return line:match("^%[%d+%]%s*:?%d*:?%s*%u[%u_]*%s+(.*)") or line
-			end
-			for line in (text .. "\n"):gmatch("[^\n]*\n") do
-				local bare = line:gsub("\n$", "")
-				if bare == "" then
-					result[#result + 1] = "\n"
-					continue
-				end
-				local expr = stripDisasm(bare)
-				local kw = firstWord(expr)
-				if DEDENT_THEN_INDENT[kw] then
-					depth = math.max(0, depth - 1)
-					result[#result + 1] = string.rep("    ", depth) .. bare .. "\n"
-					depth += 1
-				elseif DEDENT_BEFORE[kw] then
-					depth = math.max(0, depth - 1)
-					result[#result + 1] = string.rep("    ", depth) .. bare .. "\n"
-				else
-					result[#result + 1] = string.rep("    ", depth) .. bare .. "\n"
-					if containsOpener(expr) then
-						depth += 1
-					end
-				end
-			end
-			return table.concat(result)
+		-- ZUKV2 reconstruction helpers: pure formatting/value utilities.
+		-- These are intentionally kept separate from runtime closure discovery.
+		local MAX_DEPTH = 60
+		local INDENT_UNIT = "  "
+
+		local LUA_KW = {
+			["and"] = true, ["break"] = true, ["do"] = true, ["else"] = true,
+			["elseif"] = true, ["end"] = true, ["false"] = true, ["for"] = true,
+			["function"] = true, ["if"] = true, ["in"] = true, ["local"] = true,
+			["nil"] = true, ["not"] = true, ["or"] = true, ["repeat"] = true,
+			["return"] = true, ["then"] = true, ["true"] = true, ["until"] = true,
+			["while"] = true,
+		}
+
+		local function escapeString(s)
+			return s:gsub('[%c\\"]', function(c)
+				if c == "\\" then return "\\\\" end
+				if c == '"' then return '\\"' end
+				if c == "\n" then return "\\n" end
+				if c == "\r" then return "\\r" end
+				if c == "\t" then return "\\t" end
+				if c == "\0" then return "\\0" end
+				return ("\\%d"):format(c:byte())
+			end)
 		end
+
+		local function fmtKey(k)
+			if type(k) == "number" then
+				return ("[%d] = "):format(k)
+			elseif type(k) == "string" then
+				if k:match("^[%a_][%w_]*$") and not LUA_KW[k] then
+					return k .. " = "
+				end
+				return ('["%s"] = '):format(escapeString(k))
+			end
+			return ("[%s] = "):format(tostring(k))
+		end
+
+		local function safeVarName(idx, val)
+			local t = type(val):lower()
+			if typeof and typeof(val) == "Instance" then
+				local ok, nm = pcall(function() return val.Name end)
+				if ok and type(nm) == "string" and nm ~= "" then
+					local clean = nm:gsub("[^%w_]", "_")
+					if clean:match("^[%a_]") and not LUA_KW[clean] then
+						return clean
+					end
+				end
+			end
+			local prefix = ({
+				boolean = "bool", string = "str", number = "num", table = "tbl",
+				["function"] = "fn", thread = "thread", userdata = "ud", buffer = "buf",
+			})[t] or t
+			return prefix .. tostring(idx)
+		end
+
+		local _svcNames = {
+			Workspace = "workspace",
+			Players = 'game:GetService("Players")',
+			ReplicatedStorage = 'game:GetService("ReplicatedStorage")',
+			ServerStorage = 'game:GetService("ServerStorage")',
+			ServerScriptService = 'game:GetService("ServerScriptService")',
+			StarterGui = 'game:GetService("StarterGui")',
+			StarterPack = 'game:GetService("StarterPack")',
+			StarterPlayer = 'game:GetService("StarterPlayer")',
+			Lighting = 'game:GetService("Lighting")',
+			SoundService = 'game:GetService("SoundService")',
+			RunService = 'game:GetService("RunService")',
+			ReplicatedFirst = 'game:GetService("ReplicatedFirst")',
+			TeleportService = 'game:GetService("TeleportService")',
+			UserInputService = 'game:GetService("UserInputService")',
+			HttpService = 'game:GetService("HttpService")',
+			TweenService = 'game:GetService("TweenService")',
+			ContextActionService = 'game:GetService("ContextActionService")',
+			CollectionService = 'game:GetService("CollectionService")',
+			MarketplaceService = 'game:GetService("MarketplaceService")',
+			Debris = 'game:GetService("Debris")',
+		}
+
+		local function getFullPath(inst)
+			local ok, result = pcall(function()
+				if inst == game then return "game" end
+				local chain, p = {}, inst
+				local depth = 0
+				while p and p ~= game and depth < MAX_DEPTH do
+					chain[#chain + 1] = p
+					local par = p.Parent
+					if par == nil then break end
+					p = par
+					depth += 1
+				end
+				if #chain == 0 then return "nil --[[ destroyed ]]" end
+				local root = chain[#chain]
+				local path = _svcNames[root.ClassName]
+					or ('game:GetService("%s")'):format(escapeString(root.ClassName))
+				for i = #chain - 1, 1, -1 do
+					path ..= (':FindFirstChild("%s")'):format(escapeString(chain[i].Name))
+				end
+				return path
+			end)
+			return ok and result or "nil --[[ path resolution failed ]]"
+		end
+
+		local function fmtBuffer(buf, indent)
+			if type(buffer) ~= "table" and type(buffer) ~= "userdata" then
+				return nil
+			end
+			local ok, len = pcall(buffer.len, buf)
+			if not ok then return nil end
+			indent = indent or 0
+			local rep = string.rep(INDENT_UNIT, indent)
+			local rep1 = string.rep(INDENT_UNIT, indent + 1)
+			local lines = {"(function()", rep1 .. ("local b = buffer.create(%d)"):format(len)}
+			for i = 0, len - 1 do
+				local rok, byte = pcall(buffer.readu8, buf, i)
+				if rok and byte ~= 0 then
+					local printable = byte >= 32 and byte < 127
+					local cmt = printable and ("'%s'"):format(escapeString(string.char(byte)))
+						or ("0x%02X"):format(byte)
+					lines[#lines + 1] = rep1 .. ("buffer.writeu8(b, %d, %d) --[[ %s ]] "):format(i, byte, cmt):gsub("%s+$", "")
+				end
+			end
+			lines[#lines + 1] = rep1 .. "return b"
+			lines[#lines + 1] = rep .. "end)()"
+			return table.concat(lines, "\n")
+		end
+
 		local function _coImpl(text)
 			local rawLines = {}
 			for line in (text .. "\n"):gmatch("[^\n]*\n") do
@@ -31091,7 +31159,17 @@ local function main()
 				rawLines[i] = nil
 				return true
 			end
-
+\t\t\t-- Collapse register chains deterministically.
+			-- Examples:
+			--   local v0 = game
+			--   v0 = v0:GetService("Players")
+			--   local v1 = v0.LocalPlayer.Character
+			-- becomes:
+			--   game:GetService("Players").LocalPlayer.Character
+			--
+			-- This intentionally runs before the generic expression folding so
+			-- register temporaries don't survive just because they were declared
+			-- with `local`.
 			local function tryFoldRegisterChain(i)
 				local line = rawLines[i]
 				if not line then
@@ -31348,7 +31426,7 @@ local function main()
 								end
 							end
 							for _, e in ipairs(entries) do
-								parts[#parts + 1] = allNum and e.val or (e.key .. " = " .. e.val)
+								parts[#parts + 1] = allNum and e.val or (e.num and fmtKey(tonumber(e.key)) .. e.val or fmtKey(e.key) .. e.val)
 								rawLines[e.idx] = nil
 							end
 							local ind = line:match("^(%s*)")
@@ -31536,6 +31614,21 @@ local function main()
 				end
 				pass4b[#pass4b + 1] = line
 			end
+			-- Canonicalize known Roblox service expressions after register folding.
+			-- This is textual and conservative: it only touches exact GetService names.
+			for i = 1, #pass4b do
+				local line = pass4b[i]
+				if line then
+					for className, expr in pairs(_svcNames) do
+						local pat = 'game:GetService("' .. escpat(className) .. '")'
+						if line:find(pat, 1, true) and expr ~= pat then
+							line = line:gsub(pat, function() return expr end)
+						end
+					end
+					pass4b[i] = line
+				end
+			end
+
 			local final = {}
 			local lastBlank = false
 			for _, line in ipairs(pass4b) do
@@ -31549,12 +31642,11 @@ local function main()
 			return table.concat(final, "\n")
 		end
 		ZukDecompile = Decompile
-		prettyPrint = _ppImpl
 		cleanOutput = _coImpl
 		getgenv()._ZUK_DECOMPILE = Decompile
-		getgenv()._ZUK_PRETTYPRINT = _ppImpl
 		getgenv()._ZUK_CLEANOUTPUT = _coImpl
 	end)
+
 
 
 
