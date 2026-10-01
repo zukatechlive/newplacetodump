@@ -29378,18 +29378,31 @@ local function main()
 								local function kv(idx)
 									return proto.constants[idx + 1]
 								end
+								local function kstr(idx)
+									return tostring(kv(idx) and kv(idx).value or "")
+								end
 								if idxCount == 1 then
-									tag = tostring(kv(ci1) and kv(ci1).value or "")
+									tag = kstr(ci1)
 								elseif idxCount == 2 then
-									tag = tostring(kv(ci1) and kv(ci1).value or "")
-										.. "."
-										.. tostring(kv(ci2) and kv(ci2).value or "")
+									local root = kstr(ci1)
+									local leaf = kstr(ci2)
+									-- Luau encodes game:GetService("X") as a 2-deep import
+									-- where root == "game" and leaf is the service name.
+									if root == "game" then
+										tag = 'game:GetService("' .. leaf .. '")'
+									else
+										tag = root .. "." .. leaf
+									end
 								elseif idxCount == 3 then
-									tag = tostring(kv(ci1) and kv(ci1).value or "")
-										.. "."
-										.. tostring(kv(ci2) and kv(ci2).value or "")
-										.. "."
-										.. tostring(kv(ci3) and kv(ci3).value or "")
+									local root  = kstr(ci1)
+									local mid   = kstr(ci2)
+									local leaf  = kstr(ci3)
+									-- 3-deep: root:GetService("mid").leaf
+									if root == "game" then
+										tag = 'game:GetService("' .. mid .. '").' .. leaf
+									else
+										tag = root .. "." .. mid .. "." .. leaf
+									end
 								end
 								constValue = tag
 							elseif constType == BT.LBC_CONSTANT_TABLE then
@@ -31524,11 +31537,20 @@ local function main()
 					return false
 				end
 				local nxt = rawLines[j]
-				local cnt = 0
-				for _ in nxt:gmatch(ep) do
-					cnt += 1
+				-- Count ALL uses of this register across every remaining line,
+				-- not just on the target line. If it appears more than once total
+				-- (i.e. it's used on more than one line after its definition),
+				-- don't fold — we'd silently drop the other uses.
+				local totalUses = 0
+				for k = i + 1, #rawLines do
+					local rl = rawLines[k]
+					if rl then
+						for _ in rl:gmatch(ep) do
+							totalUses += 1
+						end
+					end
 				end
-				if cnt ~= 1 then
+				if totalUses ~= 1 then
 					return false
 				end
 				if nxt:match("^%s*" .. ep .. "%s*=") then
