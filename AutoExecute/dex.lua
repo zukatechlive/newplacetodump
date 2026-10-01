@@ -28539,6 +28539,9 @@ local RETURN_ELAPSED_TIME = false
 
 
 
+
+
+
 local function main()
 	local ZukDecompile
 	local cleanOutput
@@ -29267,6 +29270,8 @@ local function main()
 			end
 			return false
 		end
+		local _coImpl
+
 		local function Decompile(bytecode, options)
 			local bytecodeVersion, typeEncodingVersion
 			Reader:Set(options.ReaderFloatPrecision)
@@ -30200,6 +30205,20 @@ local function main()
 								return "v?"
 							end
 							local safeNumParams = numParams or 0
+							local pr = r + 1
+							if pr < safeNumParams + 1 then
+								return "p" .. tostring((totalParameters - safeNumParams) + pr)
+							end
+							-- Semantic names recovered from operations (services, child lookups,
+							-- known globals) are preferable to compiler-generated debug-local
+							-- names such as v1_2.
+							if instrIdx then
+								local g = regGenAt(r, instrIdx)
+								local inferred = regInferredName[r .. ":" .. g]
+								if inferred then
+									return inferred
+								end
+							end
 							if instrIdx and proto.debugLocals then
 								local cached = regNameCache[instrIdx]
 								if not cached then
@@ -30208,17 +30227,6 @@ local function main()
 								end
 								if cached[r] and cached[r] ~= "" then
 									return cached[r]
-								end
-							end
-							local pr = r + 1
-							if pr < safeNumParams + 1 then
-								return "p" .. tostring((totalParameters - safeNumParams) + pr)
-							end
-							if instrIdx then
-								local g = regGenAt(r, instrIdx)
-								local inferred = regInferredName[r .. ":" .. g]
-								if inferred then
-									return inferred
 								end
 							end
 							local baseName = "v" .. tostring(r - safeNumParams)
@@ -30405,6 +30413,52 @@ local function main()
 							local function Rpre(r)
 								return fmtReg(r, i - 1)
 							end
+							-- Reads from a register that is also written by the current
+							-- instruction refer to the PRE-write generation.  Without this,
+							-- in-place bytecode such as `r = r.Parent` becomes `r_2 = r_2.Parent`.
+							local function Rsrc(r)
+								if not r then
+									return "v?"
+								end
+							local defs = {}
+							if opn == "MOVE"
+								or opn == "GETTABLE"
+								or opn == "GETTABLEKS"
+								or opn == "GETTABLEN"
+								or opn == "NOT"
+								or opn == "MINUS"
+								or opn == "LENGTH"
+								or opn == "ADD"
+								or opn == "SUB"
+								or opn == "MUL"
+								or opn == "DIV"
+								or opn == "MOD"
+								or opn == "POW"
+								or opn == "AND"
+								or opn == "OR"
+								or opn == "CONCAT"
+								or opn == "ADDK"
+								or opn == "SUBK"
+								or opn == "MULK"
+								or opn == "DIVK"
+								or opn == "MODK"
+								or opn == "POWK"
+								or opn == "ANDK"
+								or opn == "ORK"
+								or opn == "SUBRK"
+								or opn == "DIVRK"
+								or opn == "IDIV"
+								or opn == "IDIVK"
+								or opn == "GETUDATAKS"
+								or opn == "NEWCLASSMEMBER"
+							then
+								defs = ur
+							end
+							if defs and defs[1] == r then
+								return Rpre(r)
+							end
+							return R(r)
+							end
 							local function handleJumps()
 								local n = jumpMarkers[i]
 								if n then
@@ -30439,7 +30493,7 @@ local function main()
 							elseif opn == "LOADK" then
 								emit(ind() .. R(ur[1]) .. " = " .. fmtConst(consts[ed[1] + 1]))
 							elseif opn == "MOVE" then
-								emit(ind() .. R(ur[1]) .. " = " .. R(ur[2]))
+								emit(ind() .. R(ur[1]) .. " = " .. Rsrc(ur[2]))
 							elseif opn == "GETGLOBAL" then
 								local gk = tostring(consts[ed[1] + 1] and consts[ed[1] + 1].value or "")
 								if options.ListUsedGlobals and isValidGlobal(gk) then
@@ -30467,19 +30521,25 @@ local function main()
 									table.insert(usedGlobals, imp)
 									usedGlobalsSet[imp] = true
 								end
-								emit(R(ur[1]) .. " = " .. imp)
+								-- GETIMPORT of a global is not a source assignment.
+								-- `game = game` / `script = script` / `require = require`
+								-- only exposes the VM register and should disappear in clean
+								-- source output.
+								if R(ur[1]) ~= imp then
+									emit(ind() .. R(ur[1]) .. " = " .. imp)
+								end
 							elseif opn == "GETTABLE" then
-								emit(ind() .. R(ur[1]) .. " = " .. R(ur[2]) .. "[" .. R(ur[3]) .. "]")
+								emit(ind() .. R(ur[1]) .. " = " .. Rsrc(ur[2]) .. "[" .. Rsrc(ur[3]) .. "]")
 							elseif opn == "SETTABLE" then
 								emit(ind() .. R(ur[2]) .. "[" .. R(ur[3]) .. "] = " .. R(ur[1]))
 							elseif opn == "GETTABLEKS" then
 								local key = consts[ed[2] + 1] and consts[ed[2] + 1].value
-								emit(ind() .. R(ur[1]) .. " = " .. R(ur[2]) .. formatIndexString(key))
+								emit(ind() .. R(ur[1]) .. " = " .. Rsrc(ur[2]) .. formatIndexString(key))
 							elseif opn == "SETTABLEKS" then
 								local key = consts[ed[2] + 1] and consts[ed[2] + 1].value
 								emit(ind() .. R(ur[2]) .. formatIndexString(key) .. " = " .. R(ur[1]))
 							elseif opn == "GETTABLEN" then
-								emit(ind() .. R(ur[1]) .. " = " .. R(ur[2]) .. "[" .. (ed[1] + 1) .. "]")
+								emit(ind() .. R(ur[1]) .. " = " .. Rsrc(ur[2]) .. "[" .. (ed[1] + 1) .. "]")
 							elseif opn == "SETTABLEN" then
 								emit(ind() .. R(ur[2]) .. "[" .. (ed[1] + 1) .. "] = " .. R(ur[1]))
 							elseif opn == "NEWCLOSURE" then
@@ -30602,17 +30662,17 @@ local function main()
 								makeJump(ei)
 								emit("if " .. R(ur[1]) .. " < " .. R(ur[2]) .. " then -- goto #" .. ei)
 							elseif opn == "ADD" then
-								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " + " .. R(ur[3]))
+								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " + " .. Rsrc(ur[3]))
 							elseif opn == "SUB" then
-								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " - " .. R(ur[3]))
+								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " - " .. Rsrc(ur[3]))
 							elseif opn == "MUL" then
-								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " * " .. R(ur[3]))
+								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " * " .. Rsrc(ur[3]))
 							elseif opn == "DIV" then
-								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " / " .. R(ur[3]))
+								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " / " .. Rsrc(ur[3]))
 							elseif opn == "MOD" then
-								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " % " .. R(ur[3]))
+								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " % " .. Rsrc(ur[3]))
 							elseif opn == "POW" then
-								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " ^ " .. R(ur[3]))
+								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " ^ " .. Rsrc(ur[3]))
 							elseif opn == "ADDK" then
 								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " + " .. fmtConst(consts[ed[1] + 1]))
 							elseif opn == "SUBK" then
@@ -30626,9 +30686,9 @@ local function main()
 							elseif opn == "POWK" then
 								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " ^ " .. fmtConst(consts[ed[1] + 1]))
 							elseif opn == "AND" then
-								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " and " .. R(ur[3]))
+								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " and " .. Rsrc(ur[3]))
 							elseif opn == "OR" then
-								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " or " .. R(ur[3]))
+								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " or " .. Rsrc(ur[3]))
 							elseif opn == "ANDK" then
 								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " and " .. fmtConst(consts[ed[1] + 1]))
 							elseif opn == "ORK" then
@@ -30644,11 +30704,11 @@ local function main()
 								end
 								emit(ind() .. R(tgt) .. " = " .. cb)
 							elseif opn == "NOT" then
-								emit(ind() .. R(ur[1]) .. " = not " .. R(ur[2]))
+								emit(ind() .. R(ur[1]) .. " = not " .. Rsrc(ur[2]))
 							elseif opn == "MINUS" then
-								emit(ind() .. R(ur[1]) .. " = -" .. R(ur[2]))
+								emit(ind() .. R(ur[1]) .. " = -" .. Rsrc(ur[2]))
 							elseif opn == "LENGTH" then
-								emit(ind() .. R(ur[1]) .. " = #" .. R(ur[2]))
+								emit(ind() .. R(ur[1]) .. " = #" .. Rsrc(ur[2]))
 							elseif opn == "NEWTABLE" then
 								emit(R(ur[1]) .. " = {}")
 								if options.ShowDebugInformation and ed[2] and ed[2] > 0 then
@@ -30821,7 +30881,7 @@ local function main()
 								emit(ind() .. R(ur[1]) .. " = " .. R(ur[2]) .. " // " .. fmtConst(consts[ed[1] + 1]))
 							elseif opn == "GETUDATAKS" then
 								local key = consts[ed[2] + 1] and consts[ed[2] + 1].value
-								emit(ind() .. R(ur[1]) .. " = " .. R(ur[2]) .. formatIndexString(key))
+								emit(ind() .. R(ur[1]) .. " = " .. Rsrc(ur[2]) .. formatIndexString(key))
 							elseif opn == "SETUDATAKS" then
 								local key = consts[ed[2] + 1] and consts[ed[2] + 1].value
 								emit(ind() .. R(ur[2]) .. formatIndexString(key) .. " = " .. R(ur[1]))
@@ -30931,6 +30991,9 @@ local function main()
 					result = ok and res or ("-- RUNTIME ERROR:\n-- " .. tostring(res))
 					if (os.clock() - startTime) >= options.DecompilerTimeout then
 						return Strings.TIMEOUT
+					end
+					if ok and type(result) == "string" and _coImpl then
+						result = _coImpl(result)
 					end
 					return string.format(Strings.SUCCESS, result)
 				else
@@ -31086,10 +31149,28 @@ local function main()
 			return table.concat(lines, "\n")
 		end
 
-		local function _coImpl(text)
+		_coImpl = function(text)
 			local rawLines = {}
 			for line in (text .. "\n"):gmatch("[^\n]*\n") do
 				rawLines[#rawLines + 1] = line:gsub("\n$", "")
+			end
+
+			-- Drop compiler-visible identity imports/assignments before reconstruction.
+			-- They are implementation details of the VM register model, not source code.
+			for i = 1, #rawLines do
+				local line = rawLines[i]
+				if line then
+					local ind, lhs, rhs = line:match("^(%s*)([%a_][%w_]*)%s*=%s*([%a_][%w_]*)%s*$")
+					if lhs and rhs and lhs == rhs and (
+						lhs == "game"
+						or lhs == "workspace"
+						or lhs == "script"
+						or lhs == "require"
+						or lhs == "shared"
+					) then
+						rawLines[i] = nil
+					end
+				end
 			end
 
 			-- Register IR reconstruction.
@@ -31934,6 +32015,39 @@ local function main()
 				end
 			end
 
+			-- Recover method-style function declarations from the compiler's
+			-- closure-assignment form:
+			--   local function initClient(...) ... end
+			--   v0.initClient = initClient
+			-- becomes `function v0.initClient(...) ... end`.
+			do
+				local i = 1
+				while i <= #pass3b - 1 do
+					local line = pass3b[i]
+					if line then
+						local ind, fn, args = line:match("^(%s*)local%s+function%s+([%a_][%w_]*)%s*(%b())")
+						if fn then
+							local j = i + 1
+							local fnIndent = #ind
+							while j <= #pass3b do
+								local s = pass3b[j]
+								if s and s:match("^%s*end%s*$") and #(s:match("^(%s*)") or "") == fnIndent then
+									local assign = pass3b[j + 1]
+									local base, field = assign and assign:match("^%s*(v%d+_?%d*)%.([%a_][%w_]*)%s*=%s*" .. escpat(fn) .. "%s*$")
+									if base and field then
+										pass3b[i] = ind .. "function " .. base .. "." .. field .. args
+										pass3b[j + 1] = nil
+									end
+									break
+								end
+								j += 1
+							end
+						end
+					end
+					i += 1
+				end
+			end
+
 			-- A module/class idiom often starts as `{ __index = <same table> }`.
 			-- A local cannot legally refer to itself in its initializer, so preserve
 			-- the semantics as two statements instead of emitting invalid self-reference.
@@ -32024,9 +32138,6 @@ local function main()
 		getgenv()._ZUK_DECOMPILE = Decompile
 		getgenv()._ZUK_CLEANOUTPUT = _coImpl
 	end)
-
-
-
 
 
 
