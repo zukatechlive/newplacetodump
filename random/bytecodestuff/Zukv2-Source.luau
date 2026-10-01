@@ -1,26 +1,5 @@
---[[
-
-
-
-
-
- _____     _           ____  
-|__  /   _| | ____   _|___ \ 
-  / / | | | |/ /\ \ / / __) |
- / /| |_| |   <  \ V / / __/ 
-/____\__,_|_|\_\  \_/ |_____|
-                             
-
-
-
-
-
-
-]]
-
 local function main()
 	local ZukDecompile
-	local prettyPrint
 	local cleanOutput
 	task.defer(function()
 		local FLOAT_PRECISION = 7
@@ -30,14 +9,23 @@ local function main()
 			local cursor = 0
 			local blen = buffer.len(stream)
 			local self = {}
+			local markTrail = {}
+			local MARK_TRAIL_MAX = 40
+			function self:mark(label)
+				markTrail[#markTrail + 1] = label .. " @" .. cursor
+				if #markTrail > MARK_TRAIL_MAX then
+					table.remove(markTrail, 1)
+				end
+			end
 			local function guard(n)
 				if cursor + n > blen then
 					error(
 						string.format(
-							"Uh oh! OOB: it needs %d byte(s) at offset %d (buf len %d)  maybe an opcode issue?",
+							"Uh oh! OOB: it needs %d byte(s) at offset %d (buf len %d)  maybe an opcode issue? trail: %s",
 							n,
 							cursor,
-							blen
+							blen,
+							table.concat(markTrail, " -> ")
 						),
 						2
 					)
@@ -94,6 +82,24 @@ local function main()
 					if not bit32.btest(b, 0x80) then
 						break
 					end
+				end
+				return result
+			end
+			function self:pos()
+				return cursor
+			end
+			function self:seek(n)
+				cursor = n
+			end
+			function self:nextVarInt64()
+				local result, mult = 0, 1
+				for _ = 1, 10 do
+					local b = self:nextByte()
+					result += bit32.band(b, 0x7F) * mult
+					if not bit32.btest(b, 0x80) then
+						break
+					end
+					mult *= 128
 				end
 				return result
 			end
@@ -218,12 +224,13 @@ local function main()
 				{ name = "NEWCLASSMEMBER", type = "ABC", aux = true },
 				{ name = "CALLFB", type = "ABC", aux = true },
 				{ name = "CMPPROTO", type = "AsD", aux = true },
+				{ name = "FASTPCALL", type = "ABC" },
 				{ name = "NEWCLASS", type = "ABC", aux = true },
 				{ name = "_COUNT", type = "none" },
 			},
 			BytecodeTag = {
-				LBC_VERSION_MIN = 1,
-				LBC_VERSION_MAX = 13,
+				LBC_VERSION_MIN = 3,
+				LBC_VERSION_MAX = 14,
 				LBC_TYPE_VERSION_MIN = 1,
 				LBC_TYPE_VERSION_MAX = 3,
 				LBC_CONSTANT_NIL = 0,
@@ -597,10 +604,10 @@ local function main()
 			DecompilerMode = "disasm",
 			ReaderFloatPrecision = 7,
 			ShowDebugInformation = false,
-			ShowInstructionLines = false,
+			ShowInstructionLines = true,
 			ShowOperationIndex = false,
 			ShowOperationNames = false,
-			ShowTrivialOperations = false,
+			ShowTrivialOperations = true,
 			UseTypeInfo = true,
 			ListUsedGlobals = true,
 			ReturnElapsedTime = false,
@@ -644,6 +651,7 @@ local function main()
 			return s .. string.rep(ch, math.max(0, n - #s))
 		end
 		local ROBLOX_GLOBALS = {
+
 			"game",
 			"workspace",
 			"script",
@@ -716,38 +724,45 @@ local function main()
 			end
 			return false
 		end
+		local _coImpl
+
 		local function Decompile(bytecode, options)
 			local bytecodeVersion, typeEncodingVersion
 			Reader:Set(options.ReaderFloatPrecision)
 			local reader = Reader.new(bytecode)
 			local function disassemble()
+				reader:mark("header:typeVersion")
 				if bytecodeVersion >= 4 then
 					typeEncodingVersion = reader:nextByte()
 				end
 				local stringTable = {}
 				local function readStringTable()
+					reader:mark("stringtable:count")
 					local n = reader:nextVarInt()
 					for i = 1, n do
+						reader:mark("stringtable[" .. i .. "/" .. n .. "]")
 						stringTable[i] = reader:nextString()
 					end
 				end
 				local userdataTypes = {}
 				local function readUserdataTypes()
-					if LuauCompileUserdataInfo then
-						while true do
-							local idx = reader:nextByte()
-							if idx == 0 then
-								break
-							end
-							userdataTypes[idx] = reader:nextVarInt()
+					while true do
+						reader:mark("userdata:idx")
+						local idx = reader:nextByte()
+						if idx == 0 then
+							break
 						end
+						reader:mark("userdata:type[" .. idx .. "]")
+						userdataTypes[idx] = reader:nextVarInt()
 					end
 				end
 				local protoTable = {}
 				local function readProtoTable()
+					reader:mark("prototable:count")
 					local n = reader:nextVarInt()
 					for i = 1, n do
 						local protoId = i - 1
+						local pfx = "proto[" .. protoId .. "/" .. n .. "]:"
 						local proto = {
 							id = protoId,
 							instructions = {},
@@ -757,22 +772,33 @@ local function main()
 							instructionLineInfo = {},
 						}
 						protoTable[protoId] = proto
+						local protoSize
+						if bytecodeVersion >= 12 then
+							reader:mark(pfx .. "protoSize")
+							protoSize = reader:nextVarInt()
+						end
+						local protoStart = reader:pos()
+						reader:mark(pfx .. "header")
 						proto.maxStackSize = reader:nextByte()
 						proto.numParams = reader:nextByte()
 						proto.numUpvalues = reader:nextByte()
 						proto.isVarArg = toBoolean(reader:nextByte())
 						if bytecodeVersion >= 4 then
+							reader:mark(pfx .. "flags")
 							proto.flags = reader:nextByte()
 							local resultTypedParams, resultTypedUpvalues, resultTypedLocals = {}, {}, {}
+							reader:mark(pfx .. "typeinfo:size")
 							local allTypeInfoSize = reader:nextVarInt()
 							local hasTypeInfo = allTypeInfoSize > 0
 							proto.hasTypeInfo = hasTypeInfo
 							if hasTypeInfo then
 								if typeEncodingVersion and typeEncodingVersion > 1 then
+									reader:mark(pfx .. "typeinfo:skip(" .. allTypeInfoSize .. ")")
 									for _ = 1, allTypeInfoSize do
 										reader:nextByte()
 									end
 								else
+									reader:mark(pfx .. "typeinfo:legacyblob(" .. allTypeInfoSize .. ")")
 									local blob = reader:nextBytes(allTypeInfoSize)
 									table.remove(blob, 1)
 									table.remove(blob, 1)
@@ -783,15 +809,20 @@ local function main()
 							proto.typedUpvalues = resultTypedUpvalues
 							proto.typedLocals = resultTypedLocals
 						end
+						reader:mark(pfx .. "instructions:count")
 						proto.sizeInstructions = reader:nextVarInt()
+						reader:mark(pfx .. "instructions[0.." .. proto.sizeInstructions .. "]")
 						for j = 1, proto.sizeInstructions do
 							proto.instructions[j] = reader:nextUInt32()
 						end
+						reader:mark(pfx .. "constants:count")
 						proto.sizeConstants = reader:nextVarInt()
 						for j = 1, proto.sizeConstants do
+							reader:mark(pfx .. "const[" .. (j - 1) .. "/" .. proto.sizeConstants .. "]:type")
 							local constType = reader:nextByte()
 							local constValue
 							local BT = LuauBytecodeTag
+							reader:mark(pfx .. "const[" .. (j - 1) .. "]:value(type=" .. constType .. ")")
 							if constType == BT.LBC_CONSTANT_BOOLEAN then
 								constValue = toBoolean(reader:nextByte())
 							elseif constType == BT.LBC_CONSTANT_NUMBER then
@@ -845,15 +876,6 @@ local function main()
 								end
 								constValue = { size = sz, keys = keys }
 							elseif constType == BT.LBC_CONSTANT_INTEGER then
-								-- Real wire format: 1 sign byte (0/1) + 1 varint magnitude,
-								-- NOT two raw 4-byte words - reading the old (wrong) way
-								-- desynced every byte read for the rest of the file on any
-								-- 64-bit integer constant.
-								-- NOTE: nextVarInt() itself is bit32-backed and so is
-								-- clamped to 32 bits; this correctly fixes the byte-stream
-								-- desync but very large (>2^32) integer constants will
-								-- still read back with a truncated magnitude. That's a
-								-- separate, much rarer precision gap - not a resync issue.
 								local isNegative = reader:nextByte()
 								local magnitude = reader:nextVarInt()
 								constValue = (isNegative == 1) and -magnitude or magnitude
@@ -881,25 +903,33 @@ local function main()
 							end
 							proto.constants[j] = { type = constType, value = constValue }
 						end
+						reader:mark(pfx .. "innerprotos:count")
 						proto.sizeInnerProtos = reader:nextVarInt()
 						for j = 1, proto.sizeInnerProtos do
+							reader:mark(pfx .. "innerproto[" .. (j - 1) .. "/" .. proto.sizeInnerProtos .. "]")
 							proto.innerProtos[j] = protoTable[reader:nextVarInt()]
 						end
+						reader:mark(pfx .. "lineDefined")
 						proto.lineDefined = reader:nextVarInt()
+						reader:mark(pfx .. "nameId")
 						local nameId = reader:nextVarInt()
 						proto.name = stringTable[nameId]
+						reader:mark(pfx .. "hasLineInfo")
 						local hasLineInfo = toBoolean(reader:nextByte())
 						proto.hasLineInfo = hasLineInfo
 						if hasLineInfo then
+							reader:mark(pfx .. "lineinfo:gap")
 							local lgap = reader:nextByte()
 							local baselineSize = bit32.rshift(proto.sizeInstructions - 1, lgap) + 1
 							local smallLineInfo, absLineInfo = {}, {}
 							local lastOffset, lastLine = 0, 0
+							reader:mark(pfx .. "lineinfo:small[0.." .. proto.sizeInstructions .. "]")
 							for j = 1, proto.sizeInstructions do
 								local b = reader:nextSignedByte()
 								lastOffset += b
 								smallLineInfo[j] = lastOffset
 							end
+							reader:mark(pfx .. "lineinfo:abs[0.." .. baselineSize .. "]")
 							for j = 1, baselineSize do
 								local lc = lastLine + reader:nextInt32()
 								absLineInfo[j - 1] = lc
@@ -921,12 +951,15 @@ local function main()
 							proto.lineInfoSize = lgap
 							proto.instructionLineInfo = resultLineInfo
 						end
+						reader:mark(pfx .. "hasDebugInfo")
 						local hasDebugInfo = toBoolean(reader:nextByte())
 						proto.hasDebugInfo = hasDebugInfo
 						if hasDebugInfo then
+							reader:mark(pfx .. "debuglocals:count")
 							local totalLocals = reader:nextVarInt()
 							local debugLocals = {}
 							for j = 1, totalLocals do
+								reader:mark(pfx .. "debuglocal[" .. (j - 1) .. "/" .. totalLocals .. "]")
 								debugLocals[j] = {
 									name = stringTable[reader:nextVarInt()],
 									startPC = reader:nextVarInt(),
@@ -935,20 +968,58 @@ local function main()
 								}
 							end
 							proto.debugLocals = debugLocals
+							reader:mark(pfx .. "debugupvals:count")
 							local totalUpvals = reader:nextVarInt()
 							local debugUpvalues = {}
 							for j = 1, totalUpvals do
+								reader:mark(pfx .. "debugupval[" .. (j - 1) .. "/" .. totalUpvals .. "]")
 								debugUpvalues[j] = { name = stringTable[reader:nextVarInt()] }
 							end
 							proto.debugUpvalues = debugUpvalues
 						end
+						if bytecodeVersion >= 11 then
+							reader:mark(pfx .. "feedbackvec:count")
+							local feedbackSize = reader:nextVarInt()
+							local feedback = {}
+							for j = 1, feedbackSize do
+								reader:mark(pfx .. "feedbackvec[" .. (j - 1) .. "/" .. feedbackSize .. "]")
+								local slotType = reader:nextByte()
+								feedback[j] = { kind = slotType, pc = reader:nextVarInt() }
+							end
+							proto.feedbackVector = feedback
+						end
+						if bytecodeVersion >= 12 then
+							local LPF_INLINABLE = 8
+							if proto.flags and bit32.btest(proto.flags, LPF_INLINABLE) then
+								reader:mark(pfx .. "cost")
+								proto.cost = reader:nextVarInt64()
+							end
+							local expectedEnd = protoStart + protoSize
+							local here = reader:pos()
+							if here > expectedEnd then
+								error(
+									string.format(
+										"Proto %d over-read: cursor %d is past declared end %d (start %d, size %d). "
+											.. "A field in this proto is being read wrongly.",
+										protoId,
+										here,
+										expectedEnd,
+										protoStart,
+										protoSize
+									),
+									2
+								)
+							end
+							reader:seek(expectedEnd)
+						end
 					end
 				end
 				readStringTable()
-				if bytecodeVersion and bytecodeVersion > 5 then
+				if typeEncodingVersion == 3 then
 					readUserdataTypes()
 				end
 				readProtoTable()
+				reader:mark("mainProtoId")
 				local mainProtoId = reader:nextVarInt()
 				return mainProtoId, protoTable
 			end
@@ -999,12 +1070,10 @@ local function main()
 					local function writeInstructions()
 						local auxSkip = false
 						local function reg(act, regs, extra, hide)
-							table.insert(protoRegisterActions, {
-								usedRegisters = regs or {},
-								extraData = extra,
-								opCode = act,
-								hide = hide,
-							})
+							table.insert(
+								protoRegisterActions,
+								{ usedRegisters = regs or {}, extraData = extra, opCode = act, hide = hide }
+							)
 						end
 						for idx, instruction in ipairs(instructions) do
 							if auxSkip then
@@ -1280,7 +1349,6 @@ local function main()
 						if proto.main and pflags and pflags.native then
 							emit("--!native\n")
 						end
-
 						local function buildRegNames(instrIdx)
 							local names = {}
 							if proto.debugLocals then
@@ -1296,25 +1364,31 @@ local function main()
 							if r == nil then
 								return "upv_?"
 							end
+							if proto._captureNames and proto._captureNames[r] then
+								return proto._captureNames[r]
+							end
 							local du = proto.debugUpvalues
 							if du and du[r + 1] and du[r + 1].name ~= "" then
 								return du[r + 1].name
 							end
 							return "upv_" .. tostring(r)
 						end
-						local function getSourceRegisters(opName, ur2)
+						local function getSourceRegisters(opName, ur2, ed2)
 							if opName == "CALL" or opName == "CALLFB" then
 								local srcs = {}
-								if ur2 then
-									for k = 1, #ur2 do
-										srcs[#srcs + 1] = ur2[k]
+								local base = ur2 and ur2[1]
+								if base ~= nil then
+									srcs[#srcs + 1] = base
+									local count = (ed2 and ed2[1]) or 1
+									for k = 1, count - 1 do
+										srcs[#srcs + 1] = base + k
 									end
 								end
 								return srcs
 							end
 							if opName == "NAMECALL" then
-								if ur2 and ur2[1] ~= nil then
-									return { ur2[1] }
+								if ur2 and ur2[2] ~= nil then
+									return { ur2[2] }
 								end
 								return {}
 							end
@@ -1410,7 +1484,7 @@ local function main()
 							return {}
 						end
 						local function isChainedRedefine(opName, ur2, ed2, defR, priorAct)
-							local srcs = getSourceRegisters(opName, ur2)
+							local srcs = getSourceRegisters(opName, ur2, ed2)
 							for k = 1, #srcs do
 								if srcs[k] == defR then
 									return true
@@ -1435,7 +1509,7 @@ local function main()
 							local actOpn = act.opCode and act.opCode.name
 							if actOpn then
 								local aur, aed = act.usedRegisters, act.extraData
-								local srcs = getSourceRegisters(actOpn, aur)
+								local srcs = getSourceRegisters(actOpn, aur, aed)
 								for k = 1, #srcs do
 									local r = srcs[k]
 									ensureRegTimeline(r)
@@ -1446,19 +1520,15 @@ local function main()
 									end
 								end
 								local defs = getDefinedRegisters(actOpn, aur, aed)
-								local priorAct = actions[ai - 1]
 								for k = 1, #defs do
 									local r = defs[k]
 									ensureRegTimeline(r)
-									local chained = isChainedRedefine(actOpn, aur, aed, r, priorAct)
 									local tl = regGenTimeline[r]
-									if chained and tl[#tl] then
-										tl[#tl].endIdx = ai
-										tl[#tl].defAi = ai
-									else
-										regGeneration[r] += 1
-										tl[#tl + 1] = { gen = regGeneration[r], startIdx = ai, endIdx = ai, defAi = ai }
+									if tl[#tl] then
+										tl[#tl].endIdx = math.max(tl[#tl].endIdx or ai, ai - 1)
 									end
+									regGeneration[r] += 1
+									tl[#tl + 1] = { gen = regGeneration[r], startIdx = ai, endIdx = ai, defAi = ai }
 								end
 							end
 						end
@@ -1484,7 +1554,6 @@ local function main()
 							end
 							return best
 						end
-
 						local function constStr(idx)
 							local c = consts[idx + 1]
 							if c and type(c.value) == "string" then
@@ -1516,12 +1585,7 @@ local function main()
 							FindFirstChildOfClass = true,
 							FindFirstChildWhichIsA = true,
 						}
-						local KNOWN_GLOBAL_NAMES = {
-							game = false,
-							workspace = true,
-							script = true,
-							shared = false,
-						}
+						local KNOWN_GLOBAL_NAMES = { game = true, workspace = true, script = true, shared = true }
 						local function sanitizeName(s)
 							if not s or s == "" then
 								return nil
@@ -1581,23 +1645,12 @@ local function main()
 								end
 							end
 						end
-
 						local regNameCache = {}
 						local function fmtReg(r, instrIdx)
 							if r == nil then
 								return "v?"
 							end
 							local safeNumParams = numParams or 0
-							if instrIdx and proto.debugLocals then
-								local cached = regNameCache[instrIdx]
-								if not cached then
-									cached = buildRegNames(instrIdx)
-									regNameCache[instrIdx] = cached
-								end
-								if cached[r] and cached[r] ~= "" then
-									return cached[r]
-								end
-							end
 							local pr = r + 1
 							if pr < safeNumParams + 1 then
 								return "p" .. tostring((totalParameters - safeNumParams) + pr)
@@ -1607,6 +1660,16 @@ local function main()
 								local inferred = regInferredName[r .. ":" .. g]
 								if inferred then
 									return inferred
+								end
+							end
+							if instrIdx and proto.debugLocals then
+								local cached = regNameCache[instrIdx]
+								if not cached then
+									cached = buildRegNames(instrIdx)
+									regNameCache[instrIdx] = cached
+								end
+								if cached[r] and cached[r] ~= "" then
+									return cached[r]
 								end
 							end
 							local baseName = "v" .. tostring(r - safeNumParams)
@@ -1675,7 +1738,7 @@ local function main()
 							if p.isVarArg then
 								body ..= (p.numParams > 0) and ", ..." or "..."
 							end
-							body ..= ")\n"
+							body ..= ")"
 							if options.ShowDebugInformation then
 								body ..= "-- proto pool id: " .. tostring(p.id or "?") .. "\n"
 								body ..= "-- num upvalues: " .. tostring(p.numUpvalues or "?") .. "\n"
@@ -1688,16 +1751,42 @@ local function main()
 							end
 							return body
 						end
-						local function writeProto(reg, p)
-							local body = fmtProto(p)
-							if p.name then
-								emit("\n" .. body)
-
-								writeActions(registerActions[p.id])
-								emit("end\n" .. fmtReg(reg) .. " = " .. p.name)
+						local function canonicalFunctionName(name)
+							if type(name) ~= "string" or name == "" then
+								return name
+							end
+							local base = name:match("^(.-)_%d+$")
+							if base and base ~= "" then
+								return base
+							end
+							return name
+						end
+						local function writeProto(reg, p, captureInstrIdx)
+							p._captureNames = p._captureNames or {}
+							if p.captures then
+								for capIndex, source in pairs(p.captures) do
+									if type(source) == "number" then
+										local parentName = fmtReg(source, captureInstrIdx or 1)
+										if parentName and parentName ~= "v?" then
+											p._captureNames[capIndex] = parentName
+										end
+									end
+								end
+							end
+							local emittedName = canonicalFunctionName(p.name)
+							local body
+							if p.name and emittedName ~= p.name then
+								body =
+									fmtProto(p):gsub("local function " .. p.name, "local function " .. emittedName, 1)
 							else
-								emit(fmtReg(reg) .. " = " .. body)
-
+								body = fmtProto(p)
+							end
+							if p.name then
+								emit("" .. body)
+								writeActions(registerActions[p.id])
+								emit("end\n" .. fmtReg(reg, captureInstrIdx) .. " = " .. emittedName)
+							else
+								emit(fmtReg(reg, captureInstrIdx) .. " = " .. body)
 								writeActions(registerActions[p.id])
 								emit("end")
 							end
@@ -1755,6 +1844,53 @@ local function main()
 							local function R(r)
 								return fmtReg(r, i)
 							end
+							local function Rpre(r)
+								return fmtReg(r, i - 1)
+							end
+							local function Rsrc(r)
+								if not r then
+									return "v?"
+								end
+								local defs = {}
+								if
+									opn == "MOVE"
+									or opn == "GETTABLE"
+									or opn == "GETTABLEKS"
+									or opn == "GETTABLEN"
+									or opn == "NOT"
+									or opn == "MINUS"
+									or opn == "LENGTH"
+									or opn == "ADD"
+									or opn == "SUB"
+									or opn == "MUL"
+									or opn == "DIV"
+									or opn == "MOD"
+									or opn == "POW"
+									or opn == "AND"
+									or opn == "OR"
+									or opn == "CONCAT"
+									or opn == "ADDK"
+									or opn == "SUBK"
+									or opn == "MULK"
+									or opn == "DIVK"
+									or opn == "MODK"
+									or opn == "POWK"
+									or opn == "ANDK"
+									or opn == "ORK"
+									or opn == "SUBRK"
+									or opn == "DIVRK"
+									or opn == "IDIV"
+									or opn == "IDIVK"
+									or opn == "GETUDATAKS"
+									or opn == "NEWCLASSMEMBER"
+								then
+									defs = ur
+								end
+								if defs and defs[1] == r then
+									return Rpre(r)
+								end
+								return R(r)
+							end
 							local function handleJumps()
 								local n = jumpMarkers[i]
 								if n then
@@ -1781,7 +1917,6 @@ local function main()
 								emit(ind() .. R(ur[1]) .. " = nil")
 							elseif opn == "LOADB" then
 								emit(ind() .. R(ur[1]) .. " = " .. toEscapedString(toBoolean(ed[1])))
-
 								if ed[2] ~= 0 then
 									emit(" +" .. ed[2])
 								end
@@ -1790,7 +1925,7 @@ local function main()
 							elseif opn == "LOADK" then
 								emit(ind() .. R(ur[1]) .. " = " .. fmtConst(consts[ed[1] + 1]))
 							elseif opn == "MOVE" then
-								emit(ind() .. R(ur[1]) .. " = " .. R(ur[2]))
+								emit(ind() .. R(ur[1]) .. " = " .. Rsrc(ur[2]))
 							elseif opn == "GETGLOBAL" then
 								local gk = tostring(consts[ed[1] + 1] and consts[ed[1] + 1].value or "")
 								if options.ListUsedGlobals and isValidGlobal(gk) then
@@ -1818,32 +1953,34 @@ local function main()
 									table.insert(usedGlobals, imp)
 									usedGlobalsSet[imp] = true
 								end
-								emit(R(ur[1]) .. " = " .. imp)
+								if R(ur[1]) ~= imp then
+									emit(ind() .. R(ur[1]) .. " = " .. imp)
+								end
 							elseif opn == "GETTABLE" then
-								emit(ind() .. R(ur[1]) .. " = " .. R(ur[2]) .. "[" .. R(ur[3]) .. "]")
+								emit(ind() .. R(ur[1]) .. " = " .. Rsrc(ur[2]) .. "[" .. Rsrc(ur[3]) .. "]")
 							elseif opn == "SETTABLE" then
 								emit(ind() .. R(ur[2]) .. "[" .. R(ur[3]) .. "] = " .. R(ur[1]))
 							elseif opn == "GETTABLEKS" then
 								local key = consts[ed[2] + 1] and consts[ed[2] + 1].value
-								emit(ind() .. R(ur[1]) .. " = " .. R(ur[2]) .. formatIndexString(key))
+								emit(ind() .. R(ur[1]) .. " = " .. Rsrc(ur[2]) .. formatIndexString(key))
 							elseif opn == "SETTABLEKS" then
 								local key = consts[ed[2] + 1] and consts[ed[2] + 1].value
 								emit(ind() .. R(ur[2]) .. formatIndexString(key) .. " = " .. R(ur[1]))
 							elseif opn == "GETTABLEN" then
-								emit(ind() .. R(ur[1]) .. " = " .. R(ur[2]) .. "[" .. (ed[1] + 1) .. "]")
+								emit(ind() .. R(ur[1]) .. " = " .. Rsrc(ur[2]) .. "[" .. (ed[1] + 1) .. "]")
 							elseif opn == "SETTABLEN" then
 								emit(ind() .. R(ur[2]) .. "[" .. (ed[1] + 1) .. "] = " .. R(ur[1]))
 							elseif opn == "NEWCLOSURE" then
 								local p2 = inner[ed[1] + 1]
 								if p2 then
-									writeProto(ur[1], p2)
+									writeProto(ur[1], p2, i)
 								end
 							elseif opn == "DUPCLOSURE" then
 								local c = consts[ed[1] + 1]
 								if c then
 									local p2 = protoTable[c.value - 1]
 									if p2 then
-										writeProto(ur[1], p2)
+										writeProto(ur[1], p2, i)
 									end
 								end
 							elseif opn == "NAMECALL" then
@@ -1851,8 +1988,10 @@ local function main()
 								emit(ind() .. "-- :" .. method)
 							elseif opn == "CALL" then
 								local baseR = ur[1]
-								local nArgs = ed[1] - 1
-								local nRes = ed[2] - 1
+								local nArgs = (ed[1] or 1) - 1
+								local resultCount = ed[2] or 1
+								local isMultiReturn = resultCount == 0
+								local nRes = isMultiReturn and -1 or (resultCount - 1)
 								local nmMethod = ""
 								local argOff = 0
 								local prev = actions[i - 1]
@@ -1865,7 +2004,7 @@ local function main()
 									argOff += 1
 								end
 								local callBody = ""
-								if nRes == -1 then
+								if isMultiReturn then
 									callBody = "... = "
 								elseif nRes > 0 then
 									local rb = ""
@@ -1877,13 +2016,19 @@ local function main()
 									end
 									callBody = rb .. " = "
 								end
-								callBody ..= R(baseR) .. nmMethod .. "("
+								local receiverR = baseR
+								if prev and prev.opCode and prev.opCode.name == "NAMECALL" then
+									if prev.usedRegisters and prev.usedRegisters[2] ~= nil then
+										receiverR = prev.usedRegisters[2]
+									end
+								end
+								callBody ..= Rpre(receiverR) .. nmMethod .. "("
 								if nArgs == -1 then
 									callBody ..= "..."
 								elseif nArgs > 0 then
 									local ab = ""
 									for k = 1, nArgs do
-										ab ..= R(baseR + k + argOff)
+										ab ..= Rpre(baseR + k + argOff)
 										if k ~= nArgs then
 											ab ..= ", "
 										end
@@ -1945,17 +2090,17 @@ local function main()
 								makeJump(ei)
 								emit("if " .. R(ur[1]) .. " < " .. R(ur[2]) .. " then -- goto #" .. ei)
 							elseif opn == "ADD" then
-								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " + " .. R(ur[3]))
+								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " + " .. Rsrc(ur[3]))
 							elseif opn == "SUB" then
-								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " - " .. R(ur[3]))
+								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " - " .. Rsrc(ur[3]))
 							elseif opn == "MUL" then
-								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " * " .. R(ur[3]))
+								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " * " .. Rsrc(ur[3]))
 							elseif opn == "DIV" then
-								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " / " .. R(ur[3]))
+								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " / " .. Rsrc(ur[3]))
 							elseif opn == "MOD" then
-								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " % " .. R(ur[3]))
+								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " % " .. Rsrc(ur[3]))
 							elseif opn == "POW" then
-								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " ^ " .. R(ur[3]))
+								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " ^ " .. Rsrc(ur[3]))
 							elseif opn == "ADDK" then
 								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " + " .. fmtConst(consts[ed[1] + 1]))
 							elseif opn == "SUBK" then
@@ -1969,9 +2114,9 @@ local function main()
 							elseif opn == "POWK" then
 								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " ^ " .. fmtConst(consts[ed[1] + 1]))
 							elseif opn == "AND" then
-								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " and " .. R(ur[3]))
+								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " and " .. Rsrc(ur[3]))
 							elseif opn == "OR" then
-								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " or " .. R(ur[3]))
+								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " or " .. Rsrc(ur[3]))
 							elseif opn == "ANDK" then
 								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " and " .. fmtConst(consts[ed[1] + 1]))
 							elseif opn == "ORK" then
@@ -1987,14 +2132,13 @@ local function main()
 								end
 								emit(ind() .. R(tgt) .. " = " .. cb)
 							elseif opn == "NOT" then
-								emit(ind() .. R(ur[1]) .. " = not " .. R(ur[2]))
+								emit(ind() .. R(ur[1]) .. " = not " .. Rsrc(ur[2]))
 							elseif opn == "MINUS" then
-								emit(ind() .. R(ur[1]) .. " = -" .. R(ur[2]))
+								emit(ind() .. R(ur[1]) .. " = -" .. Rsrc(ur[2]))
 							elseif opn == "LENGTH" then
-								emit(ind() .. R(ur[1]) .. " = #" .. R(ur[2]))
+								emit(ind() .. R(ur[1]) .. " = #" .. Rsrc(ur[2]))
 							elseif opn == "NEWTABLE" then
 								emit(R(ur[1]) .. " = {}")
-
 								if options.ShowDebugInformation and ed[2] and ed[2] > 0 then
 									emit(" ")
 								end
@@ -2046,8 +2190,7 @@ local function main()
 										local tgtName = R(tgt)
 										for rp = #resultParts, math.max(1, #resultParts - 10), -1 do
 											if
-												resultParts[rp]
-												and resultParts[rp]:find(tgtName .. " = {}", 1, true)
+												resultParts[rp] and resultParts[rp]:find(tgtName .. " = {}", 1, true)
 											then
 												if tot2 <= 4 then
 													resultParts[rp] = tgtName
@@ -2166,7 +2309,7 @@ local function main()
 								emit(ind() .. R(ur[1]) .. " = " .. R(ur[2]) .. " // " .. fmtConst(consts[ed[1] + 1]))
 							elseif opn == "GETUDATAKS" then
 								local key = consts[ed[2] + 1] and consts[ed[2] + 1].value
-								emit(ind() .. R(ur[1]) .. " = " .. R(ur[2]) .. formatIndexString(key))
+								emit(ind() .. R(ur[1]) .. " = " .. Rsrc(ur[2]) .. formatIndexString(key))
 							elseif opn == "SETUDATAKS" then
 								local key = consts[ed[2] + 1] and consts[ed[2] + 1].value
 								emit(ind() .. R(ur[2]) .. formatIndexString(key) .. " = " .. R(ur[1]))
@@ -2256,7 +2399,7 @@ local function main()
 										.. ")"
 								)
 							end
-							emit("\n")
+							emit(" ")
 						end
 					end
 					writeActions(registerActions[mainProtoId])
@@ -2276,6 +2419,9 @@ local function main()
 					result = ok and res or ("-- RUNTIME ERROR:\n-- " .. tostring(res))
 					if (os.clock() - startTime) >= options.DecompilerTimeout then
 						return Strings.TIMEOUT
+					end
+					if ok and type(result) == "string" and _coImpl then
+						result = _coImpl(result)
 					end
 					return string.format(Strings.SUCCESS, result)
 				else
@@ -2304,304 +2450,380 @@ local function main()
 				return manager(false, "UNSUPPORTED_LBC_VERSION")
 			end
 		end
-		local CONST_TYPE = {
-			[0] = "nil",
-			[1] = "boolean",
-			[2] = "number(f64)",
-			[3] = "string",
-			[4] = "import",
-			[5] = "table",
-			[6] = "closure",
-			[7] = "vector",
-			[8] = "table_with_constants",
-			[9] = "integer",
-			[10] = "class_shape",
-			[11] = "vectord",
+		local MAX_DEPTH = 60
+		local INDENT_UNIT = "    "
+
+		local LUA_KW = {
+			["and"] = true,
+			["break"] = true,
+			["do"] = true,
+			["else"] = true,
+			["elseif"] = true,
+			["end"] = true,
+			["false"] = true,
+			["for"] = true,
+			["function"] = true,
+			["if"] = true,
+			["in"] = true,
+			["local"] = true,
+			["nil"] = true,
+			["not"] = true,
+			["or"] = true,
+			["repeat"] = true,
+			["return"] = true,
+			["then"] = true,
+			["true"] = true,
+			["until"] = true,
+			["while"] = true,
 		}
-		local function parseProto(p, stringTable, depth, bytecodeVer)
-			local result = {
-				depth = depth or 0,
-				maxStack = p:nextByte(),
-				numParams = p:nextByte(),
-				numUpvals = p:nextByte(),
-				isVararg = p:nextByte() ~= 0,
-				constants = {},
-				protos = {},
-				upvalues = {},
-				debugName = "",
-				strings = {},
-				imports = {},
-			}
-			if (bytecodeVer or 4) >= 4 then
-				result.flags = p:nextByte()
-				local typeSize = p:nextVarInt()
-				if typeSize > 0 then
-					for _ = 1, typeSize do
-						p:nextByte()
-					end
+
+		local function escapeString(s)
+			return s:gsub('[%c\\"]', function(c)
+				if c == "\\" then
+					return "\\\\"
 				end
-			end
-			local instrCount = p:nextVarInt()
-			for _ = 1, instrCount do
-				p:nextUInt32()
-			end
-			local constCount = p:nextVarInt()
-			for i = 1, constCount do
-				local kind = p:nextByte()
-				local name = CONST_TYPE[kind] or ("unknown(" .. kind .. ")")
-				local value
-				if kind == 0 then
-					value = "nil"
-				elseif kind == 1 then
-					value = p:nextByte() ~= 0 and "true" or "false"
-				elseif kind == 2 then
-					value = tostring(p:nextDouble())
-				elseif kind == 7 then
-					value = tostring(p:nextFloat())
-				elseif kind == 8 then
-					local lo, hi = p:nextByte(), p:nextByte()
-					local n = lo + hi * 256
-					if n >= 32768 then
-						n = n - 65536
-					end
-					value = tostring(n)
-				elseif kind == 3 then
-					local idx = p:nextVarInt()
-					value = stringTable[idx] or ("<string #" .. idx .. ">")
-					table.insert(result.strings, value)
-				elseif kind == 4 then
-					local id = p:nextUInt32()
-					local k0 = bit32.band(bit32.rshift(id, 20), 0x3FF)
-					local k1 = bit32.band(bit32.rshift(id, 10), 0x3FF)
-					local k2 = bit32.band(id, 0x3FF)
-					local parts = {}
-					for _, k in ipairs({ k0, k1, k2 }) do
-						if stringTable[k] then
-							table.insert(parts, stringTable[k])
-						end
-					end
-					value = table.concat(parts, ".")
-					table.insert(result.imports, value)
-				elseif kind == 5 then
-					local keys, ks = p:nextVarInt(), {}
-					for _ = 1, keys do
-						local kidx = p:nextVarInt()
-						table.insert(ks, stringTable[kidx] or "?")
-					end
-					value = "{" .. table.concat(ks, ", ") .. "}"
-				elseif kind == 6 then
-					value = "<proto #" .. p:nextVarInt() .. ">"
-				else
-					value = "?"
+				if c == '"' then
+					return '\\"'
 				end
-				table.insert(result.constants, { kind = name, value = value, index = i - 1 })
-			end
-			local innerProtoCount = p:nextVarInt()
-			for _ = 1, innerProtoCount do
-				table.insert(result.protos, p:nextVarInt())
-			end
-			result.lineDefined = p:nextVarInt()
-			local nameId = p:nextVarInt()
-			result.debugName = stringTable[nameId] or ""
-			local hasLines = p:nextByte()
-			if hasLines ~= 0 then
-				local lgap = p:nextByte()
-				local baselineSize = bit32.rshift(instrCount - 1, lgap) + 1
-				for _ = 1, instrCount do
-					p:nextSignedByte()
+				if c == "\n" then
+					return "\\n"
 				end
-				for _ = 1, baselineSize do
-					p:nextInt32()
+				if c == "\r" then
+					return "\\r"
 				end
-			end
-			local hasDebug = p:nextByte()
-			if hasDebug ~= 0 then
-				local lc = p:nextVarInt()
-				for _ = 1, lc do
-					p:nextVarInt()
-					p:nextVarInt()
-					p:nextVarInt()
-					p:nextByte()
+				if c == "\t" then
+					return "\\t"
 				end
-				local uc = p:nextVarInt()
-				for j = 1, uc do
-					local ui = p:nextVarInt()
-					table.insert(result.upvalues, stringTable[ui] or ("upval_" .. j))
+				if c == "\0" then
+					return "\\0"
 				end
-			end
-			return result
+				return ("\\%d"):format(c:byte())
+			end)
 		end
-		local function parseBytecode(bytes)
-			local reader2 = Reader.new(bytes)
-			local ver = reader2:nextByte()
-			if ver == 0 then
-				return nil, "Compile error: " .. reader2:nextString(reader2:len() - 1)
+
+		local function fmtKey(k)
+			if type(k) == "number" then
+				return ("[%d] = "):format(k)
+			elseif type(k) == "string" then
+				if k:match("^[%a_][%w_]*$") and not LUA_KW[k] then
+					return k .. " = "
+				end
+				return ('["%s"] = '):format(escapeString(k))
 			end
-			local typesVer = 0
-			if ver >= 4 then
-				typesVer = reader2:nextByte()
-			end
-			local stringCount = reader2:nextVarInt()
-			local stringTable = {}
-			for i = 1, stringCount do
-				local len = reader2:nextVarInt()
-				stringTable[i] = reader2:nextString(len)
-			end
-			local protoCount = reader2:nextVarInt()
-			local protos = {}
-			for i = 1, protoCount do
-				local ok, proto = pcall(parseProto, reader2, stringTable, 0, ver)
-				table.insert(protos, ok and proto or { error = tostring(proto), depth = 0 })
-			end
-			local entryProto = reader2:nextVarInt()
-			return {
-				version = ver,
-				typesVersion = typesVer,
-				stringTable = stringTable,
-				protos = protos,
-				entryProto = entryProto,
-			}
+			return ("[%s] = "):format(tostring(k))
 		end
-		local function buildReport(parsed, scriptName)
-			local lines = {}
-			local function w(s)
-				table.insert(lines, s or "")
-			end
-			w("  code reconstructor — " .. (scriptName or "unknown"))
-			w("  Luau version : " .. parsed.version)
-			w("  Types version: " .. parsed.typesVersion)
-			w("  Proto count  : " .. #parsed.protos)
-			w("  Entry proto  : #" .. parsed.entryProto)
-			w("  Strings total: " .. #parsed.stringTable)
-			w("  STRING TABLE ")
-			for i, s in ipairs(parsed.stringTable) do
-				w(string.format("  [%3d] %q", i, s))
-			end
-			w("")
-			local function walkProto(proto, idx)
-				if proto.error then
-					w("  [Proto #" .. idx .. "] PARSE ERROR: " .. proto.error)
-					return
-				end
-				local ind = string.rep("  ", proto.depth + 1)
-				local dn = proto.debugName ~= "" and (" '" .. proto.debugName .. "'") or ""
-				w(string.format("%s Proto #%d%s", ind, idx, dn))
-				w(
-					string.format(
-						"%s   params=%d  upvals=%d  maxStack=%d  vararg=%s",
-						ind,
-						proto.numParams,
-						proto.numUpvals,
-						proto.maxStack,
-						tostring(proto.isVararg)
-					)
-				)
-				if #proto.upvalues > 0 then
-					w(ind .. "   Upvalues: " .. table.concat(proto.upvalues, ", "))
-				end
-				if #proto.imports > 0 then
-					w(ind .. "   Imports:")
-					for _, imp in ipairs(proto.imports) do
-						w(ind .. "     " .. imp)
+
+		local function safeVarName(idx, val)
+			local t = type(val):lower()
+			if typeof and typeof(val) == "Instance" then
+				local ok, nm = pcall(function()
+					return val.Name
+				end)
+				if ok and type(nm) == "string" and nm ~= "" then
+					local clean = nm:gsub("[^%w_]", "_")
+					if clean:match("^[%a_]") and not LUA_KW[clean] then
+						return clean
 					end
 				end
-				if #proto.strings > 0 then
-					w(ind .. "   String literals:")
-					for _, s in ipairs(proto.strings) do
-						w(ind .. '     "' .. s .. '"')
-					end
+			end
+			local prefix = ({
+				boolean = "bool",
+				string = "str",
+				number = "num",
+				table = "tbl",
+				["function"] = "fn",
+				thread = "thread",
+				userdata = "ud",
+				buffer = "buf",
+			})[t] or t
+			return prefix .. tostring(idx)
+		end
+
+		local _svcNames = {
+			Workspace = "workspace",
+			Players = 'game:GetService("Players")',
+			ReplicatedStorage = 'game:GetService("ReplicatedStorage")',
+			ServerStorage = 'game:GetService("ServerStorage")',
+			ServerScriptService = 'game:GetService("ServerScriptService")',
+			StarterGui = 'game:GetService("StarterGui")',
+			StarterPack = 'game:GetService("StarterPack")',
+			StarterPlayer = 'game:GetService("StarterPlayer")',
+			Lighting = 'game:GetService("Lighting")',
+			SoundService = 'game:GetService("SoundService")',
+			RunService = 'game:GetService("RunService")',
+			ReplicatedFirst = 'game:GetService("ReplicatedFirst")',
+			TeleportService = 'game:GetService("TeleportService")',
+			UserInputService = 'game:GetService("UserInputService")',
+			HttpService = 'game:GetService("HttpService")',
+			TweenService = 'game:GetService("TweenService")',
+			ContextActionService = 'game:GetService("ContextActionService")',
+			CollectionService = 'game:GetService("CollectionService")',
+			MarketplaceService = 'game:GetService("MarketplaceService")',
+			Debris = 'game:GetService("Debris")',
+		}
+
+		local function getFullPath(inst)
+			local ok, result = pcall(function()
+				if inst == game then
+					return "game"
 				end
-				if #proto.constants > 0 then
-					w(ind .. "   All constants:")
-					for _, c in ipairs(proto.constants) do
-						w(string.format("%s     [%2d] %-14s %s", ind, c.index, c.kind, tostring(c.value)))
+				local chain, p = {}, inst
+				local depth = 0
+				while p and p ~= game and depth < MAX_DEPTH do
+					chain[#chain + 1] = p
+					local par = p.Parent
+					if par == nil then
+						break
 					end
+					p = par
+					depth += 1
 				end
-				w("")
-				for i2, inner in ipairs(proto.protos) do
-					walkProto(inner, i2)
+				if #chain == 0 then
+					return "nil --[[ destroyed ]]"
+				end
+				local root = chain[#chain]
+				local path = _svcNames[root.ClassName] or ('game:GetService("%s")'):format(escapeString(root.ClassName))
+				for i = #chain - 1, 1, -1 do
+					path ..= (':FindFirstChild("%s")'):format(escapeString(chain[i].Name))
+				end
+				return path
+			end)
+			return ok and result or "nil --[[ path resolution failed ]]"
+		end
+
+		local function fmtBuffer(buf, indent)
+			if type(buffer) ~= "table" and type(buffer) ~= "userdata" then
+				return nil
+			end
+			local ok, len = pcall(buffer.len, buf)
+			if not ok then
+				return nil
+			end
+			indent = indent or 0
+			local rep = string.rep(INDENT_UNIT, indent)
+			local rep1 = string.rep(INDENT_UNIT, indent + 1)
+			local lines = { "(function()", rep1 .. ("local b = buffer.create(%d)"):format(len) }
+			for i = 0, len - 1 do
+				local rok, byte = pcall(buffer.readu8, buf, i)
+				if rok and byte ~= 0 then
+					local printable = byte >= 32 and byte < 127
+					local cmt = printable and ("'%s'"):format(escapeString(string.char(byte)))
+						or ("0x%02X"):format(byte)
+					lines[#lines + 1] = rep1
+						.. ("buffer.writeu8(b, %d, %d) --[[ %s ]] "):format(i, byte, cmt):gsub("%s+$", "")
 				end
 			end
-			w(" PROTO TREE ")
-			for i, proto in ipairs(parsed.protos) do
-				walkProto(proto, i)
-			end
+			lines[#lines + 1] = rep1 .. "return b"
+			lines[#lines + 1] = rep .. "end)()"
 			return table.concat(lines, "\n")
 		end
 
-		local function _ppImpl(text)
-			local result = {}
-			local depth = 0
-			local DEDENT_BEFORE = { ["end"] = true, ["until"] = true }
-			local INDENT_AFTER = { ["then"] = true, ["do"] = true, ["repeat"] = true }
-			local DEDENT_THEN_INDENT = { ["else"] = true, ["elseif"] = true }
-			local function stripStrings(s)
-				s = s:gsub('"[^"]*"', '""')
-				s = s:gsub("'[^']*'", "''")
-				s = s:gsub("%-%-.*$", "")
-				return s
-			end
-			local function firstWord(s)
-				return (stripStrings(s):match("^%s*([%a_][%w_]*)")) or ""
-			end
-			local function containsOpener(s)
-				local clean = stripStrings(s)
-				local fw = clean:match("^%s*([%a_][%w_]*)")
-				if fw == "elseif" or fw == "else" then
-					return false
-				end
-				for w2 in clean:gmatch("[%a_][%w_]*") do
-					if INDENT_AFTER[w2] then
-						return true
-					end
-					if w2 == "function" then
-						return true
-					end
-				end
-				return false
-			end
-			local function stripDisasm(line)
-				return line:match("^%[%d+%]%s*:?%d*:?%s*%u[%u_]*%s+(.*)") or line
-			end
-			for line in (text .. "\n"):gmatch("[^\n]*\n") do
-				local bare = line:gsub("\n$", "")
-				if bare == "" then
-					result[#result + 1] = "\n"
-					continue
-				end
-				local expr = stripDisasm(bare)
-				local kw = firstWord(expr)
-				if DEDENT_THEN_INDENT[kw] then
-					depth = math.max(0, depth - 1)
-					result[#result + 1] = string.rep("    ", depth) .. bare .. "\n"
-					depth += 1
-				elseif DEDENT_BEFORE[kw] then
-					depth = math.max(0, depth - 1)
-					result[#result + 1] = string.rep("    ", depth) .. bare .. "\n"
-				else
-					result[#result + 1] = string.rep("    ", depth) .. bare .. "\n"
-					if containsOpener(expr) then
-						depth += 1
-					end
-				end
-			end
-			return table.concat(result)
-		end
-
-		local function _coImpl(text)
+		_coImpl = function(text)
 			local rawLines = {}
 			for line in (text .. "\n"):gmatch("[^\n]*\n") do
 				rawLines[#rawLines + 1] = line:gsub("\n$", "")
 			end
 
+			for i = 1, #rawLines do
+				local line = rawLines[i]
+				if line then
+					local ind, lhs, rhs = line:match("^(%s*)([%a_][%w_]*)%s*=%s*([%a_][%w_]*)%s*$")
+					if
+						lhs
+						and rhs
+						and lhs == rhs
+						and (
+							lhs == "game"
+							or lhs == "workspace"
+							or lhs == "script"
+							or lhs == "require"
+							or lhs == "shared"
+						)
+					then
+						rawLines[i] = nil
+					end
+				end
+			end
+
+			local function reconstructRegisterIR(lines)
+				local regPat = "v%d+_?%d*"
+				local function isRegister(name)
+					return name and name:match("^" .. regPat .. "$") ~= nil
+				end
+				local function assignment(line)
+					local ind, kw, reg, rhs = line:match("^(%s*)(local%s+)?(" .. regPat .. ")%s*=%s*(.-)%s*$")
+					if not reg then
+						return nil
+					end
+					return { indent = ind, localKw = kw, reg = reg, rhs = rhs }
+				end
+				local function tokenCount(text, reg)
+					local n = 0
+					local ep = reg:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
+					for _ in text:gmatch("%f[%w_]" .. ep .. "%f[^%w_]") do
+						n += 1
+					end
+					return n
+				end
+				local function containsToken(text, reg)
+					return tokenCount(text, reg) > 0
+				end
+				local function replaceToken(text, reg, value)
+					local ep = reg:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
+					local rp = value:gsub("%%", "%%%%")
+					return text:gsub("%f[%w_]" .. ep .. "%f[^%w_]", rp, 1)
+				end
+				local function rhsUsesOnly(line, reg)
+					local a = assignment(line)
+					if a then
+						return containsToken(a.rhs, reg)
+					end
+					return containsToken(line, reg)
+				end
+				local function safeExpr(expr)
+					if not expr or expr == "" then
+						return false
+					end
+					if expr:find("--", 1, true) then
+						return false
+					end
+					if expr:find("\n", 1, true) then
+						return false
+					end
+					return true
+				end
+				local function safeName(name)
+					return name and name:match("^[%a_][%w_]*$") and name ~= "game" and name ~= "workspace"
+				end
+
+				for _pass = 1, 12 do
+					local changed = false
+
+					local latestDef = {}
+					for i = 1, #lines do
+						local line = lines[i]
+						if line then
+							local a = assignment(line)
+							if a then
+								local base, suffix = a.rhs:match("^%s*(v%d+)([%.:].+)$")
+								if base and suffix and base ~= a.reg then
+									local prev = latestDef[base]
+									if prev and lines[prev] and prev < i then
+										local pa = assignment(lines[prev])
+										if pa and safeExpr(pa.rhs) and not containsToken(pa.rhs, a.reg) then
+											local between = false
+											for j = prev + 1, i - 1 do
+												if lines[j] and containsToken(lines[j], base) then
+													between = true
+													break
+												end
+											end
+											if not between then
+												lines[i] = a.indent
+													.. (a.localKw or "")
+													.. a.reg
+													.. " = "
+													.. pa.rhs
+													.. suffix
+												lines[prev] = nil
+												changed = true
+											end
+										end
+									end
+								end
+								latestDef[a.reg] = i
+							end
+						end
+					end
+
+					local lastDef = {}
+					for i = 1, #lines do
+						local line = lines[i]
+						if line then
+							local a = assignment(line)
+							if a then
+								local base, suffix = a.rhs:match("^%s*(" .. regPat .. ")([%.:].+)$")
+								if base == a.reg and suffix then
+									local prev = lastDef[a.reg]
+									if prev and lines[prev] then
+										local pa = assignment(lines[prev])
+										if pa and safeExpr(pa.rhs) and not containsToken(pa.rhs, a.reg) then
+											local betweenUses = false
+											for j = prev + 1, i - 1 do
+												if lines[j] and containsToken(lines[j], a.reg) then
+													betweenUses = true
+													break
+												end
+											end
+											if not betweenUses then
+												a.rhs = pa.rhs .. suffix
+												lines[i] = a.indent .. (a.localKw or "") .. a.reg .. " = " .. a.rhs
+												lines[prev] = nil
+												changed = true
+											end
+										end
+									end
+								end
+								lastDef[a.reg] = i
+							end
+						end
+					end
+
+					local defs = {}
+					local uses = {}
+					for i = 1, #lines do
+						local line = lines[i]
+						if line then
+							local a = assignment(line)
+							if a and safeExpr(a.rhs) then
+								defs[a.reg] = { index = i, rhs = a.rhs, indent = a.indent, localKw = a.localKw }
+							end
+							for reg in line:gmatch("%f[%w_](v%d+_?%d*)%f[^%w_]") do
+								uses[reg] = (uses[reg] or 0) + 1
+							end
+						end
+					end
+					for reg, d in pairs(defs) do
+						local totalUses = uses[reg] or 0
+						if totalUses == 2 then
+							local consumer = nil
+							for j = d.index + 1, #lines do
+								if lines[j] and rhsUsesOnly(lines[j], reg) then
+									consumer = j
+									break
+								end
+							end
+							if
+								consumer
+								and consumer ~= d.index
+								and safeExpr(d.rhs)
+								and not containsToken(d.rhs, reg)
+							then
+								local ca = assignment(lines[consumer])
+								if not ca or containsToken(ca.rhs, reg) then
+									lines[consumer] = replaceToken(lines[consumer], reg, d.rhs)
+									lines[d.index] = nil
+									changed = true
+								end
+							end
+						end
+					end
+
+					if not changed then
+						break
+					end
+				end
+				return lines
+			end
+
+			reconstructRegisterIR(rawLines)
+
 			local function escpat(s)
 				return s:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
 			end
-
 			local function escrep(s)
 				return (s:gsub("%%", "%%%%"))
 			end
-
 			local function nextNonBlank(start)
 				local j = start
 				while j <= #rawLines and (rawLines[j] == nil or rawLines[j]:match("^%s*$")) do
@@ -2609,7 +2831,6 @@ local function main()
 				end
 				return j
 			end
-
 			do
 				local i = 1
 				while i <= #rawLines do
@@ -2637,7 +2858,6 @@ local function main()
 					i += 1
 				end
 			end
-
 			do
 				local i = 1
 				while i <= #rawLines do
@@ -2660,6 +2880,43 @@ local function main()
 					i += 1
 				end
 			end
+			local function tryFoldSelfChain(i)
+				local line = rawLines[i]
+				if not line then
+					return false
+				end
+				local indent, localKw, reg, rhs = line:match("^(%s*)(local%s+)?(v%d+_?%d*)%s*=%s*(.+)%s*$")
+				if not reg or not rhs then
+					return false
+				end
+				local ep = escpat(reg)
+				local suffix = rhs:match("^" .. ep .. "([%.:].+)$")
+				if not suffix then
+					return false
+				end
+				local j = i - 1
+				while j >= 1 and (rawLines[j] == nil or rawLines[j]:match("^%s*$")) do
+					j -= 1
+				end
+				if j < 1 or not rawLines[j] then
+					return false
+				end
+				local prevIndent, prevLocal, prevReg, prevVal =
+					rawLines[j]:match("^(%s*)(local%s+)?(v%d+_?%d*)%s*=%s*(.+)%s*$")
+				if prevReg ~= reg or not prevVal then
+					return false
+				end
+				local prevUses = 0
+				for _ in prevVal:gmatch(ep) do
+					prevUses += 1
+				end
+				if prevUses > 0 then
+					return false
+				end
+				rawLines[j] = prevIndent .. (prevLocal or "") .. reg .. " = " .. prevVal .. suffix
+				rawLines[i] = nil
+				return true
+			end
 
 			local function tryCollapse(i)
 				local line = rawLines[i]
@@ -2667,21 +2924,21 @@ local function main()
 					return false
 				end
 				local reg, lit
-				reg, lit = line:match('^%s*(v%d+) = (".-")%s*$')
+				reg, lit = line:match('^%s*(v%d+_?%d*) = (".-")%s*$')
 				if not reg then
-					reg, lit = line:match("^%s*(v%d+) = (%-?%d+%.?%d*)%s*$")
+					reg, lit = line:match("^%s*(v%d+_?%d*) = (%-?%d+%.?%d*)%s*$")
 				end
 				if not reg then
-					reg, lit = line:match("^%s*(v%d+) = (true)%s*$")
+					reg, lit = line:match("^%s*(v%d+_?%d*) = (true)%s*$")
 				end
 				if not reg then
-					reg, lit = line:match("^%s*(v%d+) = (false)%s*$")
+					reg, lit = line:match("^%s*(v%d+_?%d*) = (false)%s*$")
 				end
 				if not reg then
-					reg, lit = line:match("^%s*(v%d+) = (nil)%s*$")
+					reg, lit = line:match("^%s*(v%d+_?%d*) = (nil)%s*$")
 				end
 				if not reg then
-					reg, lit = line:match("^%s*(v%d+) = ([%a_][%w_%.]*)%s*$")
+					reg, lit = line:match("^%s*(v%d+_?%d*) = ([%a_][%w_%.]*)%s*$")
 				end
 				if not reg then
 					return false
@@ -2703,12 +2960,12 @@ local function main()
 					if mid:find(ep) then
 						break
 					end
-					local isSimpleAssign = mid:match('^%s*v%d+%s*=%s*".-"%s*$')
-						or mid:match("^%s*v%d+%s*=%s*%-?%d+%.?%d*%s*$")
-						or mid:match("^%s*v%d+%s*=%s*true%s*$")
-						or mid:match("^%s*v%d+%s*=%s*false%s*$")
-						or mid:match("^%s*v%d+%s*=%s*nil%s*$")
-						or mid:match("^%s*v%d+%s*=%s*[%a_][%w_%.]*%s*$")
+					local isSimpleAssign = mid:match('^%s*v%d+_?%d*%s*=%s*".-"%s*$')
+						or mid:match("^%s*v%d+_?%d*%s*=%s*%-?%d+%.?%d*%s*$")
+						or mid:match("^%s*v%d+_?%d*%s*=%s*true%s*$")
+						or mid:match("^%s*v%d+_?%d*%s*=%s*false%s*$")
+						or mid:match("^%s*v%d+_?%d*%s*=%s*nil%s*$")
+						or mid:match("^%s*v%d+_?%d*%s*=%s*[%a_][%w_%.]*%s*$")
 					if isSimpleAssign then
 						j += 1
 						skipped += 1
@@ -2734,14 +2991,104 @@ local function main()
 				rawLines[i] = nil
 				return true
 			end
+
+			local function tryFoldRegisterChain(i)
+				local line = rawLines[i]
+				if not line then
+					return false
+				end
+
+				local indent, localKw, reg, rhs = line:match("^(%s*)(local%s+)?(v%d+_?%d*)%s*=%s*(.+)%s*$")
+
+				if not reg or not rhs then
+					return false
+				end
+
+				local ep = escpat(reg)
+				local suffix = rhs:match("^" .. ep .. "([%.:].+)$")
+
+				if suffix then
+					local j = i + 1
+					while j <= #rawLines and (rawLines[j] == nil or rawLines[j]:match("^%s*$")) do
+						j += 1
+					end
+
+					if j <= #rawLines and rawLines[j] then
+						local ni, nk, nr, nrhs = rawLines[j]:match("^(%s*)(local%s+)?(v%d+_?%d*)%s*=%s*(.+)%s*$")
+
+						if nr == reg and nrhs then
+							local np = nrhs:match("^" .. ep .. "([%.:].+)$")
+							if np then
+								return false
+							end
+						end
+					end
+				end
+
+				local j = i + 1
+				while j <= #rawLines and (rawLines[j] == nil or rawLines[j]:match("^%s*$")) do
+					j += 1
+				end
+
+				if j <= #rawLines and rawLines[j] then
+					local _, _, nextReg, nextRhs = rawLines[j]:match("^(%s*)(local%s+)?(v%d+_?%d*)%s*=%s*(.+)%s*$")
+
+					if nextReg == reg and nextRhs then
+						local nextSuffix = nextRhs:match("^" .. ep .. "([%.:].+)$")
+						if nextSuffix then
+							if not rhs:find(ep) then
+								rawLines[i] = indent .. (localKw or "") .. reg .. " = " .. rhs .. nextSuffix
+								rawLines[j] = nil
+								return true
+							end
+						end
+					end
+				end
+
+				return false
+			end
+
+			local function tryFoldExpression(i)
+				local line = rawLines[i]
+				if not line then
+					return false
+				end
+				local reg, expr = line:match("^%s*local%s+(v%d+_?%d*)%s*=%s*(.+)%s*$")
+				if not reg then
+					reg, expr = line:match("^%s*(v%d+_?%d*)%s*=%s*(.+)%s*$")
+				end
+				if not reg or not expr then
+					return false
+				end
+				local ep = escpat(reg)
+				local j = nextNonBlank(i + 1)
+				if j > #rawLines or not rawLines[j] then
+					return false
+				end
+				local nxt = rawLines[j]
+				local cnt = 0
+				for _ in nxt:gmatch(ep) do
+					cnt += 1
+				end
+				if cnt ~= 1 or nxt:match("^%s*local%s+" .. ep .. "%s*=") or nxt:match("^%s*" .. ep .. "%s*=") then
+					return false
+				end
+				rawLines[j] = nxt:gsub(ep, escrep(expr), 1)
+				rawLines[i] = nil
+				return true
+			end
+
 			local function tryFoldField(i)
 				local line = rawLines[i]
 				if not line then
 					return false
 				end
-				local lreg, src, field = line:match("^%s*(v%d+) = (v%d+)%.([%a_][%w_]*)%s*$")
+				local lreg, src, field = line:match("^%s*local%s+(v%d+_?%d*) = (v%d+_?%d*)%.([%a_][%w_]*)%s*$")
 				if not lreg then
-					lreg, src, field = line:match("^%s*(v%d+) = (v%d+)%[(.-)%]%s*$")
+					lreg, src, field = line:match("^%s*(v%d+_?%d*) = (v%d+_?%d*)%.([%a_][%w_]*)%s*$")
+				end
+				if not lreg then
+					lreg, src, field = line:match("^%s*(v%d+_?%d*) = (v%d+_?%d*)%[(.-)%]%s*$")
 					if lreg then
 						field = "[" .. field .. "]"
 					else
@@ -2770,7 +3117,6 @@ local function main()
 				rawLines[i] = nil
 				return true
 			end
-
 			local function tryFoldUpv(i)
 				local line = rawLines[i]
 				if not line then
@@ -2804,7 +3150,6 @@ local function main()
 				rawLines[i] = nil
 				return true
 			end
-
 			do
 				local changed = true
 				local guard = 0
@@ -2812,7 +3157,22 @@ local function main()
 					changed = false
 					guard += 1
 					for i = 1, #rawLines do
+						if tryFoldRegisterChain(i) then
+							changed = true
+						end
+					end
+					for i = 1, #rawLines do
+						if tryFoldRegisterChain(i) then
+							changed = true
+						end
+					end
+					for i = 1, #rawLines do
 						if tryCollapse(i) then
+							changed = true
+						end
+					end
+					for i = 1, #rawLines do
+						if tryFoldExpression(i) then
 							changed = true
 						end
 					end
@@ -2828,13 +3188,12 @@ local function main()
 					end
 				end
 			end
-
 			do
 				local i = 1
 				while i <= #rawLines do
 					local line = rawLines[i]
-					if line and line:match("^%s*v%d+ = {}%s*$") then
-						local tbl = line:match("^%s*(v%d+)")
+					if line and line:match("^%s*v%d+_?%d* = {}%s*$") then
+						local tbl = line:match("^%s*(v%d+_?%d*)")
 						local ep = escpat(tbl)
 						local entries, j = {}, i + 1
 						while j <= #rawLines do
@@ -2872,7 +3231,8 @@ local function main()
 								end
 							end
 							for _, e in ipairs(entries) do
-								parts[#parts + 1] = allNum and e.val or (e.key .. " = " .. e.val)
+								parts[#parts + 1] = allNum and e.val
+									or (e.num and fmtKey(tonumber(e.key)) .. e.val or fmtKey(e.key) .. e.val)
 								rawLines[e.idx] = nil
 							end
 							local ind = line:match("^(%s*)")
@@ -2881,11 +3241,10 @@ local function main()
 							else
 								rawLines[i] = ind
 									.. tbl
-									.. " = {\n"
+									.. " = {"
 									.. ind
 									.. "\t"
-									.. table.concat(parts, ",\n" .. ind .. "\t")
-									.. "\n"
+									.. table.concat(parts, ", " .. ind .. "\t")
 									.. ind
 									.. "}"
 							end
@@ -2894,7 +3253,6 @@ local function main()
 					i += 1
 				end
 			end
-
 			do
 				local changed = true
 				local guard = 0
@@ -2914,6 +3272,26 @@ local function main()
 					for i = 1, #rawLines do
 						if tryFoldUpv(i) then
 							changed = true
+						end
+					end
+				end
+			end
+			do
+				for i = 1, #rawLines do
+					local line = rawLines[i]
+					local reg = line and line:match("^%s*local%s+(v%d+_?%d*)%s*$")
+					if reg then
+						local ep = escpat(reg)
+						local used = false
+						for j = i + 1, #rawLines do
+							local other = rawLines[j]
+							if other and other:find(ep) then
+								used = true
+								break
+							end
+						end
+						if not used then
+							rawLines[i] = nil
 						end
 					end
 				end
@@ -2958,44 +3336,42 @@ local function main()
 				line = line:gsub("%s*%-%- iterate %+ jump to #%d+", "")
 				pass2[#pass2 + 1] = line
 			end
-
 			local pass2b = {}
 			for _, line in ipairs(pass2) do
 				local r = line
 				do
-					local ind, rest = r:match("^(%s*)for v%d+ = (.+)$")
+					local ind, rest = r:match("^(%s*)for v%d+_?%d* = (.+)$")
 					if ind then
 						r = ind .. "for i = " .. rest
 					end
 				end
 				do
-					local ind, rest = r:match("^(%s*)for v%d+, v%d+ in pairs(.+)$")
+					local ind, rest = r:match("^(%s*)for v%d+_?%d*, v%d+_?%d* in pairs(.+)$")
 					if ind then
 						r = ind .. "for k, v in pairs" .. rest
 					end
 				end
 				do
-					local ind, rest = r:match("^(%s*)for v%d+, v%d+ in ipairs(.+)$")
+					local ind, rest = r:match("^(%s*)for v%d+_?%d*, v%d+_?%d* in ipairs(.+)$")
 					if ind then
 						r = ind .. "for i, v in ipairs" .. rest
 					end
 				end
 				do
-					local ind, iter = r:match("^(%s*)for v%d+, v%d+ in (v%d+) do%s*$")
+					local ind, iter = r:match("^(%s*)for v%d+_?%d*, v%d+_?%d* in (v%d+_?%d*) do%s*$")
 					if ind then
 						r = ind .. "for k, v in " .. iter .. " do"
 					end
 				end
 				pass2b[#pass2b + 1] = r
 			end
-
 			local pass3 = {}
 			local i3 = 1
 			while i3 <= #pass2b do
 				local line = pass2b[i3]
 				local nxt = pass2b[i3 + 1]
 				local s = line and line:match("^%s*(.-)%s*$") or ""
-				local isNil = s:match("^v%d+ = nil") or s:match("^local v%d+ = nil")
+				local isNil = s:match("^v%d+_?%d* = nil") or s:match("^local v%d+_?%d* = nil")
 				local nxtFor = nxt and nxt:match("^%s*for%s+")
 				if isNil and nxtFor then
 					i3 += 1
@@ -3004,7 +3380,6 @@ local function main()
 					i3 += 1
 				end
 			end
-
 			local pass3b = {}
 			local i3b = 1
 			while i3b <= #pass3 do
@@ -3022,17 +3397,152 @@ local function main()
 				i3b += 1
 			end
 
+			for i = 1, #pass3b - 1 do
+				local line = pass3b[i]
+				local nxt = pass3b[i + 1]
+				if line and nxt then
+					local ind, fnreg, callee = line:match("^(%s*)(v%d+_?%d*)%s*=%s*([%a_][%w_]*)%s*$")
+					local outreg, callbase, args = nxt:match("^(%s*)(v%d+_?%d*)%s*=%s*(v%d+_?%d*)%((.*)%)%s*$")
+					if fnreg and callee and outreg and callbase == fnreg then
+						local argPattern = "[%w_]" .. fnreg .. "[%w_]"
+						if args:match("^" .. fnreg .. "%s*,") or args:match(",%s*" .. fnreg .. "%s*$") then
+							local prefix = ind or ""
+							pass3b[i] = ""
+							pass3b[i + 1] = prefix
+								.. outreg
+								.. " = "
+								.. callee
+								.. "("
+								.. args:gsub("^" .. fnreg, fnreg, 1)
+								.. ")"
+						end
+					end
+				end
+			end
+
+			for i = 1, #pass3b - 1 do
+				local defLine = pass3b[i]
+				local callLine = pass3b[i + 1]
+				if defLine and callLine then
+					local di, dk, freg, fexpr = defLine:match("^(%s*)(local%s+)?(v%d+_?%d*)%s*=%s*(.-)%s*$")
+					local ci, outreg, target, args =
+						callLine:match("^(%s*)(v%d+_?%d*)%s*=%s*(v%d+_?%d*)%s*%((.*)%)%s*$")
+					if freg and fexpr and ci and target == freg and safeExpr(fexpr) then
+						local ep = freg:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
+						local uses = 0
+						for j = i, #pass3b do
+							if pass3b[j] then
+								for _ in pass3b[j]:gmatch("%f[%w_]" .. ep .. "%f[^%w_]") do
+									uses += 1
+								end
+							end
+						end
+						if uses == 2 then
+							pass3b[i] = ""
+							pass3b[i + 1] = ci .. outreg .. " = " .. fexpr .. "(" .. args .. ")"
+							changed = true
+						end
+					end
+				end
+			end
+
+			for i = 1, #pass3b - 1 do
+				local defLine = pass3b[i]
+				local callLine = pass3b[i + 1]
+				if defLine and callLine then
+					local di, dk, dst, src = defLine:match("^(%s*)(local%s+)?(v%d+_?%d*)%s*=%s*(v%d+_?%d*)%s*$")
+					local ci, outreg, target, args =
+						callLine:match("^(%s*)(v%d+_?%d*)%s*=%s*(v%d+_?%d*)%s*%((.*)%)%s*$")
+					if dst and src and ci and target == dst then
+						local ep = dst:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
+						local uses = 0
+						for j = i, #pass3b do
+							if pass3b[j] then
+								for _ in pass3b[j]:gmatch("%f[%w_]" .. ep .. "%f[^%w_]") do
+									uses += 1
+								end
+							end
+						end
+						if uses == 2 then
+							pass3b[i] = ""
+							pass3b[i + 1] = ci .. outreg .. " = " .. src .. "(" .. args .. ")"
+							changed = true
+						end
+					end
+				end
+			end
+
+			do
+				local i = 1
+				while i <= #pass3b - 1 do
+					local line = pass3b[i]
+					if line then
+						local ind, fn, args = line:match("^(%s*)local%s+function%s+([%a_][%w_]*)%s*(%b())")
+						if fn then
+							local j = i + 1
+							local fnIndent = #ind
+							while j <= #pass3b do
+								local s = pass3b[j]
+								if s and s:match("^%s*end%s*$") and #(s:match("^(%s*)") or "") == fnIndent then
+									local assign = pass3b[j + 1]
+									local base, field = assign
+										and assign:match(
+											"^%s*(v%d+_?%d*)%.([%a_][%w_]*)%s*=%s*" .. escpat(fn) .. "%s*$"
+										)
+									if base and field then
+										pass3b[i] = ind .. "function " .. base .. "." .. field .. args
+										pass3b[j + 1] = nil
+									end
+									break
+								end
+								j += 1
+							end
+						end
+					end
+					i += 1
+				end
+			end
+
+			for i, line in ipairs(pass3b) do
+				if line then
+					local ind, reg, value =
+						line:match("^(%s*)local%s+(v%d+_?%d*)%s*=%s*{%s*__index%s*=%s*(v%d+_?%d*)%s*}%s*$")
+					if reg and value and reg == value then
+						pass3b[i] = ind .. "local " .. reg .. " = {}"
+						table.insert(pass3b, i + 1, ind .. reg .. ".__index = " .. reg)
+					end
+				end
+			end
+
+			local knownFunctions = {}
+			for _, line in ipairs(pass3b) do
+				local fn = line:match("^%s*local%s+function%s+([%a_][%w_]*)%s*(")
+				if fn then
+					knownFunctions[fn] = true
+				end
+			end
+			for i, line in ipairs(pass3b) do
+				if line then
+					local target, field, fn = line:match("^(%s*v%d+_?%d*)%.([%a_][%w_]*)%s*=%s*([%a_][%w_]*)$")
+					if fn then
+						local base = fn:match("^(.+)_([0-9]+)$")
+						if base and knownFunctions[base] then
+							pass3b[i] = target .. "." .. field .. " = " .. base
+						end
+					end
+				end
+			end
+
 			local seen4 = {}
 			local pass4 = {}
 			for _, line in ipairs(pass3b) do
-				local reg = line:match("^%s*(v%d+)%s*=")
+				local reg = line:match("^%s*(v%d+_?%d*)%s*=")
 				if reg and not seen4[reg] then
 					seen4[reg] = true
-					line = line:gsub("^(%s*)(v%d+%s*=)", "%1local %2", 1)
+					line = line:gsub("^(%s*)(v%d+_?%d*%s*=)", "%1local %2", 1)
 				end
 				pass4[#pass4 + 1] = line
 			end
-
 			local seen4b = {}
 			local pass4b = {}
 			for _, line in ipairs(pass4) do
@@ -3042,6 +3552,20 @@ local function main()
 					line = line:gsub("^(%s*)(upv_%d+%s*=)", "%1local %2", 1)
 				end
 				pass4b[#pass4b + 1] = line
+			end
+			for i = 1, #pass4b do
+				local line = pass4b[i]
+				if line then
+					for className, expr in pairs(_svcNames) do
+						local pat = 'game:GetService("' .. escpat(className) .. '")'
+						if line:find(pat, 1, true) and expr ~= pat then
+							line = line:gsub(pat, function()
+								return expr
+							end)
+						end
+					end
+					pass4b[i] = line
+				end
 			end
 
 			local final = {}
@@ -3054,14 +3578,12 @@ local function main()
 				lastBlank = isBlank
 				final[#final + 1] = line
 			end
-
 			return table.concat(final, "\n")
 		end
+
 		ZukDecompile = Decompile
-		prettyPrint = _ppImpl
 		cleanOutput = _coImpl
 		getgenv()._ZUK_DECOMPILE = Decompile
-		getgenv()._ZUK_PRETTYPRINT = _ppImpl
 		getgenv()._ZUK_CLEANOUTPUT = _coImpl
 	end)
 end
