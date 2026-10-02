@@ -8140,7 +8140,7 @@ local EmbeddedModules = {
 							elseif n == "HeadshotDamageMultiplier" or lowerN:find("headshot") then
 								return 100
 							elseif n == "FireRate" or n == "BurstRate" or n == "ReloadTime" or n == "EquipTime" then
-								return 0.03
+								return 0.08
 							elseif n == "TacticalReloadTime" or n == "SwitchTime" or lowerN:find("delay") then
 								return 0
 							elseif n == "AmmoPerMag" then
@@ -8148,7 +8148,7 @@ local EmbeddedModules = {
 							elseif n == "Recoil" then
 								return 0
 							elseif n == "BulletPerShot" then
-								return 5
+								return 15
 							elseif n == "FriendlyFire" then
 								return true
 							elseif n == "Lifesteal" then
@@ -8174,7 +8174,7 @@ local EmbeddedModules = {
 							elseif n == "DelayBeforeFiring" then
 								return 0
 							elseif n == "Auto" then
-								return false
+								return true
 							elseif n == "CriticalDamageEnabled" then
 								return 999999
 							elseif n == "HoldDownEnabled" then
@@ -8219,11 +8219,7 @@ local EmbeddedModules = {
 							return "nil"
 						end
 
-						local output = "\n--[[ pwned: "
-							.. module.Name
-							.. "\n\tMade with love.\n\tTARGET: "
-							.. path
-							.. "\n--]]\n\n"
+						local output = "--[[ Patched ~ ".. path .. "]]\n\n"
 						output = output .. "local _ = require(" .. path .. ")\n"
 						output = output .. "if setreadonly then setreadonly(_, false) end\n\n"
 
@@ -8236,7 +8232,7 @@ local EmbeddedModules = {
 									local pValDisp = serialize(pVal)
 
 									if pVal ~= v then
-										output = output .. "_." .. tostring(k) .. " = " .. pValDisp .. " -- [zukv2]\n"
+										output = output .. "_." .. tostring(k) .. " = " .. pValDisp
 									end
 								end
 							end
