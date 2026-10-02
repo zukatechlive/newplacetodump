@@ -28588,9 +28588,6 @@ local function main()
 				end
 				return t
 			end
-			function self:nextChar()
-				return string.char(self:nextByte())
-			end
 			function self:nextUInt32()
 				guard(4)
 				local r = buffer.readu32(stream, cursor)
@@ -29134,7 +29131,7 @@ local function main()
 			Luau.OpCode = encoded
 		end
 		local DEFAULT_OPTIONS = {
-			EnabledRemarks = { ColdRemark = false, InlineRemark = true },
+			EnabledRemarks = { ColdRemark = true },
 			DecompilerTimeout = 10,
 			DecompilerMode = "disasm",
 			ReaderFloatPrecision = 7,
@@ -29186,78 +29183,72 @@ local function main()
 			return s .. string.rep(ch, math.max(0, n - #s))
 		end
 		local ROBLOX_GLOBALS = {
-
-			"game",
-			"workspace",
-			"script",
-			"plugin",
-			"settings",
-			"shared",
-			"UserSettings",
-			"print",
-			"warn",
-			"error",
-			"assert",
-			"pcall",
-			"xpcall",
-			"require",
-			"select",
-			"pairs",
-			"ipairs",
-			"next",
-			"unpack",
-			"type",
-			"typeof",
-			"tostring",
-			"tonumber",
-			"setmetatable",
-			"getmetatable",
-			"rawset",
-			"rawget",
-			"rawequal",
-			"rawlen",
-			"math",
-			"table",
-			"string",
-			"bit32",
-			"coroutine",
-			"os",
-			"utf8",
-			"task",
-			"buffer",
-			"Instance",
-			"Enum",
-			"Vector3",
-			"Vector2",
-			"CFrame",
-			"Color3",
-			"BrickColor",
-			"UDim",
-			"UDim2",
-			"Ray",
-			"Axes",
-			"Faces",
-			"NumberRange",
-			"NumberSequence",
-			"ColorSequence",
-			"TweenInfo",
-			"RaycastParams",
-			"OverlapParams",
-			"tick",
-			"time",
-			"wait",
-			"delay",
-			"spawn",
-			"_G",
-			"_VERSION",
+			game = true,
+			workspace = true,
+			script = true,
+			plugin = true,
+			settings = true,
+			shared = true,
+			UserSettings = true,
+			print = true,
+			warn = true,
+			error = true,
+			assert = true,
+			pcall = true,
+			xpcall = true,
+			require = true,
+			select = true,
+			pairs = true,
+			ipairs = true,
+			next = true,
+			unpack = true,
+			type = true,
+			typeof = true,
+			tostring = true,
+			tonumber = true,
+			setmetatable = true,
+			getmetatable = true,
+			rawset = true,
+			rawget = true,
+			rawequal = true,
+			rawlen = true,
+			math = true,
+			table = true,
+			string = true,
+			bit32 = true,
+			coroutine = true,
+			os = true,
+			utf8 = true,
+			task = true,
+			buffer = true,
+			Instance = true,
+			Enum = true,
+			Vector3 = true,
+			Vector2 = true,
+			CFrame = true,
+			Color3 = true,
+			BrickColor = true,
+			UDim = true,
+			UDim2 = true,
+			Ray = true,
+			Axes = true,
+			Faces = true,
+			NumberRange = true,
+			NumberSequence = true,
+			ColorSequence = true,
+			TweenInfo = true,
+			RaycastParams = true,
+			OverlapParams = true,
+			tick = true,
+			time = true,
+			wait = true,
+			delay = true,
+			spawn = true,
+			_G = true,
+			_VERSION = true,
 		}
 		local function isGlobal(key)
-			for _, v in ipairs(ROBLOX_GLOBALS) do
-				if v == key then
-					return true
-				end
-			end
-			return false
+			return ROBLOX_GLOBALS[key] == true
 		end
 		local _coImpl
 
@@ -29377,25 +29368,90 @@ local function main()
 								local function kstr(idx)
 									return tostring(kv(idx) and kv(idx).value or "")
 								end
+								local ROBLOX_SERVICES = {
+									Players = true,
+									ReplicatedStorage = true,
+									ReplicatedFirst = true,
+									ServerStorage = true,
+									ServerScriptService = true,
+									StarterGui = true,
+									StarterPack = true,
+									StarterPlayer = true,
+									Workspace = true,
+									Lighting = true,
+									SoundService = true,
+									RunService = true,
+									UserInputService = true,
+									TweenService = true,
+									HttpService = true,
+									MarketplaceService = true,
+									DataStoreService = true,
+									MessagingService = true,
+									MemoryStoreService = true,
+									TextService = true,
+									TextChatService = true,
+									ContextActionService = true,
+									GuiService = true,
+									CollectionService = true,
+									PhysicsService = true,
+									PathfindingService = true,
+									ContentProvider = true,
+									InsertService = true,
+									CoreGui = true,
+									Teams = true,
+									LocalizationService = true,
+									ScriptContext = true,
+									Stats = true,
+									TestService = true,
+									VRService = true,
+									HapticService = true,
+									GamepadService = true,
+									AnalyticsService = true,
+									AdService = true,
+									AvatarEditorService = true,
+									BadgeService = true,
+									ChangeHistoryService = true,
+									Chat = true,
+									FriendService = true,
+									GroupService = true,
+									NetworkClient = true,
+									NetworkServer = true,
+									NotificationService = true,
+									PointsService = true,
+									PolicyService = true,
+									RemoteConfigService = true,
+									RobloxReplicatedStorage = true,
+									Selection = true,
+									SpatialVoiceService = true,
+									StudioService = true,
+									Terrain = true,
+									TeleportService = true,
+									AssetService = true,
+									ScriptEditorService = true,
+								}
+								local function gameImport(svc)
+									if ROBLOX_SERVICES[svc] then
+										return 'game:GetService("' .. svc .. '")'
+									else
+										return "game." .. svc
+									end
+								end
 								if idxCount == 1 then
 									tag = kstr(ci1)
 								elseif idxCount == 2 then
 									local root = kstr(ci1)
 									local leaf = kstr(ci2)
-									-- Luau encodes game:GetService("X") as a 2-deep import
-									-- where root == "game" and leaf is the service name.
 									if root == "game" then
-										tag = 'game:GetService("' .. leaf .. '")'
+										tag = gameImport(leaf)
 									else
 										tag = root .. "." .. leaf
 									end
 								elseif idxCount == 3 then
-									local root  = kstr(ci1)
-									local mid   = kstr(ci2)
-									local leaf  = kstr(ci3)
-									-- 3-deep: root:GetService("mid").leaf
+									local root = kstr(ci1)
+									local mid = kstr(ci2)
+									local leaf = kstr(ci3)
 									if root == "game" then
-										tag = 'game:GetService("' .. mid .. '").' .. leaf
+										tag = gameImport(mid) .. "." .. leaf
 									else
 										tag = root .. "." .. mid .. "." .. leaf
 									end
@@ -29528,13 +29584,10 @@ local function main()
 						if bytecodeVersion >= 11 then
 							reader:mark(pfx .. "feedbackvec:count")
 							local feedbackSize = reader:nextVarInt()
-							local feedback = {}
-							for j = 1, feedbackSize do
-								reader:mark(pfx .. "feedbackvec[" .. (j - 1) .. "/" .. feedbackSize .. "]")
-								local slotType = reader:nextByte()
-								feedback[j] = { kind = slotType, pc = reader:nextVarInt() }
+							for _ = 1, feedbackSize do
+								reader:nextByte()
+								reader:nextVarInt()
 							end
-							proto.feedbackVector = feedback
 						end
 						if bytecodeVersion >= 12 then
 							local LPF_INLINABLE = 8
@@ -29873,15 +29926,9 @@ local function main()
 				end
 				if options.DecompilerMode == "disasm" then
 					local resultParts = {}
-					-- emitRaw: push a string fragment with no automatic newline.
-					-- Use only for tokens that are intentionally glued to the previous/next emit
-					-- on the same logical line (debug prefix columns, LOADB skip annotation, etc.)
 					local function emitRaw(s)
 						resultParts[#resultParts + 1] = s
 					end
-					-- emit: push a complete statement/line. Strips any trailing \n the caller
-					-- already included, then appends exactly one \n so _coImpl always sees
-					-- one statement per split-line.
 					local function emit(s)
 						resultParts[#resultParts + 1] = s:gsub("\n*$", "") .. "\n"
 					end
@@ -30489,7 +30536,9 @@ local function main()
 									table.insert(usedGlobals, gk)
 									usedGlobalsSet[gk] = true
 								end
-								emit(ind() .. R(ur[1]) .. " = " .. gk)
+								if R(ur[1]) ~= gk then
+									emit(ind() .. R(ur[1]) .. " = " .. gk)
+								end
 							elseif opn == "SETGLOBAL" then
 								local gk = tostring(consts[ed[1] + 1] and consts[ed[1] + 1].value or "")
 								if options.ListUsedGlobals and isValidGlobal(gk) then
@@ -31006,9 +31055,6 @@ local function main()
 				return manager(false, "UNSUPPORTED_LBC_VERSION")
 			end
 		end
-		local MAX_DEPTH = 60
-		local INDENT_UNIT = "    "
-
 		local LUA_KW = {
 			["and"] = true,
 			["break"] = true,
@@ -31097,82 +31143,7 @@ local function main()
 
 		local _svcNames = {
 			Workspace = "workspace",
-			Players = 'game:GetService("Players")',
-			ReplicatedStorage = 'game:GetService("ReplicatedStorage")',
-			ServerStorage = 'game:GetService("ServerStorage")',
-			ServerScriptService = 'game:GetService("ServerScriptService")',
-			StarterGui = 'game:GetService("StarterGui")',
-			StarterPack = 'game:GetService("StarterPack")',
-			StarterPlayer = 'game:GetService("StarterPlayer")',
-			Lighting = 'game:GetService("Lighting")',
-			SoundService = 'game:GetService("SoundService")',
-			RunService = 'game:GetService("RunService")',
-			ReplicatedFirst = 'game:GetService("ReplicatedFirst")',
-			TeleportService = 'game:GetService("TeleportService")',
-			UserInputService = 'game:GetService("UserInputService")',
-			HttpService = 'game:GetService("HttpService")',
-			TweenService = 'game:GetService("TweenService")',
-			ContextActionService = 'game:GetService("ContextActionService")',
-			CollectionService = 'game:GetService("CollectionService")',
-			MarketplaceService = 'game:GetService("MarketplaceService")',
-			Debris = 'game:GetService("Debris")',
 		}
-
-		local function getFullPath(inst)
-			local ok, result = pcall(function()
-				if inst == game then
-					return "game"
-				end
-				local chain, p = {}, inst
-				local depth = 0
-				while p and p ~= game and depth < MAX_DEPTH do
-					chain[#chain + 1] = p
-					local par = p.Parent
-					if par == nil then
-						break
-					end
-					p = par
-					depth += 1
-				end
-				if #chain == 0 then
-					return "nil --[[ destroyed ]]"
-				end
-				local root = chain[#chain]
-				local path = _svcNames[root.ClassName] or ('game:GetService("%s")'):format(escapeString(root.ClassName))
-				for i = #chain - 1, 1, -1 do
-					path ..= (':FindFirstChild("%s")'):format(escapeString(chain[i].Name))
-				end
-				return path
-			end)
-			return ok and result or "nil --[[ path resolution failed ]]"
-		end
-
-		local function fmtBuffer(buf, indent)
-			if type(buffer) ~= "table" and type(buffer) ~= "userdata" then
-				return nil
-			end
-			local ok, len = pcall(buffer.len, buf)
-			if not ok then
-				return nil
-			end
-			indent = indent or 0
-			local rep = string.rep(INDENT_UNIT, indent)
-			local rep1 = string.rep(INDENT_UNIT, indent + 1)
-			local lines = { "(function()", rep1 .. ("local b = buffer.create(%d)"):format(len) }
-			for i = 0, len - 1 do
-				local rok, byte = pcall(buffer.readu8, buf, i)
-				if rok and byte ~= 0 then
-					local printable = byte >= 32 and byte < 127
-					local cmt = printable and ("'%s'"):format(escapeString(string.char(byte)))
-						or ("0x%02X"):format(byte)
-					lines[#lines + 1] = rep1
-						.. ("buffer.writeu8(b, %d, %d) --[[ %s ]] "):format(i, byte, cmt):gsub("%s+$", "")
-				end
-			end
-			lines[#lines + 1] = rep1 .. "return b"
-			lines[#lines + 1] = rep .. "end)()"
-			return table.concat(lines, "\n")
-		end
 
 		_coImpl = function(text)
 			local rawLines = {}
@@ -31180,22 +31151,100 @@ local function main()
 				rawLines[#rawLines + 1] = line:gsub("\n$", "")
 			end
 
+			local INLINEABLE_GLOBALS = {
+				game = true,
+				workspace = true,
+				script = true,
+				require = true,
+				shared = true,
+				print = true,
+				warn = true,
+				error = true,
+				tostring = true,
+				tonumber = true,
+				type = true,
+				pairs = true,
+				ipairs = true,
+				next = true,
+				select = true,
+				unpack = true,
+				pcall = true,
+				xpcall = true,
+				rawget = true,
+				rawset = true,
+				rawequal = true,
+				rawlen = true,
+				setmetatable = true,
+				getmetatable = true,
+				table = true,
+				string = true,
+				math = true,
+				bit32 = true,
+				task = true,
+				os = true,
+				coroutine = true,
+				assert = true,
+				collectgarbage = true,
+				gcinfo = true,
+				loadstring = true,
+				newproxy = true,
+				tick = true,
+				time = true,
+				wait = true,
+				spawn = true,
+				delay = true,
+				Vector3 = true,
+				Vector2 = true,
+				CFrame = true,
+				Color3 = true,
+				BrickColor = true,
+				UDim = true,
+				UDim2 = true,
+				Enum = true,
+				Instance = true,
+				TweenInfo = true,
+				NumberSequence = true,
+				ColorSequence = true,
+				NumberSequenceKeypoint = true,
+				ColorSequenceKeypoint = true,
+				Ray = true,
+				Region3 = true,
+				Rect = true,
+				Random = true,
+				RaycastParams = true,
+				OverlapParams = true,
+				PathfindingResult = true,
+			}
 			for i = 1, #rawLines do
 				local line = rawLines[i]
-				if line then
-					local ind, lhs, rhs = line:match("^(%s*)([%a_][%w_]*)%s*=%s*([%a_][%w_]*)%s*$")
-					if
-						lhs
-						and rhs
-						and lhs == rhs
-						and (
-							lhs == "game"
-							or lhs == "workspace"
-							or lhs == "script"
-							or lhs == "require"
-							or lhs == "shared"
-						)
-					then
+				if not line then
+					continue
+				end
+				local ind, lhs, rhs = line:match("^(%s*)([%a_][%w_]*)%s*=%s*([%a_][%w_]*)%s*$")
+				if lhs and rhs and lhs == rhs and INLINEABLE_GLOBALS[lhs] then
+					rawLines[i] = nil
+					continue
+				end
+				local reg, gbl = line:match("^%s*(v%d+_?%d*)%s*=%s*([%a_][%w_]*)%s*$")
+				if reg and gbl and INLINEABLE_GLOBALS[gbl] then
+					local ep = reg:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
+					local wbEp = "%f[%w_]" .. ep .. "%f[^%w_]"
+					local uses = 0
+					for k = i + 1, #rawLines do
+						local rl = rawLines[k]
+						if rl then
+							for _ in rl:gmatch(wbEp) do
+								uses += 1
+							end
+						end
+					end
+					if uses >= 1 then
+						local safeGbl = gbl:gsub("%%", "%%%%")
+						for k = i + 1, #rawLines do
+							if rawLines[k] then
+								rawLines[k] = rawLines[k]:gsub(wbEp, safeGbl)
+							end
+						end
 						rawLines[i] = nil
 					end
 				end
@@ -31513,7 +31562,7 @@ local function main()
 						skipped += 1
 						continue
 					end
-					if mid:find(ep) then
+					if mid:find("%f[%w_]" .. ep .. "%f[^%w_]") then
 						break
 					end
 					local isSimpleAssign = mid:match('^%s*v%d+_?%d*%s*=%s*".-"%s*$')
@@ -31533,15 +31582,12 @@ local function main()
 					return false
 				end
 				local nxt = rawLines[j]
-				-- Count ALL uses of this register across every remaining line,
-				-- not just on the target line. If it appears more than once total
-				-- (i.e. it's used on more than one line after its definition),
-				-- don't fold — we'd silently drop the other uses.
+				local wbEp = "%f[%w_]" .. ep .. "%f[^%w_]"
 				local totalUses = 0
 				for k = i + 1, #rawLines do
 					local rl = rawLines[k]
 					if rl then
-						for _ in rl:gmatch(ep) do
+						for _ in rl:gmatch(wbEp) do
 							totalUses += 1
 						end
 					end
@@ -31969,7 +32015,6 @@ local function main()
 					local ind, fnreg, callee = line:match("^(%s*)(v%d+_?%d*)%s*=%s*([%a_][%w_]*)%s*$")
 					local outreg, callbase, args = nxt:match("^(%s*)(v%d+_?%d*)%s*=%s*(v%d+_?%d*)%((.*)%)%s*$")
 					if fnreg and callee and outreg and callbase == fnreg then
-						local argPattern = "[%w_]" .. fnreg .. "[%w_]"
 						if args:match("^" .. fnreg .. "%s*,") or args:match(",%s*" .. fnreg .. "%s*$") then
 							local prefix = ind or ""
 							pass3b[i] = ""
