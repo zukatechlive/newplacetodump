@@ -28532,10 +28532,8 @@ local RETURN_ELAPSED_TIME = false
 
 
 
-
 local function main()
 	local ZukDecompile
-	local cleanOutput
 	task.defer(function()
 		local FLOAT_PRECISION = 7
 		local Reader = {}
@@ -28587,6 +28585,9 @@ local function main()
 					t[i] = self:nextByte()
 				end
 				return t
+			end
+			function self:nextChar()
+				return string.char(self:nextByte())
 			end
 			function self:nextUInt32()
 				guard(4)
@@ -29131,19 +29132,25 @@ local function main()
 			Luau.OpCode = encoded
 		end
 		local DEFAULT_OPTIONS = {
-			EnabledRemarks = { ColdRemark = true },
+			EnabledRemarks = { ColdRemark = false, InlineRemark = true },
 			DecompilerTimeout = 10,
 			DecompilerMode = "disasm",
 			ReaderFloatPrecision = 7,
 			ShowDebugInformation = false,
-			ShowInstructionLines = true,
+			ShowInstructionLines = false,
 			ShowOperationIndex = false,
 			ShowOperationNames = false,
-			ShowTrivialOperations = true,
-			UseTypeInfo = true,
+			ShowTrivialOperations = false,
+			UseTypeInfo = false,
 			ListUsedGlobals = true,
 			ReturnElapsedTime = false,
 			CleanMode = true,
+
+			MaxBytecodeBytes = 16 * 1024 * 1024,
+			MaxPrototypes = 10000,
+			MaxInstructions = 2000000,
+			MaxConstants = 2000000,
+			MaxOutputBytes = 32 * 1024 * 1024,
 		}
 		local LuauCompileUserdataInfo = true
 		pcall(function()
@@ -29183,76 +29190,104 @@ local function main()
 			return s .. string.rep(ch, math.max(0, n - #s))
 		end
 		local ROBLOX_GLOBALS = {
-			game = true,
-			workspace = true,
-			script = true,
-			plugin = true,
-			settings = true,
-			shared = true,
-			UserSettings = true,
-			print = true,
-			warn = true,
-			error = true,
-			assert = true,
-			pcall = true,
-			xpcall = true,
-			require = true,
-			select = true,
-			pairs = true,
-			ipairs = true,
-			next = true,
-			unpack = true,
-			type = true,
-			typeof = true,
-			tostring = true,
-			tonumber = true,
-			setmetatable = true,
-			getmetatable = true,
-			rawset = true,
-			rawget = true,
-			rawequal = true,
-			rawlen = true,
-			math = true,
-			table = true,
-			string = true,
-			bit32 = true,
-			coroutine = true,
-			os = true,
-			utf8 = true,
-			task = true,
-			buffer = true,
-			Instance = true,
-			Enum = true,
-			Vector3 = true,
-			Vector2 = true,
-			CFrame = true,
-			Color3 = true,
-			BrickColor = true,
-			UDim = true,
-			UDim2 = true,
-			Ray = true,
-			Axes = true,
-			Faces = true,
-			NumberRange = true,
-			NumberSequence = true,
-			ColorSequence = true,
-			TweenInfo = true,
-			RaycastParams = true,
-			OverlapParams = true,
-			tick = true,
-			time = true,
-			wait = true,
-			delay = true,
-			spawn = true,
-			_G = true,
-			_VERSION = true,
+			"game",
+			"workspace",
+			"script",
+			"plugin",
+			"settings",
+			"shared",
+			"UserSettings",
+			"print",
+			"warn",
+			"error",
+			"assert",
+			"pcall",
+			"xpcall",
+			"require",
+			"select",
+			"pairs",
+			"ipairs",
+			"next",
+			"unpack",
+			"type",
+			"typeof",
+			"tostring",
+			"tonumber",
+			"setmetatable",
+			"getmetatable",
+			"rawset",
+			"rawget",
+			"rawequal",
+			"rawlen",
+			"math",
+			"table",
+			"string",
+			"bit32",
+			"coroutine",
+			"os",
+			"utf8",
+			"task",
+			"buffer",
+			"Instance",
+			"Enum",
+			"Vector3",
+			"Vector2",
+			"CFrame",
+			"Color3",
+			"BrickColor",
+			"UDim",
+			"UDim2",
+			"Ray",
+			"Axes",
+			"Faces",
+			"NumberRange",
+			"NumberSequence",
+			"ColorSequence",
+			"TweenInfo",
+			"RaycastParams",
+			"OverlapParams",
+			"tick",
+			"time",
+			"wait",
+			"delay",
+			"spawn",
+			"_G",
+			"_VERSION",
 		}
 		local function isGlobal(key)
-			return ROBLOX_GLOBALS[key] == true
+			for _, v in ipairs(ROBLOX_GLOBALS) do
+				if v == key then
+					return true
+				end
+			end
+			return false
 		end
-		local _coImpl
-
 		local function Decompile(bytecode, options)
+			options = type(options) == "table" and options or {}
+			local function positiveLimit(name, default)
+				local n = options[name]
+				if n == nil then
+					n = default
+				end
+				if n == false then
+					return math.huge
+				end
+				if type(n) ~= "number" or n < 1 or n ~= math.floor(n) then
+					error(name .. " must be a positive integer or false", 2)
+				end
+				return n
+			end
+			local maxBytecodeBytes = positiveLimit("MaxBytecodeBytes", DEFAULT_OPTIONS.MaxBytecodeBytes)
+			local maxPrototypes = positiveLimit("MaxPrototypes", DEFAULT_OPTIONS.MaxPrototypes)
+			local maxInstructions = positiveLimit("MaxInstructions", DEFAULT_OPTIONS.MaxInstructions)
+			local maxConstants = positiveLimit("MaxConstants", DEFAULT_OPTIONS.MaxConstants)
+			local maxOutputBytes = positiveLimit("MaxOutputBytes", DEFAULT_OPTIONS.MaxOutputBytes)
+			if type(bytecode) ~= "string" then
+				error("bytecode must be a string", 2)
+			end
+			if #bytecode > maxBytecodeBytes then
+				error(("bytecode exceeds MaxBytecodeBytes (%d > %d)"):format(#bytecode, maxBytecodeBytes), 2)
+			end
 			local bytecodeVersion, typeEncodingVersion
 			Reader:Set(options.ReaderFloatPrecision)
 			local reader = Reader.new(bytecode)
@@ -29286,6 +29321,9 @@ local function main()
 				local function readProtoTable()
 					reader:mark("prototable:count")
 					local n = reader:nextVarInt()
+					if n > maxPrototypes then
+						error(("prototype count exceeds MaxPrototypes (%d > %d)"):format(n, maxPrototypes), 2)
+					end
 					for i = 1, n do
 						local protoId = i - 1
 						local pfx = "proto[" .. protoId .. "/" .. n .. "]:"
@@ -29337,12 +29375,32 @@ local function main()
 						end
 						reader:mark(pfx .. "instructions:count")
 						proto.sizeInstructions = reader:nextVarInt()
+						if proto.sizeInstructions > maxInstructions then
+							error(
+								("prototype %d instruction count exceeds MaxInstructions (%d > %d)"):format(
+									protoId,
+									proto.sizeInstructions,
+									maxInstructions
+								),
+								2
+							)
+						end
 						reader:mark(pfx .. "instructions[0.." .. proto.sizeInstructions .. "]")
 						for j = 1, proto.sizeInstructions do
 							proto.instructions[j] = reader:nextUInt32()
 						end
 						reader:mark(pfx .. "constants:count")
 						proto.sizeConstants = reader:nextVarInt()
+						if proto.sizeConstants > maxConstants then
+							error(
+								("prototype %d constant count exceeds MaxConstants (%d > %d)"):format(
+									protoId,
+									proto.sizeConstants,
+									maxConstants
+								),
+								2
+							)
+						end
 						for j = 1, proto.sizeConstants do
 							reader:mark(pfx .. "const[" .. (j - 1) .. "/" .. proto.sizeConstants .. "]:type")
 							local constType = reader:nextByte()
@@ -29365,96 +29423,18 @@ local function main()
 								local function kv(idx)
 									return proto.constants[idx + 1]
 								end
-								local function kstr(idx)
-									return tostring(kv(idx) and kv(idx).value or "")
-								end
-								local ROBLOX_SERVICES = {
-									Players = true,
-									ReplicatedStorage = true,
-									ReplicatedFirst = true,
-									ServerStorage = true,
-									ServerScriptService = true,
-									StarterGui = true,
-									StarterPack = true,
-									StarterPlayer = true,
-									Workspace = true,
-									Lighting = true,
-									SoundService = true,
-									RunService = true,
-									UserInputService = true,
-									TweenService = true,
-									HttpService = true,
-									MarketplaceService = true,
-									DataStoreService = true,
-									MessagingService = true,
-									MemoryStoreService = true,
-									TextService = true,
-									TextChatService = true,
-									ContextActionService = true,
-									GuiService = true,
-									CollectionService = true,
-									PhysicsService = true,
-									PathfindingService = true,
-									ContentProvider = true,
-									InsertService = true,
-									CoreGui = true,
-									Teams = true,
-									LocalizationService = true,
-									ScriptContext = true,
-									Stats = true,
-									TestService = true,
-									VRService = true,
-									HapticService = true,
-									GamepadService = true,
-									AnalyticsService = true,
-									AdService = true,
-									AvatarEditorService = true,
-									BadgeService = true,
-									ChangeHistoryService = true,
-									Chat = true,
-									FriendService = true,
-									GroupService = true,
-									NetworkClient = true,
-									NetworkServer = true,
-									NotificationService = true,
-									PointsService = true,
-									PolicyService = true,
-									RemoteConfigService = true,
-									RobloxReplicatedStorage = true,
-									Selection = true,
-									SpatialVoiceService = true,
-									StudioService = true,
-									Terrain = true,
-									TeleportService = true,
-									AssetService = true,
-									ScriptEditorService = true,
-								}
-								local function gameImport(svc)
-									if ROBLOX_SERVICES[svc] then
-										return 'game:GetService("' .. svc .. '")'
-									else
-										return "game." .. svc
-									end
-								end
 								if idxCount == 1 then
-									tag = kstr(ci1)
+									tag = tostring(kv(ci1) and kv(ci1).value or "")
 								elseif idxCount == 2 then
-									local root = kstr(ci1)
-									local leaf = kstr(ci2)
-									if root == "game" then
-										tag = gameImport(leaf)
-									else
-										tag = root .. "." .. leaf
-									end
+									tag = tostring(kv(ci1) and kv(ci1).value or "")
+										.. "."
+										.. tostring(kv(ci2) and kv(ci2).value or "")
 								elseif idxCount == 3 then
-									local root = kstr(ci1)
-									local mid = kstr(ci2)
-									local leaf = kstr(ci3)
-									if root == "game" then
-										tag = gameImport(mid) .. "." .. leaf
-									else
-										tag = root .. "." .. mid .. "." .. leaf
-									end
+									tag = tostring(kv(ci1) and kv(ci1).value or "")
+										.. "."
+										.. tostring(kv(ci2) and kv(ci2).value or "")
+										.. "."
+										.. tostring(kv(ci3) and kv(ci3).value or "")
 								end
 								constValue = tag
 							elseif constType == BT.LBC_CONSTANT_TABLE then
@@ -29584,10 +29564,13 @@ local function main()
 						if bytecodeVersion >= 11 then
 							reader:mark(pfx .. "feedbackvec:count")
 							local feedbackSize = reader:nextVarInt()
-							for _ = 1, feedbackSize do
-								reader:nextByte()
-								reader:nextVarInt()
+							local feedback = {}
+							for j = 1, feedbackSize do
+								reader:mark(pfx .. "feedbackvec[" .. (j - 1) .. "/" .. feedbackSize .. "]")
+								local slotType = reader:nextByte()
+								feedback[j] = { kind = slotType, pc = reader:nextVarInt() }
 							end
+							proto.feedbackVector = feedback
 						end
 						if bytecodeVersion >= 12 then
 							local LPF_INLINABLE = 8
@@ -29668,6 +29651,184 @@ local function main()
 						flags = df
 						proto.flags = df
 					end
+					local function validateInstruction(opn, A, B, C, sD, D, aux, idx)
+						local stack = proto.maxStackSize or 0
+						local function reg(r, label)
+							if r == nil then
+								return
+							end
+							if r < 0 or r >= stack then
+								error(
+									("invalid %s register %d in %s at instruction %d"):format(
+										label or "operand",
+										r,
+										opn,
+										idx
+									),
+									2
+								)
+							end
+						end
+						local function range(r, count, label)
+							if r == nil then
+								return
+							end
+							if count < 0 or r < 0 or r + count > stack then
+								error(
+									("invalid %s register range %d..%d in %s at instruction %d"):format(
+										label or "operand",
+										r,
+										r + count - 1,
+										opn,
+										idx
+									),
+									2
+								)
+							end
+						end
+						local function constant(k, label)
+							if k == nil then
+								return
+							end
+							if constants[k + 1] == nil then
+								error(
+									("invalid %s constant index %d in %s at instruction %d"):format(
+										label or "operand",
+										k,
+										opn,
+										idx
+									),
+									2
+								)
+							end
+						end
+
+						if
+							opn == "LOADNIL"
+							or opn == "LOADN"
+							or opn == "LOADK"
+							or opn == "NEWCLOSURE"
+							or opn == "DUPCLOSURE"
+							or opn == "NEWTABLE"
+							or opn == "DUPTABLE"
+							or opn == "GETVARARGS"
+						then
+							reg(A, "A")
+							if opn == "LOADK" then
+								constant(D, "LOADK")
+							end
+							if opn == "DUPCLOSURE" then
+								constant(D, "closure")
+							end
+						elseif opn == "LOADB" then
+							reg(A, "A")
+							if B ~= nil and B > 1 then
+								error("invalid LOADB boolean", 2)
+							end
+						elseif opn == "MOVE" or opn == "NOT" or opn == "MINUS" or opn == "LENGTH" then
+							reg(A, "A")
+							reg(B, "B")
+						elseif opn == "GETUPVAL" or opn == "SETUPVAL" then
+							reg(A, "A")
+							if B == nil or B < 0 or B >= (proto.numUpvalues or 0) then
+								error(
+									("invalid upvalue index %s in %s at instruction %d"):format(tostring(B), opn, idx),
+									2
+								)
+							end
+						elseif
+							opn == "GETTABLE"
+							or opn == "SETTABLE"
+							or opn == "AND"
+							or opn == "OR"
+							or opn == "CONCAT"
+							or opn == "ADD"
+							or opn == "SUB"
+							or opn == "MUL"
+							or opn == "DIV"
+							or opn == "MOD"
+							or opn == "POW"
+							or opn == "IDIV"
+						then
+							reg(A, "A")
+							reg(B, "B")
+							reg(C, "C")
+						elseif
+							opn == "ADDK"
+							or opn == "SUBK"
+							or opn == "MULK"
+							or opn == "DIVK"
+							or opn == "MODK"
+							or opn == "POWK"
+							or opn == "ANDK"
+							or opn == "ORK"
+							or opn == "IDIVK"
+						then
+							reg(A, "A")
+							reg(B, "B")
+							constant(C, "C")
+						elseif opn == "GETTABLEN" or opn == "SETTABLEN" then
+							reg(A, "A")
+							reg(B, "B")
+						elseif opn == "GETGLOBAL" or opn == "SETGLOBAL" then
+							reg(A, "A")
+							constant(aux, "global")
+						elseif opn == "GETIMPORT" then
+							reg(A, "A")
+							constant(D, "import")
+						elseif
+							opn == "GETTABLEKS"
+							or opn == "SETTABLEKS"
+							or opn == "GETUDATAKS"
+							or opn == "SETUDATAKS"
+							or opn == "NAMECALL"
+							or opn == "NAMECALLUDATA"
+						then
+							reg(A, "A")
+							reg(B, "B")
+							if opn == "NAMECALL" or opn == "NAMECALLUDATA" then
+								reg(A + 1, "A+1")
+							end
+							constant(aux, "property")
+						elseif opn == "CALL" or opn == "CALLFB" then
+							reg(A, "A")
+							if B and B > 0 then
+								range(A, B, "call arguments")
+							end
+							if C and C > 1 then
+								range(A, C - 1, "call results")
+							end
+						elseif opn == "RETURN" then
+							range(A, (B or 1) == 0 and 0 or (B - 1), "return")
+						elseif opn == "SETLIST" then
+							reg(A, "A")
+							if B and B > 0 then
+								range(B, (C or 0) == 0 and 0 or C - 1, "SETLIST")
+							end
+						elseif
+							opn == "FORNPREP"
+							or opn == "FORNLOOP"
+							or opn == "FORGPREP"
+							or opn == "FORGPREP_INEXT"
+							or opn == "FORGPREP_NEXT"
+							or opn == "FORGLOOP"
+						then
+							range(A, 3, "loop")
+						elseif opn == "SUBRK" or opn == "DIVRK" then
+							reg(A, "A")
+							constant(B, "B")
+							reg(C, "C")
+						end
+
+						if
+							aux ~= nil
+							and (opn == "GETTABLEKS" or opn == "SETTABLEKS" or opn == "GETGLOBAL" or opn == "SETGLOBAL" or opn == "GETIMPORT" or opn == "NAMECALL" or opn == "NAMECALLUDATA" or opn == "GETUDATAKS" or opn == "SETUDATAKS")
+							and idx >= #instructions
+						then
+							error(("missing AUX instruction for %s at %d"):format(opn, idx), 2)
+						end
+					end
+
 					local function writeInstructions()
 						local auxSkip = false
 						local function reg(act, regs, extra, hide)
@@ -29713,10 +29874,14 @@ local function main()
 								sD = Luau:INSN_sD(instruction)
 							end
 							if isAux then
+								if instructions[idx + 1] == nil then
+									error(("missing AUX word for %s at instruction %d"):format(opn, idx), 2)
+								end
 								auxSkip = true
 								reg(oci, nil, nil, true)
 								aux = instructions[idx + 1]
 							end
+							validateInstruction(opn, A, B, C, sD, D, aux, idx)
 							local st = not options.ShowTrivialOperations
 							if opn == "NOP" or opn == "BREAK" or opn == "NATIVECALL" then
 								reg(oci, nil, nil, st)
@@ -29926,11 +30091,8 @@ local function main()
 				end
 				if options.DecompilerMode == "disasm" then
 					local resultParts = {}
-					local function emitRaw(s)
-						resultParts[#resultParts + 1] = s
-					end
 					local function emit(s)
-						resultParts[#resultParts + 1] = s:gsub("\n*$", "") .. "\n"
+						resultParts[#resultParts + 1] = s
 					end
 					local function writeActions(protoActions)
 						local actions = protoActions.actions
@@ -30189,7 +30351,7 @@ local function main()
 							FindFirstChildOfClass = true,
 							FindFirstChildWhichIsA = true,
 						}
-						local KNOWN_GLOBAL_NAMES = { game = true, workspace = true, script = true, shared = true }
+						local KNOWN_GLOBAL_NAMES = { game = false, workspace = true, script = true, shared = false }
 						local function sanitizeName(s)
 							if not s or s == "" then
 								return nil
@@ -30255,6 +30417,16 @@ local function main()
 								return "v?"
 							end
 							local safeNumParams = numParams or 0
+							if instrIdx and proto.debugLocals then
+								local cached = regNameCache[instrIdx]
+								if not cached then
+									cached = buildRegNames(instrIdx)
+									regNameCache[instrIdx] = cached
+								end
+								if cached[r] and cached[r] ~= "" then
+									return cached[r]
+								end
+							end
 							local pr = r + 1
 							if pr < safeNumParams + 1 then
 								return "p" .. tostring((totalParameters - safeNumParams) + pr)
@@ -30264,16 +30436,6 @@ local function main()
 								local inferred = regInferredName[r .. ":" .. g]
 								if inferred then
 									return inferred
-								end
-							end
-							if instrIdx and proto.debugLocals then
-								local cached = regNameCache[instrIdx]
-								if not cached then
-									cached = buildRegNames(instrIdx)
-									regNameCache[instrIdx] = cached
-								end
-								if cached[r] and cached[r] ~= "" then
-									return cached[r]
 								end
 							end
 							local baseName = "v" .. tostring(r - safeNumParams)
@@ -30342,7 +30504,7 @@ local function main()
 							if p.isVarArg then
 								body ..= (p.numParams > 0) and ", ..." or "..."
 							end
-							body ..= ")"
+							body ..= ")\n"
 							if options.ShowDebugInformation then
 								body ..= "-- proto pool id: " .. tostring(p.id or "?") .. "\n"
 								body ..= "-- num upvalues: " .. tostring(p.numUpvalues or "?") .. "\n"
@@ -30386,7 +30548,7 @@ local function main()
 								body = fmtProto(p)
 							end
 							if p.name then
-								emit("" .. body)
+								emit("\n" .. body)
 								writeActions(registerActions[p.id])
 								emit("end\n" .. fmtReg(reg, captureInstrIdx) .. " = " .. emittedName)
 							else
@@ -30413,24 +30575,48 @@ local function main()
 							FORNLOOP = true,
 							FORGLOOP = true,
 						}
-						for i, action in ipairs(actions) do
+						local structuredMode = true
+						local function emitAction(i, action)
 							if action.hide then
-								continue
+								return
 							end
 							local ur = action.usedRegisters
 							local ed = action.extraData
 							local oci = action.opCode
 							if not oci then
-								continue
+								return
 							end
 							local opn = oci.name
+							if
+								structuredMode
+								and (
+									opn == "JUMP"
+									or opn == "JUMPBACK"
+									or opn == "JUMPX"
+									or opn == "JUMPIF"
+									or opn == "JUMPIFNOT"
+									or opn == "JUMPIFEQ"
+									or opn == "JUMPIFLE"
+									or opn == "JUMPIFLT"
+									or opn == "JUMPIFNOTEQ"
+									or opn == "JUMPIFNOTLE"
+									or opn == "JUMPIFNOTLT"
+									or opn == "JUMPXEQKNIL"
+									or opn == "JUMPXEQKB"
+									or opn == "JUMPXEQKN"
+									or opn == "JUMPXEQKS"
+									or opn == "CMPPROTO"
+								)
+							then
+								return
+							end
 							if options.CleanMode and CLEAN_SUPPRESS[opn] then
-								continue
+								return
 							end
 							if options.CleanMode and opn == "RETURN" then
 								local b = ed and ed[1] or 0
 								if b == 1 then
-									continue
+									return
 								end
 							end
 							if
@@ -30443,57 +30629,13 @@ local function main()
 									or actions[i - 1].opCode.name == "DUPCLOSURE"
 								)
 							then
-								continue
+								return
 							end
 							local function R(r)
 								return fmtReg(r, i)
 							end
 							local function Rpre(r)
 								return fmtReg(r, i - 1)
-							end
-							local function Rsrc(r)
-								if not r then
-									return "v?"
-								end
-								local defs = {}
-								if
-									opn == "MOVE"
-									or opn == "GETTABLE"
-									or opn == "GETTABLEKS"
-									or opn == "GETTABLEN"
-									or opn == "NOT"
-									or opn == "MINUS"
-									or opn == "LENGTH"
-									or opn == "ADD"
-									or opn == "SUB"
-									or opn == "MUL"
-									or opn == "DIV"
-									or opn == "MOD"
-									or opn == "POW"
-									or opn == "AND"
-									or opn == "OR"
-									or opn == "CONCAT"
-									or opn == "ADDK"
-									or opn == "SUBK"
-									or opn == "MULK"
-									or opn == "DIVK"
-									or opn == "MODK"
-									or opn == "POWK"
-									or opn == "ANDK"
-									or opn == "ORK"
-									or opn == "SUBRK"
-									or opn == "DIVRK"
-									or opn == "IDIV"
-									or opn == "IDIVK"
-									or opn == "GETUDATAKS"
-									or opn == "NEWCLASSMEMBER"
-								then
-									defs = ur
-								end
-								if defs and defs[1] == r then
-									return Rpre(r)
-								end
-								return R(r)
 							end
 							local function handleJumps()
 								local n = jumpMarkers[i]
@@ -30508,13 +30650,13 @@ local function main()
 							handleJumps()
 							if not options.CleanMode then
 								if options.ShowOperationIndex then
-									emitRaw("[" .. padLeft(i, "0", 3) .. "] ")
+									emit("[" .. padLeft(i, "0", 3) .. "] ")
 								end
 								if options.ShowInstructionLines and lineInfo and lineInfo[i] then
-									emitRaw(":" .. padLeft(lineInfo[i], "0", 3) .. ":")
+									emit(":" .. padLeft(lineInfo[i], "0", 3) .. ":")
 								end
 								if options.ShowOperationNames then
-									emitRaw(padRight(opn, " ", 15))
+									emit(padRight(opn, " ", 15))
 								end
 							end
 							if opn == "LOADNIL" then
@@ -30522,23 +30664,21 @@ local function main()
 							elseif opn == "LOADB" then
 								emit(ind() .. R(ur[1]) .. " = " .. toEscapedString(toBoolean(ed[1])))
 								if ed[2] ~= 0 then
-									emitRaw(" +" .. ed[2])
+									emit(" +" .. ed[2])
 								end
 							elseif opn == "LOADN" then
 								emit(ind() .. R(ur[1]) .. " = " .. ed[1])
 							elseif opn == "LOADK" then
 								emit(ind() .. R(ur[1]) .. " = " .. fmtConst(consts[ed[1] + 1]))
 							elseif opn == "MOVE" then
-								emit(ind() .. R(ur[1]) .. " = " .. Rsrc(ur[2]))
+								emit(ind() .. R(ur[1]) .. " = " .. R(ur[2]))
 							elseif opn == "GETGLOBAL" then
 								local gk = tostring(consts[ed[1] + 1] and consts[ed[1] + 1].value or "")
 								if options.ListUsedGlobals and isValidGlobal(gk) then
 									table.insert(usedGlobals, gk)
 									usedGlobalsSet[gk] = true
 								end
-								if R(ur[1]) ~= gk then
-									emit(ind() .. R(ur[1]) .. " = " .. gk)
-								end
+								emit(ind() .. R(ur[1]) .. " = " .. gk)
 							elseif opn == "SETGLOBAL" then
 								local gk = tostring(consts[ed[1] + 1] and consts[ed[1] + 1].value or "")
 								if options.ListUsedGlobals and isValidGlobal(gk) then
@@ -30559,21 +30699,19 @@ local function main()
 									table.insert(usedGlobals, imp)
 									usedGlobalsSet[imp] = true
 								end
-								if R(ur[1]) ~= imp then
-									emit(ind() .. R(ur[1]) .. " = " .. imp)
-								end
+								emit(R(ur[1]) .. " = " .. imp)
 							elseif opn == "GETTABLE" then
-								emit(ind() .. R(ur[1]) .. " = " .. Rsrc(ur[2]) .. "[" .. Rsrc(ur[3]) .. "]")
+								emit(ind() .. R(ur[1]) .. " = " .. R(ur[2]) .. "[" .. R(ur[3]) .. "]")
 							elseif opn == "SETTABLE" then
 								emit(ind() .. R(ur[2]) .. "[" .. R(ur[3]) .. "] = " .. R(ur[1]))
 							elseif opn == "GETTABLEKS" then
 								local key = consts[ed[2] + 1] and consts[ed[2] + 1].value
-								emit(ind() .. R(ur[1]) .. " = " .. Rsrc(ur[2]) .. formatIndexString(key))
+								emit(ind() .. R(ur[1]) .. " = " .. R(ur[2]) .. formatIndexString(key))
 							elseif opn == "SETTABLEKS" then
 								local key = consts[ed[2] + 1] and consts[ed[2] + 1].value
 								emit(ind() .. R(ur[2]) .. formatIndexString(key) .. " = " .. R(ur[1]))
 							elseif opn == "GETTABLEN" then
-								emit(ind() .. R(ur[1]) .. " = " .. Rsrc(ur[2]) .. "[" .. (ed[1] + 1) .. "]")
+								emit(ind() .. R(ur[1]) .. " = " .. R(ur[2]) .. "[" .. (ed[1] + 1) .. "]")
 							elseif opn == "SETTABLEN" then
 								emit(ind() .. R(ur[2]) .. "[" .. (ed[1] + 1) .. "] = " .. R(ur[1]))
 							elseif opn == "NEWCLOSURE" then
@@ -30696,17 +30834,17 @@ local function main()
 								makeJump(ei)
 								emit("if " .. R(ur[1]) .. " < " .. R(ur[2]) .. " then -- goto #" .. ei)
 							elseif opn == "ADD" then
-								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " + " .. Rsrc(ur[3]))
+								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " + " .. R(ur[3]))
 							elseif opn == "SUB" then
-								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " - " .. Rsrc(ur[3]))
+								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " - " .. R(ur[3]))
 							elseif opn == "MUL" then
-								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " * " .. Rsrc(ur[3]))
+								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " * " .. R(ur[3]))
 							elseif opn == "DIV" then
-								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " / " .. Rsrc(ur[3]))
+								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " / " .. R(ur[3]))
 							elseif opn == "MOD" then
-								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " % " .. Rsrc(ur[3]))
+								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " % " .. R(ur[3]))
 							elseif opn == "POW" then
-								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " ^ " .. Rsrc(ur[3]))
+								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " ^ " .. R(ur[3]))
 							elseif opn == "ADDK" then
 								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " + " .. fmtConst(consts[ed[1] + 1]))
 							elseif opn == "SUBK" then
@@ -30720,9 +30858,9 @@ local function main()
 							elseif opn == "POWK" then
 								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " ^ " .. fmtConst(consts[ed[1] + 1]))
 							elseif opn == "AND" then
-								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " and " .. Rsrc(ur[3]))
+								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " and " .. R(ur[3]))
 							elseif opn == "OR" then
-								emit(R(ur[1]) .. " = " .. Rsrc(ur[2]) .. " or " .. Rsrc(ur[3]))
+								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " or " .. R(ur[3]))
 							elseif opn == "ANDK" then
 								emit(R(ur[1]) .. " = " .. R(ur[2]) .. " and " .. fmtConst(consts[ed[1] + 1]))
 							elseif opn == "ORK" then
@@ -30738,15 +30876,15 @@ local function main()
 								end
 								emit(ind() .. R(tgt) .. " = " .. cb)
 							elseif opn == "NOT" then
-								emit(ind() .. R(ur[1]) .. " = not " .. Rsrc(ur[2]))
+								emit(ind() .. R(ur[1]) .. " = not " .. R(ur[2]))
 							elseif opn == "MINUS" then
-								emit(ind() .. R(ur[1]) .. " = -" .. Rsrc(ur[2]))
+								emit(ind() .. R(ur[1]) .. " = -" .. R(ur[2]))
 							elseif opn == "LENGTH" then
-								emit(ind() .. R(ur[1]) .. " = #" .. Rsrc(ur[2]))
+								emit(ind() .. R(ur[1]) .. " = #" .. R(ur[2]))
 							elseif opn == "NEWTABLE" then
 								emit(R(ur[1]) .. " = {}")
 								if options.ShowDebugInformation and ed[2] and ed[2] > 0 then
-									emitRaw(" ")
+									emit(" ")
 								end
 							elseif opn == "DUPTABLE" then
 								local cv = consts[ed[1] + 1]
@@ -30915,7 +31053,7 @@ local function main()
 								emit(ind() .. R(ur[1]) .. " = " .. R(ur[2]) .. " // " .. fmtConst(consts[ed[1] + 1]))
 							elseif opn == "GETUDATAKS" then
 								local key = consts[ed[2] + 1] and consts[ed[2] + 1].value
-								emit(ind() .. R(ur[1]) .. " = " .. Rsrc(ur[2]) .. formatIndexString(key))
+								emit(ind() .. R(ur[1]) .. " = " .. R(ur[2]) .. formatIndexString(key))
 							elseif opn == "SETUDATAKS" then
 								local key = consts[ed[2] + 1] and consts[ed[2] + 1].value
 								emit(ind() .. R(ur[2]) .. formatIndexString(key) .. " = " .. R(ur[1]))
@@ -31005,8 +31143,311 @@ local function main()
 										.. ")"
 								)
 							end
+							emit("\n")
+						end
+						local function structureAndEmit()
+							local conditional = {
+								JUMPIF = true,
+								JUMPIFNOT = true,
+								JUMPIFEQ = true,
+								JUMPIFLE = true,
+								JUMPIFLT = true,
+								JUMPIFNOTEQ = true,
+								JUMPIFNOTLE = true,
+								JUMPIFNOTLT = true,
+								JUMPXEQKNIL = true,
+								JUMPXEQKB = true,
+								JUMPXEQKN = true,
+								JUMPXEQKS = true,
+								CMPPROTO = true,
+							}
+							local unconditional = { JUMP = true, JUMPBACK = true, JUMPX = true }
+							local loopPrep =
+								{ FORNPREP = true, FORGPREP = true, FORGPREP_INEXT = true, FORGPREP_NEXT = true }
+							local loopLatch = { FORNLOOP = true, FORGLOOP = true }
+							local n = #actions
+							local function jumpTarget(i, a)
+								local d = a.extraData and a.extraData[1]
+								return type(d) == "number" and i + d or nil
+							end
+							local leaders = { [1] = true }
+							for i, a in ipairs(actions) do
+								local op = a.opCode and a.opCode.name
+								if
+									conditional[op]
+									or unconditional[op]
+									or loopPrep[op]
+									or loopLatch[op]
+									or op == "RETURN"
+								then
+									leaders[i + 1] = true
+									local t = jumpTarget(i, a)
+									if t and t >= 1 and t <= n then
+										leaders[t] = true
+									end
+								end
+							end
+							leaders[n + 1] = nil
+							local starts = {}
+							for i = 1, n do
+								if leaders[i] then
+									starts[#starts + 1] = i
+								end
+							end
+							local blocks, at = {}, {}
+							for bi, st in ipairs(starts) do
+								local en = (starts[bi + 1] or n + 1) - 1
+								local b = { id = bi, first = st, last = en, succ = {}, preds = {} }
+								blocks[#blocks + 1] = b
+								for j = st, en do
+									at[j] = b
+								end
+							end
+							local exit = { id = #blocks + 1, exit = true, first = n + 1, last = n }
+							local function edge(a, b)
+								b = b or exit
+								for _, x in ipairs(a.succ) do
+									if x == b then
+										return
+									end
+								end
+								a.succ[#a.succ + 1] = b
+								b.preds[#b.preds + 1] = a
+							end
+							for _, b in ipairs(blocks) do
+								local i = b.last
+								local a = actions[i]
+								local op = a.opCode and a.opCode.name
+								if conditional[op] then
+									local t = jumpTarget(i, a)
+									b.term =
+										{ kind = "branch", action = i, yes = at[t] or exit, no = at[i + 1] or exit }
+									edge(b, b.term.yes)
+									edge(b, b.term.no)
+								elseif unconditional[op] then
+									local t = jumpTarget(i, a)
+									b.term = { kind = "jump", action = i, to = at[t] or exit }
+									edge(b, b.term.to)
+								elseif op == "RETURN" then
+									b.term = { kind = "return", action = i }
+								elseif loopLatch[op] then
+									local t = jumpTarget(i, a)
+									b.term = { kind = "latch", action = i, to = at[t] or exit }
+									edge(b, b.term.to)
+									edge(b, at[i + 1] or exit)
+								else
+									b.term = { kind = "fall", action = i }
+									edge(b, at[i + 1] or exit)
+								end
+							end
+							local function dominators(reverse)
+								local start = reverse and exit or blocks[1]
+								local all = {}
+								for _, b in ipairs(blocks) do
+									all[b] = true
+								end
+								all[exit] = true
+								local d = {}
+								for _, b in ipairs(blocks) do
+									d[b] = (b == start and { [b] = true } or all)
+								end
+								d[exit] = (exit == start and { [exit] = true } or all)
+								local function incoming(b)
+									return reverse and b.succ or b.preds
+								end
+								local changed = true
+								while changed do
+									changed = false
+									for _, b in ipairs(blocks) do
+										if b ~= start then
+											local ps = incoming(b)
+											local nd = nil
+											for _, p in ipairs(ps) do
+												if d[p] then
+													if not nd then
+														nd = {}
+														for x in pairs(d[p]) do
+															nd[x] = true
+														end
+													else
+														for x in pairs(nd) do
+															if not d[p][x] then
+																nd[x] = nil
+															end
+														end
+													end
+												end
+											end
+											nd = nd or {}
+											nd[b] = true
+											local same = true
+											for x in pairs(nd) do
+												if not d[b][x] then
+													same = false
+													break
+												end
+											end
+											for x in pairs(d[b]) do
+												if not nd[x] then
+													same = false
+													break
+												end
+											end
+											if not same then
+												d[b] = nd
+												changed = true
+											end
+										end
+									end
+								end
+								return d
+							end
+							local dom = dominators(false)
+							local pdom = dominators(true)
+							local loops = {}
+							for _, b in ipairs(blocks) do
+								for _, to in ipairs(b.succ) do
+									if dom[b] and dom[b][to] then
+										local lp = loops[to] or { header = to, nodes = { [to] = true } }
+										loops[to] = lp
+										lp.nodes[b] = true
+										local q = { b }
+										local qi = 1
+										while qi <= #q do
+											local x = q[qi]
+											qi += 1
+											for _, p in ipairs(x.preds) do
+												if not lp.nodes[p] and p ~= to then
+													lp.nodes[p] = true
+													q[#q + 1] = p
+												end
+											end
+										end
+									end
+								end
+							end
+						end
+						local function condText(i, a)
+							local u = a.usedRegisters or {}
+							local e = a.extraData or {}
+							local op = a.opCode and a.opCode.name
+							local Rr = function(r)
+								return fmtReg(r, i)
+							end
+							if op == "JUMPIF" then
+								return "not " .. Rr(u[1])
+							end
+							if op == "JUMPIFNOT" then
+								return Rr(u[1])
+							end
+							local c = {
+								JUMPIFEQ = " ~= ",
+								JUMPIFLE = " > ",
+								JUMPIFLT = " >= ",
+								JUMPIFNOTEQ = " == ",
+								JUMPIFNOTLE = " <= ",
+								JUMPIFNOTLT = " < ",
+							}
+							if c[op] then
+								return Rr(u[1]) .. c[op] .. Rr(u[2])
+							end
+							if op == "JUMPXEQKNIL" then
+								return Rr(u[1]) .. (bit32.rshift(e[2] or 0, 31) ~= 1 and " ~= " or " == ") .. "nil"
+							end
+							if op == "JUMPXEQKB" then
+								return Rr(u[1])
+									.. (bit32.rshift(e[2] or 0, 31) ~= 1 and " ~= " or " == ")
+									.. tostring(toBoolean(bit32.band(e[2] or 0, 1)))
+							end
+							if op == "JUMPXEQKN" or op == "JUMPXEQKS" then
+								local k = bit32.band(e[2] or 0, 0xFFFFFF)
+								return Rr(u[1])
+									.. (bit32.rshift(e[2] or 0, 31) ~= 1 and " ~= " or " == ")
+									.. fmtConst(consts[k + 1])
+							end
+							if op == "CMPPROTO" then
+								return "not proto_match(" .. Rr(u[1]) .. ", proto#" .. tostring(e[2] or "?") .. ")"
+							end
+							return "true"
+						end
+						local function nearestJoin(a, b)
+							local best = nil
+							for x in pairs(pdom[a] or {}) do
+								if (pdom[b] or {})[x] and x ~= a and x ~= b then
+									if not best or x.first < best.first then
+										best = x
+									end
+								end
+							end
+							return best or b
+						end
+						local visited = {}
+						local function emitBlockRange(start, stop, depth)
+							depth = depth or 0
+							if depth > 200 then
+								error("structured control-flow nesting limit exceeded")
+							end
+							local cur = start
+							while cur and cur ~= stop and cur ~= exit do
+								if visited[cur] then
+									return
+								end
+								visited[cur] = true
+								local lp = loops[cur]
+								local t = cur.term
+								if lp and t and t.kind == "branch" and lp.header == cur then
+									local body = t.no
+									local after = t.yes
+									if after == cur then
+										body = t.yes
+										after = t.no
+									end
+									emit(ind() .. "while " .. condText(t.action, actions[t.action]) .. " do\\n")
+									indentLevel += 1
+									emitBlockRange(body, cur, depth + 1)
+									indentLevel -= 1
+									emit(ind() .. "end\\n")
+									cur = after
+								elseif t and t.kind == "branch" then
+									local join = nearestJoin(t.yes, t.no)
+									emit(ind() .. "if " .. condText(t.action, actions[t.action]) .. " then\\n")
+									indentLevel += 1
+									emitBlockRange(t.yes, join, depth + 1)
+									indentLevel -= 1
+									if t.no ~= join then
+										emit(ind() .. "else\\n")
+										indentLevel += 1
+										emitBlockRange(t.no, join, depth + 1)
+										indentLevel -= 1
+									end
+									emit(ind() .. "end\\n")
+									cur = join
+								else
+									for i = cur.first, cur.last do
+										local a = actions[i]
+										local op = a.opCode and a.opCode.name
+										if not conditional[op] and not unconditional[op] then
+											emitAction(i, a)
+										end
+									end
+									cur = cur.succ[1]
+								end
+							end
+						end
+						local ok, err = pcall(function()
+							emitBlockRange(blocks[1], exit, 0)
+						end)
+						if not ok then
+							for i, a in ipairs(actions) do
+								local op = a.opCode and a.opCode.name
+								if not conditional[op] and not unconditional[op] then
+									emitAction(i, a)
+								end
+							end
 						end
 					end
+
+					structureAndEmit()
 					writeActions(registerActions[mainProtoId])
 					finalResult = processResult(table.concat(resultParts))
 				else
@@ -31024,9 +31465,6 @@ local function main()
 					result = ok and res or ("-- RUNTIME ERROR:\n-- " .. tostring(res))
 					if (os.clock() - startTime) >= options.DecompilerTimeout then
 						return Strings.TIMEOUT
-					end
-					if ok and type(result) == "string" and _coImpl then
-						result = _coImpl(result)
 					end
 					return string.format(Strings.SUCCESS, result)
 				else
@@ -31055,6 +31493,9 @@ local function main()
 				return manager(false, "UNSUPPORTED_LBC_VERSION")
 			end
 		end
+		local MAX_DEPTH = 60
+		local INDENT_UNIT = "  "
+
 		local LUA_KW = {
 			["and"] = true,
 			["break"] = true,
@@ -31143,1059 +31584,87 @@ local function main()
 
 		local _svcNames = {
 			Workspace = "workspace",
+			Players = 'game:GetService("Players")',
+			ReplicatedStorage = 'game:GetService("ReplicatedStorage")',
+			ServerStorage = 'game:GetService("ServerStorage")',
+			ServerScriptService = 'game:GetService("ServerScriptService")',
+			StarterGui = 'game:GetService("StarterGui")',
+			StarterPack = 'game:GetService("StarterPack")',
+			StarterPlayer = 'game:GetService("StarterPlayer")',
+			Lighting = 'game:GetService("Lighting")',
+			SoundService = 'game:GetService("SoundService")',
+			RunService = 'game:GetService("RunService")',
+			ReplicatedFirst = 'game:GetService("ReplicatedFirst")',
+			TeleportService = 'game:GetService("TeleportService")',
+			UserInputService = 'game:GetService("UserInputService")',
+			HttpService = 'game:GetService("HttpService")',
+			TweenService = 'game:GetService("TweenService")',
+			ContextActionService = 'game:GetService("ContextActionService")',
+			CollectionService = 'game:GetService("CollectionService")',
+			MarketplaceService = 'game:GetService("MarketplaceService")',
+			Debris = 'game:GetService("Debris")',
 		}
 
-		_coImpl = function(text)
-			local rawLines = {}
-			for line in (text .. "\n"):gmatch("[^\n]*\n") do
-				rawLines[#rawLines + 1] = line:gsub("\n$", "")
-			end
-
-			local INLINEABLE_GLOBALS = {
-				game = true,
-				workspace = true,
-				script = true,
-				require = true,
-				shared = true,
-				print = true,
-				warn = true,
-				error = true,
-				tostring = true,
-				tonumber = true,
-				type = true,
-				pairs = true,
-				ipairs = true,
-				next = true,
-				select = true,
-				unpack = true,
-				pcall = true,
-				xpcall = true,
-				rawget = true,
-				rawset = true,
-				rawequal = true,
-				rawlen = true,
-				setmetatable = true,
-				getmetatable = true,
-				table = true,
-				string = true,
-				math = true,
-				bit32 = true,
-				task = true,
-				os = true,
-				coroutine = true,
-				assert = true,
-				collectgarbage = true,
-				gcinfo = true,
-				loadstring = true,
-				newproxy = true,
-				tick = true,
-				time = true,
-				wait = true,
-				spawn = true,
-				delay = true,
-				Vector3 = true,
-				Vector2 = true,
-				CFrame = true,
-				Color3 = true,
-				BrickColor = true,
-				UDim = true,
-				UDim2 = true,
-				Enum = true,
-				Instance = true,
-				TweenInfo = true,
-				NumberSequence = true,
-				ColorSequence = true,
-				NumberSequenceKeypoint = true,
-				ColorSequenceKeypoint = true,
-				Ray = true,
-				Region3 = true,
-				Rect = true,
-				Random = true,
-				RaycastParams = true,
-				OverlapParams = true,
-				PathfindingResult = true,
-			}
-			for i = 1, #rawLines do
-				local line = rawLines[i]
-				if not line then
-					continue
+		local function getFullPath(inst)
+			local ok, result = pcall(function()
+				if inst == game then
+					return "game"
 				end
-				local ind, lhs, rhs = line:match("^(%s*)([%a_][%w_]*)%s*=%s*([%a_][%w_]*)%s*$")
-				if lhs and rhs and lhs == rhs and INLINEABLE_GLOBALS[lhs] then
-					rawLines[i] = nil
-					continue
-				end
-				local reg, gbl = line:match("^%s*(v%d+_?%d*)%s*=%s*([%a_][%w_]*)%s*$")
-				if reg and gbl and INLINEABLE_GLOBALS[gbl] then
-					local ep = reg:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
-					local wbEp = "%f[%w_]" .. ep .. "%f[^%w_]"
-					local uses = 0
-					for k = i + 1, #rawLines do
-						local rl = rawLines[k]
-						if rl then
-							for _ in rl:gmatch(wbEp) do
-								uses += 1
-							end
-						end
-					end
-					if uses >= 1 then
-						local safeGbl = gbl:gsub("%%", "%%%%")
-						for k = i + 1, #rawLines do
-							if rawLines[k] then
-								rawLines[k] = rawLines[k]:gsub(wbEp, safeGbl)
-							end
-						end
-						rawLines[i] = nil
-					end
-				end
-			end
-
-			local function reconstructRegisterIR(lines)
-				local regPat = "v%d+_?%d*"
-				local function isRegister(name)
-					return name and name:match("^" .. regPat .. "$") ~= nil
-				end
-				local function assignment(line)
-					local ind, kw, reg, rhs = line:match("^(%s*)(local%s+)?(" .. regPat .. ")%s*=%s*(.-)%s*$")
-					if not reg then
-						return nil
-					end
-					return { indent = ind, localKw = kw, reg = reg, rhs = rhs }
-				end
-				local function tokenCount(text, reg)
-					local n = 0
-					local ep = reg:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
-					for _ in text:gmatch("%f[%w_]" .. ep .. "%f[^%w_]") do
-						n += 1
-					end
-					return n
-				end
-				local function containsToken(text, reg)
-					return tokenCount(text, reg) > 0
-				end
-				local function replaceToken(text, reg, value)
-					local ep = reg:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
-					local rp = value:gsub("%%", "%%%%")
-					return text:gsub("%f[%w_]" .. ep .. "%f[^%w_]", rp, 1)
-				end
-				local function rhsUsesOnly(line, reg)
-					local a = assignment(line)
-					if a then
-						return containsToken(a.rhs, reg)
-					end
-					return containsToken(line, reg)
-				end
-				local function safeExpr(expr)
-					if not expr or expr == "" then
-						return false
-					end
-					if expr:find("--", 1, true) then
-						return false
-					end
-					if expr:find("\n", 1, true) then
-						return false
-					end
-					return true
-				end
-				local function safeName(name)
-					return name and name:match("^[%a_][%w_]*$") and name ~= "game" and name ~= "workspace"
-				end
-
-				for _pass = 1, 12 do
-					local changed = false
-
-					local latestDef = {}
-					for i = 1, #lines do
-						local line = lines[i]
-						if line then
-							local a = assignment(line)
-							if a then
-								local base, suffix = a.rhs:match("^%s*(v%d+)([%.:].+)$")
-								if base and suffix and base ~= a.reg then
-									local prev = latestDef[base]
-									if prev and lines[prev] and prev < i then
-										local pa = assignment(lines[prev])
-										if pa and safeExpr(pa.rhs) and not containsToken(pa.rhs, a.reg) then
-											local between = false
-											for j = prev + 1, i - 1 do
-												if lines[j] and containsToken(lines[j], base) then
-													between = true
-													break
-												end
-											end
-											if not between then
-												lines[i] = a.indent
-													.. (a.localKw or "")
-													.. a.reg
-													.. " = "
-													.. pa.rhs
-													.. suffix
-												lines[prev] = nil
-												changed = true
-											end
-										end
-									end
-								end
-								latestDef[a.reg] = i
-							end
-						end
-					end
-
-					local lastDef = {}
-					for i = 1, #lines do
-						local line = lines[i]
-						if line then
-							local a = assignment(line)
-							if a then
-								local base, suffix = a.rhs:match("^%s*(" .. regPat .. ")([%.:].+)$")
-								if base == a.reg and suffix then
-									local prev = lastDef[a.reg]
-									if prev and lines[prev] then
-										local pa = assignment(lines[prev])
-										if pa and safeExpr(pa.rhs) and not containsToken(pa.rhs, a.reg) then
-											local betweenUses = false
-											for j = prev + 1, i - 1 do
-												if lines[j] and containsToken(lines[j], a.reg) then
-													betweenUses = true
-													break
-												end
-											end
-											if not betweenUses then
-												a.rhs = pa.rhs .. suffix
-												lines[i] = a.indent .. (a.localKw or "") .. a.reg .. " = " .. a.rhs
-												lines[prev] = nil
-												changed = true
-											end
-										end
-									end
-								end
-								lastDef[a.reg] = i
-							end
-						end
-					end
-
-					local defs = {}
-					local uses = {}
-					for i = 1, #lines do
-						local line = lines[i]
-						if line then
-							local a = assignment(line)
-							if a and safeExpr(a.rhs) then
-								defs[a.reg] = { index = i, rhs = a.rhs, indent = a.indent, localKw = a.localKw }
-							end
-							for reg in line:gmatch("%f[%w_](v%d+_?%d*)%f[^%w_]") do
-								uses[reg] = (uses[reg] or 0) + 1
-							end
-						end
-					end
-					for reg, d in pairs(defs) do
-						local totalUses = uses[reg] or 0
-						if totalUses == 2 then
-							local consumer = nil
-							for j = d.index + 1, #lines do
-								if lines[j] and rhsUsesOnly(lines[j], reg) then
-									consumer = j
-									break
-								end
-							end
-							if
-								consumer
-								and consumer ~= d.index
-								and safeExpr(d.rhs)
-								and not containsToken(d.rhs, reg)
-							then
-								local ca = assignment(lines[consumer])
-								if not ca or containsToken(ca.rhs, reg) then
-									lines[consumer] = replaceToken(lines[consumer], reg, d.rhs)
-									lines[d.index] = nil
-									changed = true
-								end
-							end
-						end
-					end
-
-					if not changed then
+				local chain, p = {}, inst
+				local depth = 0
+				while p and p ~= game and depth < MAX_DEPTH do
+					chain[#chain + 1] = p
+					local par = p.Parent
+					if par == nil then
 						break
 					end
+					p = par
+					depth += 1
 				end
-				return lines
-			end
+				if #chain == 0 then
+					return "nil --[[ destroyed ]]"
+				end
+				local root = chain[#chain]
+				local path = _svcNames[root.ClassName] or ('game:GetService("%s")'):format(escapeString(root.ClassName))
+				for i = #chain - 1, 1, -1 do
+					path ..= (':FindFirstChild("%s")'):format(escapeString(chain[i].Name))
+				end
+				return path
+			end)
+			return ok and result or "nil --[[ path resolution failed ]]"
+		end
 
-			reconstructRegisterIR(rawLines)
-
-			local function escpat(s)
-				return s:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
+		local function fmtBuffer(buf, indent)
+			if type(buffer) ~= "table" and type(buffer) ~= "userdata" then
+				return nil
 			end
-			local function escrep(s)
-				return (s:gsub("%%", "%%%%"))
+			local ok, len = pcall(buffer.len, buf)
+			if not ok then
+				return nil
 			end
-			local function nextNonBlank(start)
-				local j = start
-				while j <= #rawLines and (rawLines[j] == nil or rawLines[j]:match("^%s*$")) do
-					j += 1
-				end
-				return j
-			end
-			do
-				local i = 1
-				while i <= #rawLines do
-					local line = rawLines[i]
-					if line then
-						local cond = line:match("^%s*if%s+(.-)%s+then%s*%-%-.*$")
-							or line:match("^%s*if%s+(.-)%s+then%s*$")
-						if cond then
-							local gt = tonumber(line:match("%-%-.*goto #(%d+)"))
-							if gt then
-								for j = i + 1, math.min(i + 400, #rawLines) do
-									local jl = rawLines[j]
-									if jl and jl:match("^%s*%-%- jump back to #%d+%s*$") then
-										if gt >= j then
-											local ind = line:match("^(%s*)")
-											rawLines[i] = ind .. "while " .. cond .. " do"
-											rawLines[j] = ind .. "end"
-										end
-										break
-									end
-								end
-							end
-						end
-					end
-					i += 1
+			indent = indent or 0
+			local rep = string.rep(INDENT_UNIT, indent)
+			local rep1 = string.rep(INDENT_UNIT, indent + 1)
+			local lines = { "(function()", rep1 .. ("local b = buffer.create(%d)"):format(len) }
+			for i = 0, len - 1 do
+				local rok, byte = pcall(buffer.readu8, buf, i)
+				if rok and byte ~= 0 then
+					local printable = byte >= 32 and byte < 127
+					local cmt = printable and ("'%s'"):format(escapeString(string.char(byte)))
+						or ("0x%02X"):format(byte)
+					lines[#lines + 1] = rep1
+						.. ("buffer.writeu8(b, %d, %d) --[[ %s ]] "):format(i, byte, cmt):gsub("%s+$", "")
 				end
 			end
-			do
-				local i = 1
-				while i <= #rawLines do
-					local line = rawLines[i]
-					if line and line:match("^%s*%-%- jump back to #%d+%s*$") then
-						for back = 1, 4 do
-							local prev = rawLines[i - back]
-							if not prev then
-								break
-							end
-							local cond, tgt = prev:match("^%s*if%s+(.-)%s+then%s*%-%- goto #(%d+)%s*$")
-							if cond and tonumber(tgt) == i + 1 then
-								local ind = prev:match("^(%s*)")
-								rawLines[i - back] = ind .. "until " .. cond
-								rawLines[i] = nil
-								break
-							end
-						end
-					end
-					i += 1
-				end
-			end
-			local function tryFoldSelfChain(i)
-				local line = rawLines[i]
-				if not line then
-					return false
-				end
-				local indent, localKw, reg, rhs = line:match("^(%s*)(local%s+)?(v%d+_?%d*)%s*=%s*(.+)%s*$")
-				if not reg or not rhs then
-					return false
-				end
-				local ep = escpat(reg)
-				local suffix = rhs:match("^" .. ep .. "([%.:].+)$")
-				if not suffix then
-					return false
-				end
-				local j = i - 1
-				while j >= 1 and (rawLines[j] == nil or rawLines[j]:match("^%s*$")) do
-					j -= 1
-				end
-				if j < 1 or not rawLines[j] then
-					return false
-				end
-				local prevIndent, prevLocal, prevReg, prevVal =
-					rawLines[j]:match("^(%s*)(local%s+)?(v%d+_?%d*)%s*=%s*(.+)%s*$")
-				if prevReg ~= reg or not prevVal then
-					return false
-				end
-				local prevUses = 0
-				for _ in prevVal:gmatch(ep) do
-					prevUses += 1
-				end
-				if prevUses > 0 then
-					return false
-				end
-				rawLines[j] = prevIndent .. (prevLocal or "") .. reg .. " = " .. prevVal .. suffix
-				rawLines[i] = nil
-				return true
-			end
-
-			local function tryCollapse(i)
-				local line = rawLines[i]
-				if not line then
-					return false
-				end
-				local reg, lit
-				reg, lit = line:match('^%s*(v%d+_?%d*) = (".-")%s*$')
-				if not reg then
-					reg, lit = line:match("^%s*(v%d+_?%d*) = (%-?%d+%.?%d*)%s*$")
-				end
-				if not reg then
-					reg, lit = line:match("^%s*(v%d+_?%d*) = (true)%s*$")
-				end
-				if not reg then
-					reg, lit = line:match("^%s*(v%d+_?%d*) = (false)%s*$")
-				end
-				if not reg then
-					reg, lit = line:match("^%s*(v%d+_?%d*) = (nil)%s*$")
-				end
-				if not reg then
-					reg, lit = line:match("^%s*(v%d+_?%d*) = ([%a_][%w_%.]*)%s*$")
-				end
-				if not reg then
-					return false
-				end
-				local ep = escpat(reg)
-				local j = i + 1
-				local skipped = 0
-				while j <= #rawLines and skipped < 32 do
-					local mid = rawLines[j]
-					if mid == nil then
-						j += 1
-						continue
-					end
-					if mid:match("^%s*$") then
-						j += 1
-						skipped += 1
-						continue
-					end
-					if mid:find("%f[%w_]" .. ep .. "%f[^%w_]") then
-						break
-					end
-					local isSimpleAssign = mid:match('^%s*v%d+_?%d*%s*=%s*".-"%s*$')
-						or mid:match("^%s*v%d+_?%d*%s*=%s*%-?%d+%.?%d*%s*$")
-						or mid:match("^%s*v%d+_?%d*%s*=%s*true%s*$")
-						or mid:match("^%s*v%d+_?%d*%s*=%s*false%s*$")
-						or mid:match("^%s*v%d+_?%d*%s*=%s*nil%s*$")
-						or mid:match("^%s*v%d+_?%d*%s*=%s*[%a_][%w_%.]*%s*$")
-					if isSimpleAssign then
-						j += 1
-						skipped += 1
-						continue
-					end
-					break
-				end
-				if j > #rawLines or not rawLines[j] then
-					return false
-				end
-				local nxt = rawLines[j]
-				local wbEp = "%f[%w_]" .. ep .. "%f[^%w_]"
-				local totalUses = 0
-				for k = i + 1, #rawLines do
-					local rl = rawLines[k]
-					if rl then
-						for _ in rl:gmatch(wbEp) do
-							totalUses += 1
-						end
-					end
-				end
-				if totalUses ~= 1 then
-					return false
-				end
-				if nxt:match("^%s*" .. ep .. "%s*=") then
-					return false
-				end
-				rawLines[j] = nxt:gsub(ep, escrep(lit), 1)
-				rawLines[i] = nil
-				return true
-			end
-
-			local function tryFoldRegisterChain(i)
-				local line = rawLines[i]
-				if not line then
-					return false
-				end
-
-				local indent, localKw, reg, rhs = line:match("^(%s*)(local%s+)?(v%d+_?%d*)%s*=%s*(.+)%s*$")
-
-				if not reg or not rhs then
-					return false
-				end
-
-				local ep = escpat(reg)
-				local suffix = rhs:match("^" .. ep .. "([%.:].+)$")
-
-				if suffix then
-					local j = i + 1
-					while j <= #rawLines and (rawLines[j] == nil or rawLines[j]:match("^%s*$")) do
-						j += 1
-					end
-
-					if j <= #rawLines and rawLines[j] then
-						local ni, nk, nr, nrhs = rawLines[j]:match("^(%s*)(local%s+)?(v%d+_?%d*)%s*=%s*(.+)%s*$")
-
-						if nr == reg and nrhs then
-							local np = nrhs:match("^" .. ep .. "([%.:].+)$")
-							if np then
-								return false
-							end
-						end
-					end
-				end
-
-				local j = i + 1
-				while j <= #rawLines and (rawLines[j] == nil or rawLines[j]:match("^%s*$")) do
-					j += 1
-				end
-
-				if j <= #rawLines and rawLines[j] then
-					local _, _, nextReg, nextRhs = rawLines[j]:match("^(%s*)(local%s+)?(v%d+_?%d*)%s*=%s*(.+)%s*$")
-
-					if nextReg == reg and nextRhs then
-						local nextSuffix = nextRhs:match("^" .. ep .. "([%.:].+)$")
-						if nextSuffix then
-							if not rhs:find(ep) then
-								rawLines[i] = indent .. (localKw or "") .. reg .. " = " .. rhs .. nextSuffix
-								rawLines[j] = nil
-								return true
-							end
-						end
-					end
-				end
-
-				return false
-			end
-
-			local function tryFoldExpression(i)
-				local line = rawLines[i]
-				if not line then
-					return false
-				end
-				local reg, expr = line:match("^%s*local%s+(v%d+_?%d*)%s*=%s*(.+)%s*$")
-				if not reg then
-					reg, expr = line:match("^%s*(v%d+_?%d*)%s*=%s*(.+)%s*$")
-				end
-				if not reg or not expr then
-					return false
-				end
-				local ep = escpat(reg)
-				local j = nextNonBlank(i + 1)
-				if j > #rawLines or not rawLines[j] then
-					return false
-				end
-				local nxt = rawLines[j]
-				local cnt = 0
-				for _ in nxt:gmatch(ep) do
-					cnt += 1
-				end
-				if cnt ~= 1 or nxt:match("^%s*local%s+" .. ep .. "%s*=") or nxt:match("^%s*" .. ep .. "%s*=") then
-					return false
-				end
-				rawLines[j] = nxt:gsub(ep, escrep(expr), 1)
-				rawLines[i] = nil
-				return true
-			end
-
-			local function tryFoldField(i)
-				local line = rawLines[i]
-				if not line then
-					return false
-				end
-				local lreg, src, field = line:match("^%s*local%s+(v%d+_?%d*) = (v%d+_?%d*)%.([%a_][%w_]*)%s*$")
-				if not lreg then
-					lreg, src, field = line:match("^%s*(v%d+_?%d*) = (v%d+_?%d*)%.([%a_][%w_]*)%s*$")
-				end
-				if not lreg then
-					lreg, src, field = line:match("^%s*(v%d+_?%d*) = (v%d+_?%d*)%[(.-)%]%s*$")
-					if lreg then
-						field = "[" .. field .. "]"
-					else
-						return false
-					end
-				else
-					field = "." .. field
-				end
-				local j = nextNonBlank(i + 1)
-				if j > #rawLines then
-					return false
-				end
-				local nxt = rawLines[j]
-				local ep = escpat(lreg)
-				local cnt = 0
-				for _ in nxt:gmatch(ep) do
-					cnt += 1
-				end
-				if cnt ~= 1 then
-					return false
-				end
-				if nxt:match("^%s*" .. ep .. "%s*=") then
-					return false
-				end
-				rawLines[j] = nxt:gsub(ep, escrep(src .. field), 1)
-				rawLines[i] = nil
-				return true
-			end
-			local function tryFoldUpv(i)
-				local line = rawLines[i]
-				if not line then
-					return false
-				end
-				local reg = line:match("^%s*(upv_%d+)%s*=")
-				if not reg then
-					return false
-				end
-				local val = line:match("^%s*upv_%d+%s*=%s*(.-)%s*$")
-				if not val or val == "" then
-					return false
-				end
-				local j = nextNonBlank(i + 1)
-				if j > #rawLines or not rawLines[j] then
-					return false
-				end
-				local nxt = rawLines[j]
-				local ep = escpat(reg)
-				local cnt = 0
-				for _ in nxt:gmatch(ep) do
-					cnt += 1
-				end
-				if cnt ~= 1 then
-					return false
-				end
-				if nxt:match("^%s*" .. ep .. "%s*=") then
-					return false
-				end
-				rawLines[j] = nxt:gsub(ep, escrep(val), 1)
-				rawLines[i] = nil
-				return true
-			end
-			do
-				local changed = true
-				local guard = 0
-				while changed and guard < 20 do
-					changed = false
-					guard += 1
-					for i = 1, #rawLines do
-						if tryFoldRegisterChain(i) then
-							changed = true
-						end
-					end
-					for i = 1, #rawLines do
-						if tryFoldRegisterChain(i) then
-							changed = true
-						end
-					end
-					for i = 1, #rawLines do
-						if tryCollapse(i) then
-							changed = true
-						end
-					end
-					for i = 1, #rawLines do
-						if tryFoldExpression(i) then
-							changed = true
-						end
-					end
-					for i = 1, #rawLines do
-						if tryFoldField(i) then
-							changed = true
-						end
-					end
-					for i = 1, #rawLines do
-						if tryFoldUpv(i) then
-							changed = true
-						end
-					end
-				end
-			end
-			do
-				local i = 1
-				while i <= #rawLines do
-					local line = rawLines[i]
-					if line and line:match("^%s*v%d+_?%d* = {}%s*$") then
-						local tbl = line:match("^%s*(v%d+_?%d*)")
-						local ep = escpat(tbl)
-						local entries, j = {}, i + 1
-						while j <= #rawLines do
-							local nl = rawLines[j]
-							if nl == nil then
-								j += 1
-								continue
-							end
-							if nl:match("^%s*$") then
-								j += 1
-								continue
-							end
-							local key, val = nl:match("^%s*" .. ep .. "%.([%a_][%w_]*)%s*=%s*(.+)$")
-							if not key then
-								key, val = nl:match("^%s*" .. ep .. '%["([^"]+)"%]%s*=%s*(.+)$')
-							end
-							local numkey
-							if not key then
-								numkey, val = nl:match("^%s*" .. ep .. "%[(%d+)%]%s*=%s*(.+)$")
-								key = numkey
-							end
-							if key and val then
-								entries[#entries + 1] =
-									{ key = key, val = val:match("^(.-)%s*$"), idx = j, num = numkey ~= nil }
-								j += 1
-							else
-								break
-							end
-						end
-						if #entries >= 1 then
-							local parts, allNum = {}, true
-							for _, e in ipairs(entries) do
-								if not e.num then
-									allNum = false
-								end
-							end
-							for _, e in ipairs(entries) do
-								parts[#parts + 1] = allNum and e.val
-									or (e.num and fmtKey(tonumber(e.key)) .. e.val or fmtKey(e.key) .. e.val)
-								rawLines[e.idx] = nil
-							end
-							local ind = line:match("^(%s*)")
-							if #parts <= 4 then
-								rawLines[i] = ind .. tbl .. " = { " .. table.concat(parts, ", ") .. " }"
-							else
-								rawLines[i] = ind
-									.. tbl
-									.. " = {"
-									.. ind
-									.. "\t"
-									.. table.concat(parts, ", " .. ind .. "\t")
-									.. ind
-									.. "}"
-							end
-						end
-					end
-					i += 1
-				end
-			end
-			do
-				local changed = true
-				local guard = 0
-				while changed and guard < 10 do
-					changed = false
-					guard += 1
-					for i = 1, #rawLines do
-						if tryCollapse(i) then
-							changed = true
-						end
-					end
-					for i = 1, #rawLines do
-						if tryFoldField(i) then
-							changed = true
-						end
-					end
-					for i = 1, #rawLines do
-						if tryFoldUpv(i) then
-							changed = true
-						end
-					end
-				end
-			end
-			do
-				for i = 1, #rawLines do
-					local line = rawLines[i]
-					local reg = line and line:match("^%s*local%s+(v%d+_?%d*)%s*$")
-					if reg then
-						local ep = escpat(reg)
-						local used = false
-						for j = i + 1, #rawLines do
-							local other = rawLines[j]
-							if other and other:find(ep) then
-								used = true
-								break
-							end
-						end
-						if not used then
-							rawLines[i] = nil
-						end
-					end
-				end
-			end
-
-			local pass2 = {}
-			for idx = 1, #rawLines do
-				local line = rawLines[idx]
-				if not line then
-					continue
-				end
-				local s = line:match("^%s*(.-)%s*$")
-				if s:match("^%-%- goto #%d+$") then
-					continue
-				end
-				if s:match("^%-%- jump") then
-					continue
-				end
-				if s:match("^%-%- :.*%(udata%)$") then
-					continue
-				end
-				if s:match("^%-%- upvalue capture$") then
-					continue
-				end
-				if s:match("^%-%- clear captures") then
-					continue
-				end
-				if s:match("^%-%- FASTCALL") then
-					continue
-				end
-				if s:match("^%-%- coverage") then
-					continue
-				end
-				if s:match("^%-%- :[%a_][%w_]*%s*$") then
-					continue
-				end
-				if s:match("^%-%- :[%a_][%w_]* %(udata%)%s*$") then
-					continue
-				end
-				line = line:gsub("%s*%-%- goto #%d+", "")
-				line = line:gsub("%s*%-%- end at #%d+", "")
-				line = line:gsub("%s*%-%- iterate %+ jump to #%d+", "")
-				pass2[#pass2 + 1] = line
-			end
-			local pass2b = {}
-			for _, line in ipairs(pass2) do
-				local r = line
-				do
-					local ind, rest = r:match("^(%s*)for v%d+_?%d* = (.+)$")
-					if ind then
-						r = ind .. "for i = " .. rest
-					end
-				end
-				do
-					local ind, rest = r:match("^(%s*)for v%d+_?%d*, v%d+_?%d* in pairs(.+)$")
-					if ind then
-						r = ind .. "for k, v in pairs" .. rest
-					end
-				end
-				do
-					local ind, rest = r:match("^(%s*)for v%d+_?%d*, v%d+_?%d* in ipairs(.+)$")
-					if ind then
-						r = ind .. "for i, v in ipairs" .. rest
-					end
-				end
-				do
-					local ind, iter = r:match("^(%s*)for v%d+_?%d*, v%d+_?%d* in (v%d+_?%d*) do%s*$")
-					if ind then
-						r = ind .. "for k, v in " .. iter .. " do"
-					end
-				end
-				pass2b[#pass2b + 1] = r
-			end
-			local pass3 = {}
-			local i3 = 1
-			while i3 <= #pass2b do
-				local line = pass2b[i3]
-				local nxt = pass2b[i3 + 1]
-				local s = line and line:match("^%s*(.-)%s*$") or ""
-				local isNil = s:match("^v%d+_?%d* = nil") or s:match("^local v%d+_?%d* = nil")
-				local nxtFor = nxt and nxt:match("^%s*for%s+")
-				if isNil and nxtFor then
-					i3 += 1
-				else
-					pass3[#pass3 + 1] = line
-					i3 += 1
-				end
-			end
-			local pass3b = {}
-			local i3b = 1
-			while i3b <= #pass3 do
-				local line = pass3[i3b]
-				local nxt = pass3[i3b + 1]
-				if line and nxt then
-					local ind, expr = line:match("^(%s*)%.%.%. = (.+)$")
-					if ind and expr and nxt:match("^%s*return %.%.%.$") then
-						pass3b[#pass3b + 1] = ind .. "return " .. expr
-						i3b += 2
-						continue
-					end
-				end
-				pass3b[#pass3b + 1] = line
-				i3b += 1
-			end
-
-			for i = 1, #pass3b - 1 do
-				local line = pass3b[i]
-				local nxt = pass3b[i + 1]
-				if line and nxt then
-					local ind, fnreg, callee = line:match("^(%s*)(v%d+_?%d*)%s*=%s*([%a_][%w_]*)%s*$")
-					local outreg, callbase, args = nxt:match("^(%s*)(v%d+_?%d*)%s*=%s*(v%d+_?%d*)%((.*)%)%s*$")
-					if fnreg and callee and outreg and callbase == fnreg then
-						if args:match("^" .. fnreg .. "%s*,") or args:match(",%s*" .. fnreg .. "%s*$") then
-							local prefix = ind or ""
-							pass3b[i] = ""
-							pass3b[i + 1] = prefix
-								.. outreg
-								.. " = "
-								.. callee
-								.. "("
-								.. args:gsub("^" .. fnreg, fnreg, 1)
-								.. ")"
-						end
-					end
-				end
-			end
-
-			for i = 1, #pass3b - 1 do
-				local defLine = pass3b[i]
-				local callLine = pass3b[i + 1]
-				if defLine and callLine then
-					local di, dk, freg, fexpr = defLine:match("^(%s*)(local%s+)?(v%d+_?%d*)%s*=%s*(.-)%s*$")
-					local ci, outreg, target, args =
-						callLine:match("^(%s*)(v%d+_?%d*)%s*=%s*(v%d+_?%d*)%s*%((.*)%)%s*$")
-					if freg and fexpr and ci and target == freg and safeExpr(fexpr) then
-						local ep = freg:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
-						local uses = 0
-						for j = i, #pass3b do
-							if pass3b[j] then
-								for _ in pass3b[j]:gmatch("%f[%w_]" .. ep .. "%f[^%w_]") do
-									uses += 1
-								end
-							end
-						end
-						if uses == 2 then
-							pass3b[i] = ""
-							pass3b[i + 1] = ci .. outreg .. " = " .. fexpr .. "(" .. args .. ")"
-							changed = true
-						end
-					end
-				end
-			end
-
-			for i = 1, #pass3b - 1 do
-				local defLine = pass3b[i]
-				local callLine = pass3b[i + 1]
-				if defLine and callLine then
-					local di, dk, dst, src = defLine:match("^(%s*)(local%s+)?(v%d+_?%d*)%s*=%s*(v%d+_?%d*)%s*$")
-					local ci, outreg, target, args =
-						callLine:match("^(%s*)(v%d+_?%d*)%s*=%s*(v%d+_?%d*)%s*%((.*)%)%s*$")
-					if dst and src and ci and target == dst then
-						local ep = dst:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
-						local uses = 0
-						for j = i, #pass3b do
-							if pass3b[j] then
-								for _ in pass3b[j]:gmatch("%f[%w_]" .. ep .. "%f[^%w_]") do
-									uses += 1
-								end
-							end
-						end
-						if uses == 2 then
-							pass3b[i] = ""
-							pass3b[i + 1] = ci .. outreg .. " = " .. src .. "(" .. args .. ")"
-							changed = true
-						end
-					end
-				end
-			end
-
-			do
-				local i = 1
-				while i <= #pass3b - 1 do
-					local line = pass3b[i]
-					if line then
-						local ind, fn, args = line:match("^(%s*)local%s+function%s+([%a_][%w_]*)%s*(%b())")
-						if fn then
-							local j = i + 1
-							local fnIndent = #ind
-							while j <= #pass3b do
-								local s = pass3b[j]
-								if s and s:match("^%s*end%s*$") and #(s:match("^(%s*)") or "") == fnIndent then
-									local assign = pass3b[j + 1]
-									local base, field = assign
-										and assign:match(
-											"^%s*(v%d+_?%d*)%.([%a_][%w_]*)%s*=%s*" .. escpat(fn) .. "%s*$"
-										)
-									if base and field then
-										pass3b[i] = ind .. "function " .. base .. "." .. field .. args
-										pass3b[j + 1] = nil
-									end
-									break
-								end
-								j += 1
-							end
-						end
-					end
-					i += 1
-				end
-			end
-
-			for i, line in ipairs(pass3b) do
-				if line then
-					local ind, reg, value =
-						line:match("^(%s*)local%s+(v%d+_?%d*)%s*=%s*{%s*__index%s*=%s*(v%d+_?%d*)%s*}%s*$")
-					if reg and value and reg == value then
-						pass3b[i] = ind .. "local " .. reg .. " = {}"
-						table.insert(pass3b, i + 1, ind .. reg .. ".__index = " .. reg)
-					end
-				end
-			end
-
-			local knownFunctions = {}
-			for _, line in ipairs(pass3b) do
-				local fn = line:match("^%s*local%s+function%s+([%a_][%w_]*)%s*(")
-				if fn then
-					knownFunctions[fn] = true
-				end
-			end
-			for i, line in ipairs(pass3b) do
-				if line then
-					local target, field, fn = line:match("^(%s*v%d+_?%d*)%.([%a_][%w_]*)%s*=%s*([%a_][%w_]*)$")
-					if fn then
-						local base = fn:match("^(.+)_([0-9]+)$")
-						if base and knownFunctions[base] then
-							pass3b[i] = target .. "." .. field .. " = " .. base
-						end
-					end
-				end
-			end
-
-			local seen4 = {}
-			local pass4 = {}
-			for _, line in ipairs(pass3b) do
-				local reg = line:match("^%s*(v%d+_?%d*)%s*=")
-				if reg and not seen4[reg] then
-					seen4[reg] = true
-					line = line:gsub("^(%s*)(v%d+_?%d*%s*=)", "%1local %2", 1)
-				end
-				pass4[#pass4 + 1] = line
-			end
-			local seen4b = {}
-			local pass4b = {}
-			for _, line in ipairs(pass4) do
-				local reg = line:match("^%s*(upv_%d+)%s*=")
-				if reg and not seen4b[reg] then
-					seen4b[reg] = true
-					line = line:gsub("^(%s*)(upv_%d+%s*=)", "%1local %2", 1)
-				end
-				pass4b[#pass4b + 1] = line
-			end
-			for i = 1, #pass4b do
-				local line = pass4b[i]
-				if line then
-					for className, expr in pairs(_svcNames) do
-						local pat = 'game:GetService("' .. escpat(className) .. '")'
-						if line:find(pat, 1, true) and expr ~= pat then
-							line = line:gsub(pat, function()
-								return expr
-							end)
-						end
-					end
-					pass4b[i] = line
-				end
-			end
-
-			local final = {}
-			local lastBlank = false
-			for _, line in ipairs(pass4b) do
-				local isBlank = line:match("^%s*$") ~= nil
-				if isBlank and lastBlank then
-					continue
-				end
-				lastBlank = isBlank
-				final[#final + 1] = line
-			end
-			return table.concat(final, "\n")
+			lines[#lines + 1] = rep1 .. "return b"
+			lines[#lines + 1] = rep .. "end)()"
+			return table.concat(lines, "\n")
 		end
 
 		ZukDecompile = Decompile
-		cleanOutput = _coImpl
 		getgenv()._ZUK_DECOMPILE = Decompile
-		getgenv()._ZUK_CLEANOUTPUT = _coImpl
 	end)
+
 
 
 
