@@ -28507,31 +28507,9 @@ local RETURN_ELAPSED_TIME = false
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 local function main()
 	local ZukDecompile
+                local Format
 	task.defer(function()
 		local FLOAT_PRECISION = 7
 		local Reader = {}
@@ -29143,15 +29121,6 @@ local function main()
 			ListUsedGlobals = true,
 			ReturnElapsedTime = false,
 			CleanMode = true,
-
-			-- Donor-derived safety ceilings.  These are intentionally small enough
-			-- to stop pathological bytecode from consuming unbounded work while
-			-- keeping normal ZukV2 decompiles unaffected.
-			MaxBytecodeBytes = 16 * 1024 * 1024,
-			MaxPrototypes = 10000,
-			MaxInstructions = 2000000,
-			MaxConstants = 2000000,
-			MaxOutputBytes = 32 * 1024 * 1024,
 		}
 		local LuauCompileUserdataInfo = true
 		pcall(function()
@@ -29191,6 +29160,9 @@ local function main()
 			return s .. string.rep(ch, math.max(0, n - #s))
 		end
 		local ROBLOX_GLOBALS = {
+			"isfolder",
+			"loadstring",
+			"makefolder",
 			"game",
 			"workspace",
 			"script",
@@ -29264,30 +29236,17 @@ local function main()
 			return false
 		end
 		local function Decompile(bytecode, options)
-			options = type(options) == "table" and options or {}
-			local function positiveLimit(name, default)
-				local n = options[name]
-				if n == nil then n = default end
-				if n == false then return math.huge end
-				if type(n) ~= "number" or n < 1 or n ~= math.floor(n) then
-					error(name .. " must be a positive integer or false", 2)
-				end
-				return n
-			end
-			local maxBytecodeBytes = positiveLimit("MaxBytecodeBytes", DEFAULT_OPTIONS.MaxBytecodeBytes)
-			local maxPrototypes = positiveLimit("MaxPrototypes", DEFAULT_OPTIONS.MaxPrototypes)
-			local maxInstructions = positiveLimit("MaxInstructions", DEFAULT_OPTIONS.MaxInstructions)
-			local maxConstants = positiveLimit("MaxConstants", DEFAULT_OPTIONS.MaxConstants)
-			local maxOutputBytes = positiveLimit("MaxOutputBytes", DEFAULT_OPTIONS.MaxOutputBytes)
-			if type(bytecode) ~= "string" then
-				error("bytecode must be a string", 2)
-			end
-			if #bytecode > maxBytecodeBytes then
-				error(("bytecode exceeds MaxBytecodeBytes (%d > %d)"):format(#bytecode, maxBytecodeBytes), 2)
-			end
 			local bytecodeVersion, typeEncodingVersion
-			Reader:Set(options.ReaderFloatPrecision)
-			local reader = Reader.new(bytecode)
+			options = options or {}
+			local precision = options.ReaderFloatPrecision or 7
+			local reader
+			local setupOk = pcall(function()
+				Reader:Set(precision)
+				reader = Reader.new(bytecode)
+			end)
+			if not setupOk or not reader then
+				return Strings.COMPILATION_FAILURE:format("unable to initialize bytecode reader")
+			end
 			local function disassemble()
 				reader:mark("header:typeVersion")
 				if bytecodeVersion >= 4 then
@@ -29318,9 +29277,6 @@ local function main()
 				local function readProtoTable()
 					reader:mark("prototable:count")
 					local n = reader:nextVarInt()
-					if n > maxPrototypes then
-						error(("prototype count exceeds MaxPrototypes (%d > %d)"):format(n, maxPrototypes), 2)
-					end
 					for i = 1, n do
 						local protoId = i - 1
 						local pfx = "proto[" .. protoId .. "/" .. n .. "]:"
@@ -29372,18 +29328,12 @@ local function main()
 						end
 						reader:mark(pfx .. "instructions:count")
 						proto.sizeInstructions = reader:nextVarInt()
-						if proto.sizeInstructions > maxInstructions then
-							error(("prototype %d instruction count exceeds MaxInstructions (%d > %d)"):format(protoId, proto.sizeInstructions, maxInstructions), 2)
-						end
 						reader:mark(pfx .. "instructions[0.." .. proto.sizeInstructions .. "]")
 						for j = 1, proto.sizeInstructions do
 							proto.instructions[j] = reader:nextUInt32()
 						end
 						reader:mark(pfx .. "constants:count")
 						proto.sizeConstants = reader:nextVarInt()
-						if proto.sizeConstants > maxConstants then
-							error(("prototype %d constant count exceeds MaxConstants (%d > %d)"):format(protoId, proto.sizeConstants, maxConstants), 2)
-						end
 						for j = 1, proto.sizeConstants do
 							reader:mark(pfx .. "const[" .. (j - 1) .. "/" .. proto.sizeConstants .. "]:type")
 							local constType = reader:nextByte()
@@ -29634,97 +29584,6 @@ local function main()
 						flags = df
 						proto.flags = df
 					end
-					-- Selected from decompiler.luau: validate decoded operands before
-					-- they reach the register-action/emitter layer.  This keeps the
-					-- existing ZukV2 instruction representation intact instead of
-					-- importing the donor's separate IR model.
-					local function validateInstruction(opn, A, B, C, sD, D, aux, idx)
-						local stack = proto.maxStackSize or 0
-						local function reg(r, label)
-							if r == nil then return end
-							if r < 0 or r >= stack then
-								error(("invalid %s register %d in %s at instruction %d"):format(label or "operand", r, opn, idx), 2)
-							end
-						end
-						local function range(r, count, label)
-							if r == nil then return end
-							if count < 0 or r < 0 or r + count > stack then
-								error(("invalid %s register range %d..%d in %s at instruction %d"):format(label or "operand", r, r + count - 1, opn, idx), 2)
-							end
-						end
-						local function constant(k, label)
-							if k == nil then return end
-							if constants[k + 1] == nil then
-								error(("invalid %s constant index %d in %s at instruction %d"):format(label or "operand", k, opn, idx), 2)
-							end
-						end
-
-						if opn == "LOADNIL" or opn == "LOADN" or opn == "LOADK"
-							or opn == "NEWCLOSURE" or opn == "DUPCLOSURE" or opn == "NEWTABLE"
-							or opn == "DUPTABLE" or opn == "GETVARARGS"
-						then
-							reg(A, "A")
-							if opn == "LOADK" then constant(D, "LOADK") end
-							if opn == "DUPCLOSURE" then constant(D, "closure") end
-						elseif opn == "LOADB" then
-							reg(A, "A")
-							if B ~= nil and B > 1 then error("invalid LOADB boolean", 2) end
-						elseif opn == "MOVE" or opn == "NOT" or opn == "MINUS" or opn == "LENGTH" then
-							reg(A, "A"); reg(B, "B")
-						elseif opn == "GETUPVAL" or opn == "SETUPVAL" then
-							reg(A, "A")
-							if B == nil or B < 0 or B >= (proto.numUpvalues or 0) then
-								error(("invalid upvalue index %s in %s at instruction %d"):format(tostring(B), opn, idx), 2)
-							end
-						elseif opn == "GETTABLE" or opn == "SETTABLE" or opn == "AND" or opn == "OR"
-							or opn == "CONCAT" or opn == "ADD" or opn == "SUB" or opn == "MUL"
-							or opn == "DIV" or opn == "MOD" or opn == "POW" or opn == "IDIV"
-						then
-							reg(A, "A"); reg(B, "B"); reg(C, "C")
-						elseif opn == "ADDK" or opn == "SUBK" or opn == "MULK" or opn == "DIVK"
-							or opn == "MODK" or opn == "POWK" or opn == "ANDK" or opn == "ORK"
-							or opn == "IDIVK"
-						then
-							reg(A, "A"); reg(B, "B"); constant(C, "C")
-						elseif opn == "GETTABLEN" or opn == "SETTABLEN" then
-							reg(A, "A"); reg(B, "B")
-						elseif opn == "GETGLOBAL" or opn == "SETGLOBAL" then
-							reg(A, "A"); constant(aux, "global")
-						elseif opn == "GETIMPORT" then
-							reg(A, "A"); constant(D, "import")
-						elseif opn == "GETTABLEKS" or opn == "SETTABLEKS" or opn == "GETUDATAKS"
-							or opn == "SETUDATAKS" or opn == "NAMECALL" or opn == "NAMECALLUDATA"
-						then
-							reg(A, "A"); reg(B, "B")
-							if opn == "NAMECALL" or opn == "NAMECALLUDATA" then reg(A + 1, "A+1") end
-							constant(aux, "property")
-						elseif opn == "CALL" or opn == "CALLFB" then
-							reg(A, "A")
-							if B and B > 0 then range(A, B, "call arguments") end
-							if C and C > 1 then range(A, C - 1, "call results") end
-						elseif opn == "RETURN" then
-							range(A, (B or 1) == 0 and 0 or (B - 1), "return")
-						elseif opn == "SETLIST" then
-							reg(A, "A")
-							if B and B > 0 then range(B, (C or 0) == 0 and 0 or C - 1, "SETLIST") end
-						elseif opn == "FORNPREP" or opn == "FORNLOOP"
-							or opn == "FORGPREP" or opn == "FORGPREP_INEXT" or opn == "FORGPREP_NEXT"
-							or opn == "FORGLOOP"
-						then
-							range(A, 3, "loop")
-						elseif opn == "SUBRK" or opn == "DIVRK" then
-							reg(A, "A"); constant(B, "B"); reg(C, "C")
-						end
-
-						if aux ~= nil and (opn == "GETTABLEKS" or opn == "SETTABLEKS" or opn == "GETGLOBAL"
-							or opn == "SETGLOBAL" or opn == "GETIMPORT" or opn == "NAMECALL"
-							or opn == "NAMECALLUDATA" or opn == "GETUDATAKS" or opn == "SETUDATAKS")
-							and idx >= #instructions
-						then
-							error(("missing AUX instruction for %s at %d"):format(opn, idx), 2)
-						end
-					end
-
 					local function writeInstructions()
 						local auxSkip = false
 						local function reg(act, regs, extra, hide)
@@ -29770,14 +29629,10 @@ local function main()
 								sD = Luau:INSN_sD(instruction)
 							end
 							if isAux then
-								if instructions[idx + 1] == nil then
-									error(("missing AUX word for %s at instruction %d"):format(opn, idx), 2)
-								end
 								auxSkip = true
 								reg(oci, nil, nil, true)
 								aux = instructions[idx + 1]
 							end
-							validateInstruction(opn, A, B, C, sD, D, aux, idx)
 							local st = not options.ShowTrivialOperations
 							if opn == "NOP" or opn == "BREAK" or opn == "NATIVECALL" then
 								reg(oci, nil, nil, st)
@@ -30026,9 +29881,6 @@ local function main()
 							if r == nil then
 								return "upv_?"
 							end
-							-- A resolved parent capture is more authoritative than a child
-							-- debug-upvalue label. Debug labels describe the slot; the
-							-- capture mapping tells us the actual source value.
 							if proto._captureNames and proto._captureNames[r] then
 								return proto._captureNames[r]
 							end
@@ -30189,10 +30041,6 @@ local function main()
 									local r = defs[k]
 									ensureRegTimeline(r)
 									local tl = regGenTimeline[r]
-									-- A VM write is a new SSA generation.  NAMECALL + CALL is an
-									-- expression dependency, not the same value.  Treating it as
-									-- one generation produced bogus self assignments such as
-									-- `v5 = v5:WaitForChild(...)`.
 									if tl[#tl] then
 										tl[#tl].endIdx = math.max(tl[#tl].endIdx or ai, ai - 1)
 									end
@@ -30254,7 +30102,7 @@ local function main()
 							FindFirstChildOfClass = true,
 							FindFirstChildWhichIsA = true,
 						}
-						local KNOWN_GLOBAL_NAMES = { game = false, workspace = true, script = true, shared = false }
+						local KNOWN_GLOBAL_NAMES = { game = true, workspace = true, script = true, shared = true }
 						local function sanitizeName(s)
 							if not s or s == "" then
 								return nil
@@ -30278,9 +30126,8 @@ local function main()
 										if prevAct and prevAct.opCode and prevAct.opCode.name == "NAMECALL" then
 											local method = constStr(prevAct.extraData[2])
 											if
-												method and (
-													SERVICE_LIKE_METHODS[method] or CHILD_LOOKUP_METHODS[method]
-												)
+												method
+												and (SERVICE_LIKE_METHODS[method] or CHILD_LOOKUP_METHODS[method])
 											then
 												local argReg = act.usedRegisters[1] + 1
 												local lit = findRecentStringLiteral(argReg, defAi)
@@ -30425,9 +30272,6 @@ local function main()
 							if type(name) ~= "string" or name == "" then
 								return name
 							end
-							-- Luau frequently appends a numeric discriminator to closure
-							-- debug names when several lexical functions share a source name.
-							-- Keep the readable lexical base for emitted source.
 							local base = name:match("^(.-)_%d+$")
 							if base and base ~= "" then
 								return base
@@ -30435,19 +30279,12 @@ local function main()
 							return name
 						end
 						local function writeProto(reg, p, captureInstrIdx)
-							-- Resolve child closure captures against the parent register
-							-- namespace before emitting the child.  collectCaptures()
-							-- has already flattened LCT_UPVAL captures to their source
-							-- register, so this is a direct parent->child mapping.
 							p._captureNames = p._captureNames or {}
 							if p.captures then
 								for capIndex, source in pairs(p.captures) do
 									if type(source) == "number" then
 										local parentName = fmtReg(source, captureInstrIdx or 1)
 										if parentName and parentName ~= "v?" then
-											-- The capture source is authoritative.  Compiler debug-upvalue
-											-- names can describe the slot (or an old lexical name), while
-											-- the parent register tells us what value is actually captured.
 											p._captureNames[capIndex] = parentName
 										end
 									end
@@ -30456,7 +30293,8 @@ local function main()
 							local emittedName = canonicalFunctionName(p.name)
 							local body
 							if p.name and emittedName ~= p.name then
-								body = fmtProto(p):gsub("local function " .. p.name, "local function " .. emittedName, 1)
+								body =
+									fmtProto(p):gsub("local function " .. p.name, "local function " .. emittedName, 1)
 							else
 								body = fmtProto(p)
 							end
@@ -30488,34 +30326,24 @@ local function main()
 							FORNLOOP = true,
 							FORGLOOP = true,
 						}
-						local structuredMode = true
-						local function emitAction(i, action)
+						for i, action in ipairs(actions) do
 							if action.hide then
-								return
+								continue
 							end
 							local ur = action.usedRegisters
 							local ed = action.extraData
 							local oci = action.opCode
 							if not oci then
-								return
+								continue
 							end
-																local opn = oci.name
-									if structuredMode and (
-										opn == "JUMP" or opn == "JUMPBACK" or opn == "JUMPX"
-										or opn == "JUMPIF" or opn == "JUMPIFNOT" or opn == "JUMPIFEQ" or opn == "JUMPIFLE"
-										or opn == "JUMPIFLT" or opn == "JUMPIFNOTEQ" or opn == "JUMPIFNOTLE" or opn == "JUMPIFNOTLT"
-										or opn == "JUMPXEQKNIL" or opn == "JUMPXEQKB" or opn == "JUMPXEQKN" or opn == "JUMPXEQKS"
-										or opn == "CMPPROTO"
-									) then
-										return
-									end
+							local opn = oci.name
 							if options.CleanMode and CLEAN_SUPPRESS[opn] then
-								return
+								continue
 							end
 							if options.CleanMode and opn == "RETURN" then
 								local b = ed and ed[1] or 0
 								if b == 1 then
-									return
+									continue
 								end
 							end
 							if
@@ -30528,7 +30356,7 @@ local function main()
 									or actions[i - 1].opCode.name == "DUPCLOSURE"
 								)
 							then
-								return
+								continue
 							end
 							local function R(r)
 								return fmtReg(r, i)
@@ -30660,9 +30488,6 @@ local function main()
 									callBody = rb .. " = "
 								end
 								local receiverR = baseR
-								-- Luau NAMECALL is `A = receiver[B]:method(...)` at the VM level.
-								-- The CALL itself uses A as the call frame, so using Rpre(A) here
-								-- incorrectly turns `player` into `v5:WaitForChild(...)`.
 								if prev and prev.opCode and prev.opCode.name == "NAMECALL" then
 									if prev.usedRegisters and prev.usedRegisters[2] ~= nil then
 										receiverR = prev.usedRegisters[2]
@@ -31047,123 +30872,6 @@ local function main()
 							end
 							emit("\n")
 						end
-						local structureAndEmit
-						structureAndEmit = function()
-							local conditional = {
-								JUMPIF=true,JUMPIFNOT=true,JUMPIFEQ=true,JUMPIFLE=true,JUMPIFLT=true,
-								JUMPIFNOTEQ=true,JUMPIFNOTLE=true,JUMPIFNOTLT=true,
-								JUMPXEQKNIL=true,JUMPXEQKB=true,JUMPXEQKN=true,JUMPXEQKS=true,CMPPROTO=true,
-							}
-							local unconditional = {JUMP=true,JUMPBACK=true,JUMPX=true}
-							local loopPrep = {FORNPREP=true,FORGPREP=true,FORGPREP_INEXT=true,FORGPREP_NEXT=true}
-							local loopLatch = {FORNLOOP=true,FORGLOOP=true}
-							local n=#actions
-							local function jumpTarget(i,a)
-								local d=a.extraData and a.extraData[1]
-								return type(d)=="number" and i+d or nil
-							end
-							local leaders={[1]=true}
-							for i,a in ipairs(actions) do
-								local op=a.opCode and a.opCode.name
-								if conditional[op] or unconditional[op] or loopPrep[op] or loopLatch[op] or op=="RETURN" then
-									leaders[i+1]=true
-									local t=jumpTarget(i,a)
-									if t and t>=1 and t<=n then leaders[t]=true end
-								end
-							end
-							leaders[n+1]=nil
-							local starts={}
-							for i=1,n do if leaders[i] then starts[#starts+1]=i end end
-							local blocks, at = {}, {}
-							for bi,st in ipairs(starts) do
-								local en=(starts[bi+1] or n+1)-1
-								local b={id=bi,first=st,last=en,succ={},preds={}}
-								blocks[#blocks+1]=b
-								for j=st,en do at[j]=b end
-							end
-							local exit={id=#blocks+1,exit=true,first=n+1,last=n}
-							local function edge(a,b)
-								b=b or exit
-								for _,x in ipairs(a.succ) do if x==b then return end end
-								a.succ[#a.succ+1]=b; b.preds[#b.preds+1]=a
-							end
-							for _,b in ipairs(blocks) do
-								local i=b.last; local a=actions[i]; local op=a.opCode and a.opCode.name
-								if conditional[op] then
-									local t=jumpTarget(i,a); b.term={kind="branch",action=i,yes=at[t] or exit,no=at[i+1] or exit}; edge(b,b.term.yes);edge(b,b.term.no)
-								elseif unconditional[op] then
-									local t=jumpTarget(i,a);b.term={kind="jump",action=i,to=at[t] or exit};edge(b,b.term.to)
-								elseif op=="RETURN" then b.term={kind="return",action=i}
-								elseif loopLatch[op] then
-									local t=jumpTarget(i,a);b.term={kind="latch",action=i,to=at[t] or exit};edge(b,b.term.to);edge(b,at[i+1] or exit)
-								else b.term={kind="fall",action=i};edge(b,at[i+1] or exit) end
-							end
-							local function dominators(reverse)
-								local start=reverse and exit or blocks[1];local all={}
-								for _,b in ipairs(blocks) do all[b]=true end;all[exit]=true
-								local d={}
-								for _,b in ipairs(blocks) do d[b]=(b==start and {[b]=true} or all) end;d[exit]=(exit==start and {[exit]=true} or all)
-								local function incoming(b) return reverse and b.succ or b.preds end
-								local changed=true
-								while changed do
-									changed=false
-									for _,b in ipairs(blocks) do if b~=start then
-										local ps=incoming(b);local nd=nil
-										for _,p in ipairs(ps) do if d[p] then if not nd then nd={} for x in pairs(d[p]) do nd[x]=true end else for x in pairs(nd) do if not d[p][x] then nd[x]=nil end end end end end
-										nd=nd or {};nd[b]=true
-										local same=true;for x in pairs(nd) do if not d[b][x] then same=false;break end end;for x in pairs(d[b]) do if not nd[x] then same=false;break end end
-										if not same then d[b]=nd;changed=true end
-									end end
-								end
-								return d
-							end
-							local dom=dominators(false);local pdom=dominators(true)
-							local loops={}
-							for _,b in ipairs(blocks) do for _,to in ipairs(b.succ) do if dom[b] and dom[b][to] then
-								local lp=loops[to] or {header=to,nodes={[to]=true}};loops[to]=lp;lp.nodes[b]=true
-								local q={b};local qi=1;while qi<=#q do local x=q[qi];qi+=1;for _,p in ipairs(x.preds) do if not lp.nodes[p] and p~=to then lp.nodes[p]=true;q[#q+1]=p end end end
-							end end end end
-							local function condText(i,a)
-								local u=a.usedRegisters or {};local e=a.extraData or {};local op=a.opCode and a.opCode.name;local Rr=function(r)return fmtReg(r,i)end
-								if op=="JUMPIF" then return "not "..Rr(u[1]) end;if op=="JUMPIFNOT" then return Rr(u[1]) end
-								local c={JUMPIFEQ=" ~= ",JUMPIFLE=" > ",JUMPIFLT=" >= ",JUMPIFNOTEQ=" == ",JUMPIFNOTLE=" <= ",JUMPIFNOTLT=" < "};if c[op] then return Rr(u[1])..c[op]..Rr(u[2]) end
-								if op=="JUMPXEQKNIL" then return Rr(u[1])..(bit32.rshift(e[2] or 0,31)~=1 and " ~= " or " == ").."nil" end
-								if op=="JUMPXEQKB" then return Rr(u[1])..(bit32.rshift(e[2] or 0,31)~=1 and " ~= " or " == ")..tostring(toBoolean(bit32.band(e[2] or 0,1))) end
-								if op=="JUMPXEQKN" or op=="JUMPXEQKS" then local k=bit32.band(e[2] or 0,0xFFFFFF);return Rr(u[1])..(bit32.rshift(e[2] or 0,31)~=1 and " ~= " or " == ")..fmtConst(consts[k+1]) end
-								if op=="CMPPROTO" then return "not proto_match("..Rr(u[1])..", proto#"..tostring(e[2] or "?")..")" end;return "true"
-							end
-							local function nearestJoin(a,b)
-								local best=nil;for x in pairs(pdom[a] or {}) do if (pdom[b] or {})[x] and x~=a and x~=b then if not best or x.first<best.first then best=x end end end;return best or b
-							end
-							local visited={}
-							local function emitBlockRange(start,stop,depth)
-								depth=depth or 0;if depth>200 then error("structured control-flow nesting limit exceeded") end
-								local cur=start
-								while cur and cur~=stop and cur~=exit do
-									if visited[cur] then return end;visited[cur]=true
-									local lp=loops[cur];local t=cur.term
-									if lp and t and t.kind=="branch" and lp.header==cur then
-										local body=t.no;local after=t.yes;if after==cur then body=t.yes;after=t.no end
-										emit(ind().."while "..condText(t.action,actions[t.action]).." do\\n");indentLevel+=1
-										emitBlockRange(body,cur,depth+1);indentLevel-=1;emit(ind().."end\\n");cur=after
-									elseif t and t.kind=="branch" then
-										local join=nearestJoin(t.yes,t.no)
-										emit(ind().."if "..condText(t.action,actions[t.action]).." then\\n");indentLevel+=1;emitBlockRange(t.yes,join,depth+1);indentLevel-=1
-										if t.no~=join then emit(ind().."else\\n");indentLevel+=1;emitBlockRange(t.no,join,depth+1);indentLevel-=1 end;emit(ind().."end\\n");cur=join
-									else
-										for i=cur.first,cur.last do local a=actions[i];local op=a.opCode and a.opCode.name;if not conditional[op] and not unconditional[op] then emitAction(i,a) end end
-										cur=cur.succ[1]
-									end
-								end
-							end
-							local ok,err=pcall(function()emitBlockRange(blocks[1],exit,0)end)
-							if not ok then
-								-- Safety fallback: never lose the decompile because a malformed CFG could not be structured.
-								for i,a in ipairs(actions) do local op=a.opCode and a.opCode.name;if not conditional[op] and not unconditional[op] then emitAction(i,a) end end
-							end
-						end
-
-						structureAndEmit()
 					end
 					writeActions(registerActions[mainProtoId])
 					finalResult = processResult(table.concat(resultParts))
@@ -31198,7 +30906,12 @@ local function main()
 					end
 				end
 			end
-			bytecodeVersion = reader:nextByte()
+			local versionOk = pcall(function()
+				bytecodeVersion = reader:nextByte()
+			end)
+			if not versionOk then
+				return Strings.COMPILATION_FAILURE:format("truncated bytecode header")
+			end
 			if bytecodeVersion == 0 then
 				return manager(false, "COMPILATION_FAILURE")
 			elseif
@@ -31210,28 +30923,53 @@ local function main()
 				return manager(false, "UNSUPPORTED_LBC_VERSION")
 			end
 		end
-		-- ZUKV2 reconstruction helpers: pure formatting/value utilities.
-		-- These are intentionally kept separate from runtime closure discovery.
 		local MAX_DEPTH = 60
-		local INDENT_UNIT = "  "
+		local INDENT_UNIT = "    "
 
 		local LUA_KW = {
-			["and"] = true, ["break"] = true, ["do"] = true, ["else"] = true,
-			["elseif"] = true, ["end"] = true, ["false"] = true, ["for"] = true,
-			["function"] = true, ["if"] = true, ["in"] = true, ["local"] = true,
-			["nil"] = true, ["not"] = true, ["or"] = true, ["repeat"] = true,
-			["return"] = true, ["then"] = true, ["true"] = true, ["until"] = true,
+			["and"] = true,
+			["break"] = true,
+			["do"] = true,
+			["else"] = true,
+			["elseif"] = true,
+			["end"] = true,
+			["false"] = true,
+			["for"] = true,
+			["function"] = true,
+			["if"] = true,
+			["in"] = true,
+			["local"] = true,
+			["nil"] = true,
+			["not"] = true,
+			["or"] = true,
+			["repeat"] = true,
+			["return"] = true,
+			["then"] = true,
+			["true"] = true,
+			["until"] = true,
 			["while"] = true,
 		}
 
 		local function escapeString(s)
 			return s:gsub('[%c\\"]', function(c)
-				if c == "\\" then return "\\\\" end
-				if c == '"' then return '\\"' end
-				if c == "\n" then return "\\n" end
-				if c == "\r" then return "\\r" end
-				if c == "\t" then return "\\t" end
-				if c == "\0" then return "\\0" end
+				if c == "\\" then
+					return "\\\\"
+				end
+				if c == '"' then
+					return '\\"'
+				end
+				if c == "\n" then
+					return "\\n"
+				end
+				if c == "\r" then
+					return "\\r"
+				end
+				if c == "\t" then
+					return "\\t"
+				end
+				if c == "\0" then
+					return "\\0"
+				end
 				return ("\\%d"):format(c:byte())
 			end)
 		end
@@ -31251,7 +30989,9 @@ local function main()
 		local function safeVarName(idx, val)
 			local t = type(val):lower()
 			if typeof and typeof(val) == "Instance" then
-				local ok, nm = pcall(function() return val.Name end)
+				local ok, nm = pcall(function()
+					return val.Name
+				end)
 				if ok and type(nm) == "string" and nm ~= "" then
 					local clean = nm:gsub("[^%w_]", "_")
 					if clean:match("^[%a_]") and not LUA_KW[clean] then
@@ -31260,8 +31000,14 @@ local function main()
 				end
 			end
 			local prefix = ({
-				boolean = "bool", string = "str", number = "num", table = "tbl",
-				["function"] = "fn", thread = "thread", userdata = "ud", buffer = "buf",
+				boolean = "bool",
+				string = "str",
+				number = "num",
+				table = "tbl",
+				["function"] = "fn",
+				thread = "thread",
+				userdata = "ud",
+				buffer = "buf",
 			})[t] or t
 			return prefix .. tostring(idx)
 		end
@@ -31291,20 +31037,25 @@ local function main()
 
 		local function getFullPath(inst)
 			local ok, result = pcall(function()
-				if inst == game then return "game" end
+				if inst == game then
+					return "game"
+				end
 				local chain, p = {}, inst
 				local depth = 0
 				while p and p ~= game and depth < MAX_DEPTH do
 					chain[#chain + 1] = p
 					local par = p.Parent
-					if par == nil then break end
+					if par == nil then
+						break
+					end
 					p = par
 					depth += 1
 				end
-				if #chain == 0 then return "nil --[[ destroyed ]]" end
+				if #chain == 0 then
+					return "nil --[[ destroyed ]]"
+				end
 				local root = chain[#chain]
-				local path = _svcNames[root.ClassName]
-					or ('game:GetService("%s")'):format(escapeString(root.ClassName))
+				local path = _svcNames[root.ClassName] or ('game:GetService("%s")'):format(escapeString(root.ClassName))
 				for i = #chain - 1, 1, -1 do
 					path ..= (':FindFirstChild("%s")'):format(escapeString(chain[i].Name))
 				end
@@ -31318,29 +31069,186 @@ local function main()
 				return nil
 			end
 			local ok, len = pcall(buffer.len, buf)
-			if not ok then return nil end
+			if not ok then
+				return nil
+			end
 			indent = indent or 0
 			local rep = string.rep(INDENT_UNIT, indent)
 			local rep1 = string.rep(INDENT_UNIT, indent + 1)
-			local lines = {"(function()", rep1 .. ("local b = buffer.create(%d)"):format(len)}
+			local lines = { "(function()", rep1 .. ("local b = buffer.create(%d)"):format(len) }
 			for i = 0, len - 1 do
 				local rok, byte = pcall(buffer.readu8, buf, i)
 				if rok and byte ~= 0 then
 					local printable = byte >= 32 and byte < 127
 					local cmt = printable and ("'%s'"):format(escapeString(string.char(byte)))
 						or ("0x%02X"):format(byte)
-					lines[#lines + 1] = rep1 .. ("buffer.writeu8(b, %d, %d) --[[ %s ]] "):format(i, byte, cmt):gsub("%s+$", "")
+					lines[#lines + 1] = rep1
+						.. ("buffer.writeu8(b, %d, %d) --[[ %s ]] "):format(i, byte, cmt):gsub("%s+$", "")
 				end
 			end
 			lines[#lines + 1] = rep1 .. "return b"
 			lines[#lines + 1] = rep .. "end)()"
 			return table.concat(lines, "\n")
 		end
+		local function buildReport(parsed, scriptName)
+			local lines = {}
+			local function w(s)
+				table.insert(lines, s or "")
+			end
+			w("  BYTECODE VIEWER — " .. (scriptName or "unknown"))
+			w("  Luau version : " .. parsed.version)
+			w("  Types version: " .. parsed.typesVersion)
+			w("  Proto count  : " .. #parsed.protos)
+			w("  Entry proto  : #" .. parsed.entryProto)
+			w("  Strings total: " .. #parsed.stringTable)
+			w("")
+			w("STRING TABLE")
+			for i, s in ipairs(parsed.stringTable) do
+				w(string.format("  [%3d] %q", i, s))
+			end
+			w("")
+			local function walkProto(proto, idx)
+				if proto.error then
+					w("  [Proto #" .. idx .. "] PARSE ERROR: " .. proto.error)
+					return
+				end
+				local ind = string.rep("  ", proto.depth + 1)
+				local dn = proto.debugName ~= "" and (" '" .. proto.debugName .. "'") or ""
+				w(string.format("%s── Proto #%d%s", ind, idx, dn))
+				w(
+					string.format(
+						"%s   params=%d  upvals=%d  maxStack=%d  vararg=%s",
+						ind,
+						proto.numParams,
+						proto.numUpvals,
+						proto.maxStack,
+						tostring(proto.isVararg)
+					)
+				)
+				if #proto.upvalues > 0 then
+					w(ind .. "   Upvalues: " .. table.concat(proto.upvalues, ", "))
+				end
+				if #proto.imports > 0 then
+					w(ind .. "   Imports:")
+					for _, imp in ipairs(proto.imports) do
+						w(ind .. "     " .. imp)
+					end
+				end
+				if #proto.strings > 0 then
+					w(ind .. "   String literals:")
+					for _, s in ipairs(proto.strings) do
+						w(ind .. '     "' .. s .. '"')
+					end
+				end
+				if #proto.constants > 0 then
+					w(ind .. "   All constants:")
+					for _, c in ipairs(proto.constants) do
+						w(string.format("%s     [%2d] %-14s %s", ind, c.index, c.kind, tostring(c.value)))
+					end
+				end
+				w("")
+				for i2, inner in ipairs(proto.protos) do
+					walkProto(inner, i2)
+				end
+			end
+			w("PROTO TREE")
+			for i, proto in ipairs(parsed.protos) do
+				walkProto(proto, i)
+			end
+			return table.concat(lines, "\n")
+		end
+		local function Format(text)
+			local result = {}
+			local depth = 0
 
+			local DEDENT_BEFORE = { ["end"] = true, ["until"] = true }
+			local INDENT_AFTER = { ["then"] = true, ["do"] = true, ["repeat"] = true }
+			local DEDENT_THEN_INDENT = { ["else"] = true, ["elseif"] = true }
+
+			local function stripStrings(s)
+				s = s:gsub('"[^"\\]*(?:\\.[^"\\]*)*"', '""')
+				s = s:gsub("'[^'\\]*(?:\\.[^'\\]*)*'", "''")
+				s = s:gsub("%-%-.*$", "")
+				return s
+			end
+
+			local function firstWord(s)
+				return (stripStrings(s):match("^%s*([%a_][%w_]*)")) or ""
+			end
+
+			local function containsOpener(s)
+				local clean = stripStrings(s)
+				local fw = clean:match("^%s*([%a_][%w_]*)")
+				if fw == "elseif" or fw == "else" then
+					return false
+				end
+				for w in clean:gmatch("[%a_][%w_]*") do
+					if INDENT_AFTER[w] then
+						return true
+					end
+					if w == "function" then
+						return true
+					end
+				end
+				return false
+			end
+
+			for line in (text .. "\n"):gmatch("[^\n]*\n") do
+				local bare = line:gsub("\n$", "")
+				if bare == "" then
+					result[#result + 1] = "\n"
+					continue
+				end
+
+				local expr = bare:match("^%[%d+%]%s*:?%d*:?%s*%u[%u_]*%s+(.*)") or bare
+
+				local kw = firstWord(expr)
+
+				if DEDENT_THEN_INDENT[kw] then
+					depth = math.max(0, depth - 1)
+					result[#result + 1] = string.rep("    ", depth) .. bare .. "\n"
+					depth += 1
+				elseif DEDENT_BEFORE[kw] then
+					depth = math.max(0, depth - 1)
+					result[#result + 1] = string.rep("    ", depth) .. bare .. "\n"
+				else
+					result[#result + 1] = string.rep("    ", depth) .. bare .. "\n"
+					if containsOpener(expr) then
+						depth += 1
+					end
+				end
+			end
+
+			return table.concat(result)
+		end
 
 		ZukDecompile = Decompile
+		Form = Format
 		getgenv()._ZUK_DECOMPILE = Decompile
 	end)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
