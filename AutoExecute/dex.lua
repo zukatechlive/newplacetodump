@@ -28530,7 +28530,6 @@ local RETURN_ELAPSED_TIME = false
 
 
 
-
 local function main()
 	local ZukDecompile
 	task.defer(function()
@@ -31048,7 +31047,8 @@ local function main()
 							end
 							emit("\n")
 						end
-						local function structureAndEmit()
+						local structureAndEmit
+						structureAndEmit = function()
 							local conditional = {
 								JUMPIF=true,JUMPIFNOT=true,JUMPIFEQ=true,JUMPIFLE=true,JUMPIFLT=true,
 								JUMPIFNOTEQ=true,JUMPIFNOTLE=true,JUMPIFNOTLT=true,
@@ -31164,6 +31164,7 @@ local function main()
 						end
 
 						structureAndEmit()
+					end
 					writeActions(registerActions[mainProtoId])
 					finalResult = processResult(table.concat(resultParts))
 				else
@@ -31340,8 +31341,6 @@ local function main()
 		ZukDecompile = Decompile
 		getgenv()._ZUK_DECOMPILE = Decompile
 	end)
-
-
 
 
 
