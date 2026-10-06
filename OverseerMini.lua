@@ -19,7 +19,7 @@
 
 ]]--
 
-do
+
 
 
 -- Remote decompiler backend (lua.expert API)
