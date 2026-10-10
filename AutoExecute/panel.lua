@@ -43646,10 +43646,8 @@ addcmd("worldofshit", { "wos2" }, function(args, speaker)
 	)()
 end)
 
-addcmd("verified", {}, function(args, speaker)
-	loadstring(
-		game:HttpGet("https://raw.githubusercontent.com/zukatechlive/newplacetodump/refs/heads/main/random/ra.lua")
-	)()
+addcmd("targeter", {}, function(args, speaker)
+	loadstring(game:HttpGet("https://raw.githubusercontent.com/zukatechlive/allmychains/refs/heads/main/ugh.lua"))()
 end)
 
 addcmd("zfuckerr", { "Zfck" }, function(args, speaker)
