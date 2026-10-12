@@ -1,8 +1,5 @@
 --[[
 
-                       vibecoded like a mf
-
-
  ________  ___      ___ _______   ________  ________  _______   _______   ________
 |\   __  \|\  \    /  /|\  ___ \ |\   __  \|\   ____\|\  ___ \ |\  ___ \ |\   __  \
 \ \  \|\  \ \  \  /  / | \   __/|\ \  \|\  \ \  \___|\ \   __/|\ \   __/|\ \  \|\  \
@@ -11,12 +8,6 @@
    \ \_______\ \__/ /     \ \_______\ \__\\ _\ ____\_\  \ \_______\ \_______\ \__\\ _\
     \|_______|\|__|/       \|_______|\|__|\|__|\_________\|_______|\|_______|\|__|\|__|
                                               \|_________|
-
-
-
-
-
-
 ]]--
 
 
@@ -3613,9 +3604,50 @@
 					self:RefreshObjectPanel()
 				end)
 
+				local className = "Instance"
+				pcall(function() className = obj.ClassName end)
+				local TREE_ICONS = {
+					Folder = {"▰", Color3.fromRGB(235, 190, 80)},
+					ModuleScript = {"◆", Color3.fromRGB(100, 190, 255)},
+					Script = {"ƒ", Color3.fromRGB(255, 190, 90)},
+					LocalScript = {"ƒ", Color3.fromRGB(100, 220, 160)},
+					RemoteEvent = {"↗", Color3.fromRGB(230, 130, 255)},
+					RemoteFunction = {"⇄", Color3.fromRGB(230, 130, 255)},
+					BindableEvent = {"⚡", Color3.fromRGB(255, 210, 90)},
+					BindableFunction = {"↔", Color3.fromRGB(255, 210, 90)},
+					Part = {"■", Color3.fromRGB(180, 190, 205)},
+					MeshPart = {"◆", Color3.fromRGB(180, 190, 205)},
+					Model = {"⬡", Color3.fromRGB(130, 190, 255)},
+					ScreenGui = {"▣", Color3.fromRGB(255, 145, 180)},
+					SurfaceGui = {"▣", Color3.fromRGB(255, 145, 180)},
+					TextLabel = {"T", Color3.fromRGB(150, 210, 255)},
+					TextButton = {"▤", Color3.fromRGB(150, 210, 255)},
+					ImageLabel = {"▧", Color3.fromRGB(180, 150, 255)},
+					ImageButton = {"▧", Color3.fromRGB(180, 150, 255)},
+					Camera = {"◉", Color3.fromRGB(120, 220, 220)},
+					Humanoid = {"♟", Color3.fromRGB(130, 220, 150)},
+					Tool = {"⚒", Color3.fromRGB(230, 190, 120)},
+				}
+				local treeIconData = TREE_ICONS[className]
+				if not treeIconData then
+					local okChildren, children = pcall(obj.GetChildren, obj)
+					treeIconData = (okChildren and #children > 0) and {"▰", Color3.fromRGB(140, 175, 220)} or {"•", self.Config.TEXT_GRAY}
+				end
+				local iconLabel = Instance.new("TextLabel")
+				iconLabel.Name = "ClassIcon"
+				iconLabel.Size = UDim2.fromOffset(14, 21)
+				iconLabel.Position = UDim2.fromOffset(indent + 19, 1)
+				iconLabel.BackgroundTransparency = 1
+				iconLabel.Text = treeIconData[1]
+				iconLabel.TextColor3 = treeIconData[2]
+				iconLabel.Font = Enum.Font.GothamBold
+				iconLabel.TextSize = 10
+				iconLabel.TextXAlignment = Enum.TextXAlignment.Center
+				iconLabel.Parent = row
+
 				local label = Instance.new("TextButton")
-				label.Size = UDim2.new(1, -(indent + 23), 1, 0)
-				label.Position = UDim2.fromOffset(indent + 20, 0)
+				label.Size = UDim2.new(1, -(indent + 38), 1, 0)
+				label.Position = UDim2.fromOffset(indent + 35, 0)
 				label.BackgroundTransparency = 1
 				label.BorderSizePixel = 0
 				label.TextXAlignment = Enum.TextXAlignment.Left
@@ -3623,15 +3655,96 @@
 				label.Font = Enum.Font.GothamMedium
 				label.TextSize = 9
 				label.TextColor3 = obj == selected and self.Config.HIGHLIGHT or self.Config.TEXT_BLACK
-				local className = "Instance"
-				pcall(function() className = obj.ClassName end)
-				local marker = SCRIPT_CLASSES[className] and "[S] " or REMOTE_CLASSES[className] and "[R] " or ""
-				label.Text = marker .. name .. "  ·  " .. className
+				label.Text = name .. "  ·  " .. className
 				label.Parent = row
+
+				-- Script path tooltip: show the complete instance path whenever a script row is hovered.
+				if SCRIPT_CLASSES[className] then
+					local fullPath = name
+					pcall(function() fullPath = obj:GetFullName() end)
+					local screenGui = row:FindFirstAncestorOfClass("ScreenGui")
+					if screenGui then
+						local tip = screenGui:FindFirstChild("OverseerScriptPathTooltip")
+						if not tip then
+							tip = Instance.new("Frame")
+							tip.Name = "OverseerScriptPathTooltip"
+							tip.Visible = false
+							tip.AutomaticSize = Enum.AutomaticSize.XY
+							tip.Size = UDim2.fromOffset(0, 0)
+							tip.BackgroundColor3 = self.Config.BG_DARK
+							tip.BackgroundTransparency = 0.04
+							tip.BorderSizePixel = 0
+							tip.ZIndex = 10000
+							tip.Parent = screenGui
+							local corner = Instance.new("UICorner")
+							corner.CornerRadius = UDim.new(0, 4)
+							corner.Parent = tip
+							local stroke = Instance.new("UIStroke")
+							stroke.Color = self.Config.ACCENT
+							stroke.Thickness = 1
+							stroke.Parent = tip
+							local padding = Instance.new("UIPadding")
+							padding.PaddingLeft = UDim.new(0, 8)
+							padding.PaddingRight = UDim.new(0, 8)
+							padding.PaddingTop = UDim.new(0, 5)
+							padding.PaddingBottom = UDim.new(0, 5)
+							padding.Parent = tip
+							local tipText = Instance.new("TextLabel")
+							tipText.Name = "PathText"
+							tipText.BackgroundTransparency = 1
+							tipText.AutomaticSize = Enum.AutomaticSize.XY
+							tipText.Size = UDim2.fromOffset(0, 0)
+							tipText.Font = Enum.Font.Code
+							tipText.TextSize = 10
+							tipText.TextColor3 = self.Config.TEXT_BLACK
+							tipText.TextXAlignment = Enum.TextXAlignment.Left
+							tipText.TextYAlignment = Enum.TextYAlignment.Center
+							tipText.TextWrapped = false
+							tipText.ZIndex = 10001
+							tipText.Parent = tip
+						end
+						local tipText = tip:FindFirstChild("PathText")
+						local function showWorkspacePathTooltip()
+							local currentPath = fullPath
+							pcall(function() currentPath = obj:GetFullName() end)
+							if tipText then tipText.Text = currentPath end
+							tip.Visible = true
+							local p = label.AbsolutePosition
+							local viewport = screenGui.AbsoluteSize
+							local tipSize = tip.AbsoluteSize
+							local x = math.clamp(p.X + 12, 4, math.max(4, viewport.X - tipSize.X - 4))
+							local y = p.Y + label.AbsoluteSize.Y + 3
+							if y + tipSize.Y > viewport.Y - 4 then y = math.max(4, p.Y - tipSize.Y - 3) end
+							tip.Position = UDim2.fromOffset(x, y)
+						end
+						row.MouseEnter:Connect(showWorkspacePathTooltip)
+						label.MouseEnter:Connect(showWorkspacePathTooltip)
+						row.MouseLeave:Connect(function() tip.Visible = false end)
+						label.MouseLeave:Connect(function()
+							-- Keep it visible if the pointer is still over the row itself.
+							if not row:IsDescendantOf(screenGui) then tip.Visible = false end
+						end)
+					end
+				end
+				local lastLabelClick = 0
 				label.MouseButton1Click:Connect(function()
+					local now = os.clock()
+					local isDoubleClick = (now - lastLabelClick) <= 0.35
+					lastLabelClick = now
 					selected = obj
 					self:ShowObjectEditor(obj)
-					self:RefreshObjectPanel()
+					if isDoubleClick then
+						local class = ""
+						pcall(function() class = obj.ClassName end)
+						if SCRIPT_CLASSES[class] then
+							self:_executorOpenModule(obj)
+						elseif hasChildren(obj) then
+							expanded[obj] = not expanded[obj]
+							self:RefreshObjectPanel()
+						end
+					else
+						row.BackgroundColor3 = self.Config.BG_LIGHT
+					end
 				end)
 			end
 
@@ -4449,9 +4562,25 @@
 		row.BorderSizePixel = 0
 		row.AutoButtonColor = false
 
+		local classIcon = Instance.new("TextLabel", row)
+		classIcon.Name = "ClassIcon"
+		classIcon.Size = UDim2.fromOffset(16, 18)
+		classIcon.Position = UDim2.fromOffset(4, 2)
+		classIcon.BackgroundTransparency = 1
+		classIcon.Font = Enum.Font.GothamBold
+		classIcon.TextSize = 12
+		classIcon.TextXAlignment = Enum.TextXAlignment.Center
+		local classIconData = {
+			ModuleScript = {"◆", Color3.fromRGB(100, 190, 255)},
+			LocalScript = {"ƒ", Color3.fromRGB(100, 220, 160)},
+			Script = {"ƒ", Color3.fromRGB(255, 190, 90)},
+		}
+		local iconData = classIconData[ms.ClassName] or {"◆", self.Config.HIGHLIGHT}
+		classIcon.Text = iconData[1]
+		classIcon.TextColor3 = iconData[2]
 		local lbl = Instance.new("TextLabel", row)
-		lbl.Size = UDim2.new(1, -(BADGE_W + 8), 0, 18)
-		lbl.Position = UDim2.fromOffset(4, 2)
+		lbl.Size = UDim2.new(1, -(BADGE_W + 26), 0, 18)
+		lbl.Position = UDim2.fromOffset(23, 2)
 		lbl.BackgroundTransparency = 1
 		lbl.Text = ms.Name
 		lbl.TextColor3 = self.Config.TEXT_BLACK
@@ -4474,6 +4603,46 @@
 		Instance.new("UICorner", sourceLabel).CornerRadius = UDim.new(0, 3)
 
 		local fullPath = ms:GetFullName()
+		-- Shared screen-level tooltip: parent it to the GUI, not the scrolling list,
+		-- so clipping/scrolling cannot hide it. It is used by the Module List rows.
+		local screenGui = self.State.UI.ScreenGui
+		local pathTip = screenGui and screenGui:FindFirstChild("OverseerScriptPathTooltip")
+		if screenGui and not pathTip then
+			pathTip = Instance.new("Frame")
+			pathTip.Name = "OverseerScriptPathTooltip"
+			pathTip.Visible = false
+			pathTip.AutomaticSize = Enum.AutomaticSize.XY
+			pathTip.Size = UDim2.fromOffset(0, 0)
+			pathTip.BackgroundColor3 = self.Config.BG_DARK
+			pathTip.BackgroundTransparency = 0.02
+			pathTip.BorderSizePixel = 0
+			pathTip.ZIndex = 10000
+			pathTip.Parent = screenGui
+			local corner = Instance.new("UICorner")
+			corner.CornerRadius = UDim.new(0, 4)
+			corner.Parent = pathTip
+			local stroke = Instance.new("UIStroke")
+			stroke.Color = self.Config.ACCENT
+			stroke.Thickness = 1
+			stroke.Parent = pathTip
+			local pad = Instance.new("UIPadding")
+			pad.PaddingLeft = UDim.new(0, 8); pad.PaddingRight = UDim.new(0, 8)
+			pad.PaddingTop = UDim.new(0, 5); pad.PaddingBottom = UDim.new(0, 5)
+			pad.Parent = pathTip
+			local txt = Instance.new("TextLabel")
+			txt.Name = "PathText"
+			txt.BackgroundTransparency = 1
+			txt.AutomaticSize = Enum.AutomaticSize.XY
+			txt.Size = UDim2.fromOffset(0, 0)
+			txt.Font = Enum.Font.Code
+			txt.TextSize = 10
+			txt.TextColor3 = self.Config.TEXT_BLACK
+			txt.TextXAlignment = Enum.TextXAlignment.Left
+			txt.TextYAlignment = Enum.TextYAlignment.Center
+			txt.TextWrapped = false
+			txt.ZIndex = 10001
+			txt.Parent = pathTip
+		end
 		local serviceAbbrev = {
 			ReplicatedStorage = "RS",
 			Players = "Plr",
@@ -4486,8 +4655,8 @@
 			return serviceAbbrev[svc] or svc
 		end)
 		local pathLbl = Instance.new("TextLabel", row)
-		pathLbl.Size = UDim2.new(1, -(BADGE_W + 8), 0, 14)
-		pathLbl.Position = UDim2.fromOffset(4, 22)
+		pathLbl.Size = UDim2.new(1, -(BADGE_W + 26), 0, 14)
+		pathLbl.Position = UDim2.fromOffset(23, 22)
 		pathLbl.BackgroundTransparency = 1
 		pathLbl.Text = shortPath
 		pathLbl.TextColor3 = self.Config.TEXT_GRAY
@@ -4554,11 +4723,27 @@
 			if row.BackgroundColor3 ~= self.Config.HIGHLIGHT then
 				row.BackgroundColor3 = self.Config.BG_LIGHT
 			end
+			-- Update the path every hover so renamed/reparented scripts stay accurate.
+			if pathTip and screenGui then
+				local currentPath = fullPath
+				pcall(function() currentPath = ms:GetFullName() end)
+				local tipText = pathTip:FindFirstChild("PathText")
+				if tipText then tipText.Text = currentPath end
+				pathTip.Visible = true
+				local p = row.AbsolutePosition
+				local viewport = screenGui.AbsoluteSize
+				local tipSize = pathTip.AbsoluteSize
+				local x = math.clamp(p.X + 12, 4, math.max(4, viewport.X - tipSize.X - 4))
+				local y = p.Y + row.AbsoluteSize.Y + 3
+				if y + tipSize.Y > viewport.Y - 4 then y = math.max(4, p.Y - tipSize.Y - 3) end
+				pathTip.Position = UDim2.fromOffset(x, y)
+			end
 		end)
 		row.MouseLeave:Connect(function()
 			if row.BackgroundColor3 ~= self.Config.HIGHLIGHT then
 				row.BackgroundColor3 = self.Config.BG_WHITE
 			end
+			if pathTip then pathTip.Visible = false end
 		end)
 
 		table.insert(self.State.ModuleList, {
@@ -6044,23 +6229,20 @@
 
 	function TI:_executorOpenModule(obj)
 		if not obj then return end
-		if obj:IsA("ModuleScript") then
-			self.State.SelectedModule = obj
-			self.State.SelectedObject = obj
-			self:_showNotification("Selected executor module: " .. obj.Name, "success")
-			if self.State.UI and self.State.UI.SVSwitchTab then
-				self.State.UI.SVSwitchTab("script")
-			end
-			if type(self.SVDecompile) == "function" then
-				task.spawn(function() self:SVDecompile(obj) end)
-			end
-		elseif obj:IsA("LocalScript") or obj:IsA("Script") then
+		local isScript = false
+		pcall(function() isScript = obj:IsA("ModuleScript") or obj:IsA("LocalScript") or obj:IsA("Script") end)
+		if not isScript then return end
+		self.State.SelectedObject = obj
+		self.State.SelectedModule = obj -- SVDecompile accepts any script class; name retained for compatibility.
+		if obj:IsA("LocalScript") or obj:IsA("Script") then
 			self.State.SelectedLocalScript = obj
-			self.State.SelectedObject = obj
-			self:_showNotification("Selected executor script: " .. obj.Name, "success")
-			if self.State.UI and self.State.UI.SVSwitchTab then
-				self.State.UI.SVSwitchTab("script")
-			end
+		end
+		self:_showNotification("Opening script: " .. obj.Name, "success")
+		if self.State.UI and self.State.UI.SVSwitchTab then
+			self.State.UI.SVSwitchTab("script")
+		end
+		if type(self.SVDecompile) == "function" then
+			task.spawn(function() self:SVDecompile(obj) end)
 		end
 	end
 
@@ -7993,14 +8175,27 @@
 		self.State.GUISelected = self.State.GUISelected or self.State.GUIRoot
 		self:RefreshGUIStudio()
 	end
-	function TI:SVDecompile()
+	function TI:SVDecompile(scriptObj)
 		local ui = self.State.UI
 		if not ui then return end
-		local ms = self.State.SelectedModule
+		local ms = scriptObj or self.State.SelectedModule or self.State.SelectedLocalScript
 		if not ms then
-			self:_showNotification("No module selected", "warning")
+			local candidate = self.State.SelectedObject
+			local ok, valid = pcall(function() return candidate and (candidate:IsA("ModuleScript") or candidate:IsA("LocalScript") or candidate:IsA("Script")) end)
+			if ok and valid then ms = candidate end
+		end
+		if not ms then
+			self:_showNotification("Select a Script, LocalScript, or ModuleScript", "warning")
 			return
 		end
+		local validScript = false
+		pcall(function() validScript = ms:IsA("ModuleScript") or ms:IsA("LocalScript") or ms:IsA("Script") end)
+		if not validScript then
+			ui.ScriptViewerOutput.Text = "-- Selected object is not a Script, LocalScript, or ModuleScript."
+			ui.ScriptViewerStatus.Text = "Invalid target"
+			return
+		end
+		self.State.SelectedModule = ms
 
 		if type(getscriptbytecode) ~= "function" then
 			ui.ScriptViewerOutput.Text = "-- getscriptbytecode is not supported by this executor."
@@ -8044,7 +8239,7 @@
 		if type(tbl) ~= "table" then
 			self:_showNotification("Not a table: " .. type(tbl), "error")
 			return
-		end 
+		end
 		self.State._RootTable = tbl
 		self.State.CurrentTable = tbl
 		self.State.PathStack = {}
