@@ -1,6 +1,6 @@
 --[[
 
-                       for whomever finds this useful
+                       vibecoded like a mf
 
 
  ________  ___      ___ _______   ________  ________  _______   _______   ________
@@ -148,6 +148,59 @@
 		},
 	}
 	local TI = Modules.TI
+
+	-- Quick navigation state for the live, read-only instance tree.
+	local QUICK_NAV_SERVICES = {
+		"Workspace", "Players", "Lighting", "ReplicatedFirst", "ReplicatedStorage",
+		"StarterGui", "StarterPack", "StarterPlayer", "Teams", "SoundService",
+	}
+	local SCRIPT_CLASSES = { Script = true, LocalScript = true, ModuleScript = true }
+	local REMOTE_CLASSES = { RemoteEvent = true, RemoteFunction = true, BindableEvent = true, BindableFunction = true }
+	local ClassFire = { RemoteEvent = "FireServer", RemoteFunction = "InvokeServer", BindableEvent = "Fire", BindableFunction = "Invoke" }
+	-- Kept as metadata for future diagnostics; this explorer deliberately does not invoke remotes.
+	local remote_blocklist = {}
+	local treeRoot = game
+	local expanded = { [game] = true }
+	local selected = nil
+	local rows = {}
+	local rowFrames = {}
+	local scrollOffset = 0
+	local filterText = ""
+	local ctxMenu = nil
+	local refreshProps
+
+	local function hasChildren(inst)
+		local ok, ch = pcall(inst.GetChildren, inst)
+		return ok and #ch > 0
+	end
+
+	local function closeCtx()
+		if ctxMenu then ctxMenu:Destroy(); ctxMenu = nil end
+	end
+
+	local function buildPath(inst)
+		if typeof(inst) ~= "Instance" then return "nil" end
+		if inst == game then return "game" end
+		local chain, cur = {}, inst
+		while cur and cur ~= game do
+			table.insert(chain, 1, cur)
+			cur = cur.Parent
+		end
+		if cur ~= game then
+			return string.format("Instance.new(%q) -- unparented", inst.ClassName)
+		end
+		local first = chain[1]
+		local path = string.format('game:GetService(%q)', first.Name)
+		for i = 2, #chain do
+			local name = chain[i].Name
+			if name:match("^[%a_][%w_]*$") then
+				path = path .. "." .. name
+			else
+				path = path .. "[" .. string.format("%q", name) .. "]"
+			end
+		end
+		return path
+	end
 
 	local FunctionEditor = {}
 	FunctionEditor.__index = FunctionEditor
@@ -894,162 +947,197 @@
 		if type(replaceclosure) == "function" then return replaceclosure end
 		return nil
 	end
-	function TI:CreatePatch(tbl, key, newValue, freeze)
-		if not tbl or key == nil then
-			return false
-		end
-		local patchId = self:_generateUID()
-		pcall(function()
-			if setreadonly then
-				setreadonly(tbl, false)
-			elseif make_writeable then
-				make_writeable(tbl)
+	-- Unified patch engine. Every patch records its target kind and can be inspected,
+	-- edited, re-applied, frozen, or rolled back through the same API.
+	function TI:_patchWrite(patch, value)
+		if not patch then return false, "Missing patch" end
+		local ok, err = pcall(function()
+			if patch.IsInstancePatch and patch.Instance then
+				if patch.Kind == "instance_attribute" then
+					patch.Instance:SetAttribute(patch.Attribute or patch.Key, value)
+				else
+					patch.Instance[patch.Property or patch.Key] = value
+				end
+			elseif patch.IsLSPatch and patch.HookMethod == "setupvalue" then
+				local setupv = setupvalue or (debug and debug.setupvalue)
+				assert(type(setupv) == "function", "setupvalue is unavailable")
+				local idx = patch.LSUVIndex
+				assert(patch.LSClosure and idx, "upvalue target is unavailable")
+				setupv(patch.LSClosure, idx, value)
+			elseif patch.HookMethod == "fenv" then
+				assert(type(patch.Table) == "table", "environment table is unavailable")
+				rawset(patch.Table, patch.Key, value)
+			else
+				assert(type(patch.Table) == "table", "table target is unavailable")
+				local wasReadonly = nil
+				if type(isreadonly) == "function" then
+					local okRO, ro = pcall(isreadonly, patch.Table)
+					if okRO then wasReadonly = ro end
+				end
+				if setreadonly then pcall(setreadonly, patch.Table, false)
+				elseif make_writeable then pcall(make_writeable, patch.Table) end
+				rawset(patch.Table, patch.Key, value)
+				if setreadonly and wasReadonly ~= false then pcall(setreadonly, patch.Table, true) end
 			end
 		end)
-		local original = rawget(tbl, key)
+		if not ok then return false, tostring(err) end
+		patch.LastWrite = tick()
+		patch.LastError = nil
+		return true
+	end
+
+	function TI:GetPatchStatus(patchId)
+		local p = self.State.ActivePatches[patchId]
+		if not p then return nil, "Patch not found" end
+		local current, readable = nil, false
+		local ok = pcall(function()
+			if p.IsInstancePatch and p.Instance then
+				if p.Kind == "instance_attribute" then current = p.Instance:GetAttribute(p.Attribute or p.Key) else current = p.Instance[p.Property or p.Key] end
+			elseif p.IsLSPatch and p.HookMethod == "setupvalue" then
+				local getv = getupvalue or (debug and debug.getupvalue)
+				if getv then
+					local a, b = getv(p.LSClosure, p.LSUVIndex or p.LSUVIndex)
+					current = type(a) == "string" and b or a
+				end
+			elseif type(p.Table) == "table" then current = rawget(p.Table, p.Key) end
+			readable = true
+		end)
+		if not ok then readable = false end
+		local status = {
+			ID = p.ID, Key = p.Key, TargetType = p.IsInstancePatch and "Instance" or (p.IsLSPatch and "Closure" or "Table"),
+			Frozen = p.Frozen == true, Active = p.Active ~= false, Readable = readable,
+			CurrentValue = current, OriginalValue = p.Original, NewValue = p.NewValue,
+			MatchesPatch = readable and current == p.NewValue, LastError = p.LastError,
+			Timestamp = p.Timestamp, LastWrite = p.LastWrite,
+		}
+		return status
+	end
+
+	function TI:CreatePatch(tbl, key, newValue, freeze)
+		if type(tbl) ~= "table" or key == nil then return false, "Target must be a table and key cannot be nil" end
+		local okRead, original = pcall(rawget, tbl, key)
+		if not okRead then return false, "Could not read original value" end
+		local patchId = self:_generateUID()
 		local hookMethod, hookOriginalRef = nil, nil
+		-- Only hook the function when a hook API exists. The table slot is still
+		-- patched explicitly, so rollback can restore both layers.
 		if type(newValue) == "function" and type(original) == "function" then
 			local hookFn = _getHookAPI()
 			if hookFn then
-				local ok, capturedOriginal = pcall(hookFn, original, newValue)
-				if ok then
-					hookMethod = "hookfunction"
-					hookOriginalRef = capturedOriginal
-				end
+				local okHook, captured = pcall(hookFn, original, newValue)
+				if okHook then hookMethod, hookOriginalRef = "hookfunction", captured end
 			end
 		end
 		local pathSnapshot = {}
-		for _, v in ipairs(self.State.PathStack) do
-			table.insert(pathSnapshot, v)
-		end
+		for _, v in ipairs(self.State.PathStack or {}) do table.insert(pathSnapshot, v) end
 		local patch = {
-			ID = patchId,
-			Table = tbl,
-			Key = key,
-			Original = original,
-			NewValue = newValue,
-			Frozen = freeze or false,
-			Type = type(newValue),
-			Timestamp = tick(),
-			Active = true,
-			Connection = nil,
-			HookMethod = hookMethod,
-			HookOriginalRef = hookOriginalRef,
-			PathStack = pathSnapshot,
-			RootScriptPath = self.State.RootScriptPath,
-			RootScriptName = self.State.RootScriptName,
+			ID = patchId, Table = tbl, Key = key, Original = original, NewValue = newValue,
+			Frozen = false, Type = type(newValue), Timestamp = tick(), Active = true,
+			Connection = nil, HookMethod = hookMethod, HookOriginalRef = hookOriginalRef,
+			PathStack = pathSnapshot, RootScriptPath = self.State.RootScriptPath,
+			RootScriptName = self.State.RootScriptName, LastWrite = tick(),
 		}
-		rawset(tbl, key, newValue)
-		self.State.ActivePatches[patchId] = patch
-		if freeze then
-			patch.Connection = RunService.Heartbeat:Connect(function()
-				pcall(function()
-					if setreadonly then
-						setreadonly(tbl, false)
-					end
-					rawset(tbl, key, newValue)
-					if setreadonly then
-						setreadonly(tbl, true)
-					end
-				end)
-			end)
-			self.State.FreezeList[patchId] = patch
+		local wrote, writeErr = self:_patchWrite(patch, newValue)
+		if not wrote then
+			if hookMethod == "hookfunction" and hookOriginalRef then pcall(_getHookAPI(), original, hookOriginalRef) end
+			return false, writeErr
 		end
-		pcall(function()
-			if setreadonly then
-				setreadonly(tbl, true)
-			end
-		end)
+		self.State.ActivePatches[patchId] = patch
+		if freeze then self:ToggleFreeze(patchId) end
 		self:RefreshPatchList()
-		self:_showNotification(
-			(hookMethod and "Hooked: " or "Patched: ") .. tostring(key),
-			"success"
-		)
+		self:_showNotification((hookMethod and "Hooked + patched: " or "Patched: ") .. tostring(key), "success")
 		return patchId
 	end
+
+	function TI:EditPatch(patchId, newValue)
+		local p = self.State.ActivePatches[patchId]
+		if not p then return false, "Patch not found" end
+		local oldNew, oldType = p.NewValue, p.Type
+		if p.HookMethod == "hookfunction" and type(newValue) == "function" then
+			local hookFn = _getHookAPI()
+			if not hookFn then return false, "Hook API is unavailable" end
+			local hookOk, hookErr = pcall(hookFn, p.Original, newValue)
+			if not hookOk then return false, tostring(hookErr) end
+		end
+		p.NewValue, p.Type = newValue, type(newValue)
+		local ok, err = self:_patchWrite(p, newValue)
+		if not ok then
+			if p.HookMethod == "hookfunction" and type(oldNew) == "function" then local hookFn = _getHookAPI(); if hookFn then pcall(hookFn, p.Original, oldNew) end end
+			p.NewValue, p.Type, p.LastError = oldNew, oldType, err
+			return false, err
+		end
+		if p.Frozen and not p.Connection then self:ToggleFreeze(patchId) end
+		self:RefreshPatchList()
+		self:_showNotification("Patch updated: " .. tostring(p.Key), "success")
+		return true
+	end
+
+	function TI:ReapplyPatch(patchId)
+		local p = self.State.ActivePatches[patchId]
+		if not p then return false, "Patch not found" end
+		local ok, err = self:_patchWrite(p, p.NewValue)
+		if not ok then p.LastError = err; self:RefreshPatchList(); return false, err end
+		self:RefreshPatchList()
+		return true
+	end
+
 	function TI:RemovePatch(patchId)
 		local patch = self.State.ActivePatches[patchId]
-		if not patch then
-			return false
-		end
-		if patch.Connection then
-			patch.Connection:Disconnect()
-			patch.Connection = nil
-		end
-
-		if patch.IsInstancePatch and patch.Instance then
-			local ok, err = pcall(function()
-				if patch.Kind == "instance_attribute" then
-					patch.Instance:SetAttribute(patch.Attribute, patch.Original)
-				else
-					patch.Instance[patch.Property] = patch.Original
-				end
-			end)
-			if not ok then
-				self:_showNotification("Instance rollback failed: " .. tostring(err), "error")
-				return false
+		if not patch then return false, "Patch not found" end
+		if patch.Connection then pcall(function() patch.Connection:Disconnect() end); patch.Connection = nil end
+		local ok, err = true, nil
+		if patch.HookMethod == "hookfunction" and patch.HookOriginalRef then
+			local hookFn = _getHookAPI()
+			if hookFn then
+				local hookOk, hookErr = pcall(hookFn, patch.Original, patch.HookOriginalRef)
+				if not hookOk then ok, err = false, tostring(hookErr) end
 			end
-		else
-			pcall(function()
-				if setreadonly then
-					setreadonly(patch.Table, false)
-				elseif make_writeable then
-					make_writeable(patch.Table)
-				end
-				if patch.HookMethod == "hookfunction" and patch.HookOriginalRef then
-					local hookFn = _getHookAPI()
-					if hookFn then pcall(hookFn, patch.Original, patch.HookOriginalRef) end
-				end
-				if patch.HookMethod == "setupvalue" and patch.LSClosure and patch.LSUVIndex then
-					local setupv = setupvalue or (debug and debug.setupvalue)
-					if setupv then pcall(setupv, patch.LSClosure, patch.LSUVIndex, patch.Original) end
-				elseif patch.HookMethod == "fenv" then
-					rawset(patch.Table, patch.Key, patch.Original)
-				else
-					rawset(patch.Table, patch.Key, patch.Original)
-				end
-				if setreadonly then setreadonly(patch.Table, true) end
-			end)
 		end
-
+		local restored, restoreErr = self:_patchWrite(patch, patch.Original)
+		if not restored then ok, err = false, restoreErr end
+		if not ok then
+			patch.LastError = "Rollback failed: " .. tostring(err)
+			self:RefreshPatchList()
+			self:_showNotification(patch.LastError, "error")
+			return false, patch.LastError
+		end
+		patch.Active = false
 		self.State.ActivePatches[patchId] = nil
 		self.State.FreezeList[patchId] = nil
 		self.State.SelectedPatches[patchId] = nil
 		self:RefreshPatchList()
-		self:_showNotification("Patch removed", "success")
+		self:_showNotification("Patch rolled back: " .. tostring(patch.Key), "success")
 		return true
 	end
+
+	function TI:RemoveAllPatches()
+		local ids = {}
+		for id in pairs(self.State.ActivePatches) do table.insert(ids, id) end
+		local removed, failed = 0, 0
+		for _, id in ipairs(ids) do
+			if self:RemovePatch(id) then removed += 1 else failed += 1 end
+		end
+		self:_showNotification(("Rollback complete: %d removed, %d failed"):format(removed, failed), failed > 0 and "warning" or "success")
+		return removed, failed
+	end
+
 	function TI:ToggleFreeze(patchId)
 		local patch = self.State.ActivePatches[patchId]
-		if not patch then return end
+		if not patch then return false, "Patch not found" end
 		patch.Frozen = not patch.Frozen
 		if patch.Frozen then
-			if not patch.Connection then
-				patch.Connection = RunService.Heartbeat:Connect(function()
-					pcall(function()
-						if patch.IsInstancePatch and patch.Instance then
-							if patch.Kind == "instance_attribute" then
-								patch.Instance:SetAttribute(patch.Attribute, patch.NewValue)
-							else
-								patch.Instance[patch.Property] = patch.NewValue
-							end
-						elseif patch.HookMethod == "setupvalue" and patch.LSClosure and patch.LSUVIndex then
-							local setupv = setupvalue or (debug and debug.setupvalue)
-							if setupv then setupv(patch.LSClosure, patch.LSUVIndex, patch.NewValue) end
-						elseif patch.Table then
-							if setreadonly then setreadonly(patch.Table, false) end
-							rawset(patch.Table, patch.Key, patch.NewValue)
-							if setreadonly then setreadonly(patch.Table, true) end
-						end
-					end)
-				end)
-			end
+			if patch.Connection then pcall(function() patch.Connection:Disconnect() end) end
+			patch.Connection = RunService.Heartbeat:Connect(function()
+				local ok, err = self:_patchWrite(patch, patch.NewValue)
+				if not ok then patch.LastError = err end
+			end)
 			self.State.FreezeList[patchId] = patch
 		else
-			if patch.Connection then patch.Connection:Disconnect(); patch.Connection = nil end
+			if patch.Connection then pcall(function() patch.Connection:Disconnect() end); patch.Connection = nil end
 			self.State.FreezeList[patchId] = nil
 		end
 		self:RefreshPatchList()
+		return true
 	end
 
 	function TI:DrillDown(name, tbl)
@@ -2222,6 +2310,339 @@
 		self:_showNotification("Removed " .. #toRemove .. " patch(es)", "success")
 	end
 
+	function TI:OpenPatchWorkbench()
+		local ui = self.State.UI
+		if not ui or not ui.ScreenGui then return false end
+		if ui.PatchWorkbench then pcall(function() ui.PatchWorkbench:Destroy() end) end
+
+		local modal = Instance.new("Frame")
+		modal.Name = "PatchWorkbench"
+		modal.Size = UDim2.new(0.82, 0, 0.78, 0)
+		modal.Position = UDim2.new(0.09, 0, 0.11, 0)
+		modal.BackgroundColor3 = self.Config.BG_PANEL
+		modal.BorderSizePixel = 0
+		modal.ZIndex = 700
+		modal.Parent = ui.ScreenGui
+		ui.PatchWorkbench = modal
+		self:_createBorder(modal, false)
+
+		local title = Instance.new("TextLabel", modal)
+		title.Size = UDim2.new(1, -48, 0, 30)
+		title.Position = UDim2.fromOffset(12, 4)
+		title.BackgroundTransparency = 1
+		title.Text = "PATCH WORKBENCH  /  inspect · edit · reapply · rollback"
+		title.TextColor3 = self.Config.TEXT_BLACK
+		title.Font = Enum.Font.GothamBold
+		title.TextSize = 13
+		title.TextXAlignment = Enum.TextXAlignment.Left
+		title.ZIndex = 701
+
+		local close = self:_createButton(modal, "X", UDim2.fromOffset(28, 24), UDim2.new(1, -34, 0, 6), function()
+			if modal.Parent then modal:Destroy() end
+			if ui.PatchWorkbench == modal then ui.PatchWorkbench = nil end
+			ui.PatchWorkbenchRefresh = nil
+		end)
+		close.ZIndex = 702
+
+		local search = Instance.new("TextBox", modal)
+		search.Name = "PatchSearch"
+		search.Size = UDim2.new(0.40, -18, 0, 26)
+		search.Position = UDim2.fromOffset(10, 38)
+		search.BackgroundColor3 = self.Config.BG_WHITE
+		search.BorderSizePixel = 0
+		search.TextColor3 = self.Config.TEXT_BLACK
+		search.PlaceholderColor3 = self.Config.TEXT_GRAY
+		search.PlaceholderText = "Search by key, ID, target, type, or status…"
+		search.Text = ""
+		search.ClearTextOnFocus = false
+		search.Font = Enum.Font.Code
+		search.TextSize = 10
+		search.TextXAlignment = Enum.TextXAlignment.Left
+		search.ZIndex = 701
+		self:_createBorder(search, true)
+
+		local summary = Instance.new("TextLabel", modal)
+		summary.Size = UDim2.new(0.40, -18, 0, 18)
+		summary.Position = UDim2.fromOffset(10, 66)
+		summary.BackgroundTransparency = 1
+		summary.TextColor3 = self.Config.TEXT_GRAY
+		summary.Font = Enum.Font.Code
+		summary.TextSize = 9
+		summary.TextXAlignment = Enum.TextXAlignment.Left
+		summary.ZIndex = 701
+
+		local list = Instance.new("ScrollingFrame", modal)
+		list.Name = "PatchWorkbenchList"
+		list.Size = UDim2.new(0.40, -18, 1, -104)
+		list.Position = UDim2.fromOffset(10, 86)
+		list.BackgroundColor3 = self.Config.BG_DARK
+		list.BorderSizePixel = 0
+		list.ScrollBarThickness = 5
+		list.ScrollBarImageColor3 = self.Config.ACCENT
+		list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		list.CanvasSize = UDim2.new(0, 0, 0, 0)
+		list.ZIndex = 701
+		self:_createBorder(list, true)
+		local layout = Instance.new("UIListLayout", list)
+		layout.Padding = UDim.new(0, 3)
+		layout.SortOrder = Enum.SortOrder.LayoutOrder
+		local pad = Instance.new("UIPadding", list)
+		pad.PaddingTop = UDim.new(0, 4); pad.PaddingLeft = UDim.new(0, 4)
+		pad.PaddingRight = UDim.new(0, 4); pad.PaddingBottom = UDim.new(0, 4)
+
+		local detail = Instance.new("Frame", modal)
+		detail.Name = "PatchWorkbenchDetails"
+		detail.Size = UDim2.new(0.60, -2, 1, -48)
+		detail.Position = UDim2.new(0.40, 2, 0, 38)
+		detail.BackgroundColor3 = self.Config.BG_DARK
+		detail.BorderSizePixel = 0
+		detail.ZIndex = 701
+		self:_createBorder(detail, true)
+
+		local detailTitle = Instance.new("TextLabel", detail)
+		detailTitle.Size = UDim2.new(1, -16, 0, 26)
+		detailTitle.Position = UDim2.fromOffset(8, 6)
+		detailTitle.BackgroundTransparency = 1
+		detailTitle.Text = "Select a patch"
+		detailTitle.TextColor3 = self.Config.TEXT_BLACK
+		detailTitle.Font = Enum.Font.GothamBold
+		detailTitle.TextSize = 12
+		detailTitle.TextXAlignment = Enum.TextXAlignment.Left
+		detailTitle.TextTruncate = Enum.TextTruncate.AtEnd
+		detailTitle.ZIndex = 702
+
+		local detailsText = Instance.new("TextLabel", detail)
+		detailsText.Name = "PatchDetailsText"
+		detailsText.Size = UDim2.new(1, -16, 1, -112)
+		detailsText.Position = UDim2.fromOffset(8, 36)
+		detailsText.BackgroundColor3 = self.Config.BG_PANEL
+		detailsText.BackgroundTransparency = 0
+		detailsText.BorderSizePixel = 0
+		detailsText.Text = "Choose a patch from the list to inspect its target, original value, current value, replacement, and status."
+		detailsText.TextColor3 = self.Config.TEXT_BLACK
+		detailsText.Font = Enum.Font.Code
+		detailsText.TextSize = 10
+		detailsText.TextXAlignment = Enum.TextXAlignment.Left
+		detailsText.TextYAlignment = Enum.TextYAlignment.Top
+		detailsText.TextWrapped = true
+		detailsText.ZIndex = 702
+		local dpad = Instance.new("UIPadding", detailsText)
+		dpad.PaddingTop = UDim.new(0, 8); dpad.PaddingLeft = UDim.new(0, 8)
+		dpad.PaddingRight = UDim.new(0, 8); dpad.PaddingBottom = UDim.new(0, 8)
+		self:_createBorder(detailsText, true)
+
+		local actionBar = Instance.new("Frame", detail)
+		actionBar.Size = UDim2.new(1, -16, 0, 32)
+		actionBar.Position = UDim2.new(0, 8, 1, -40)
+		actionBar.BackgroundTransparency = 1
+		actionBar.ZIndex = 702
+
+		local selectedId = nil
+		local refreshRows, refreshDetails
+		local function button(label, x, width, callback, color)
+			local b = self:_createButton(actionBar, label, UDim2.new(0, width, 0, 26), UDim2.new(0, x, 0, 2), callback)
+			b.ZIndex = 703
+			b.TextSize = 9
+			if color then b.BackgroundColor3 = color end
+			return b
+		end
+		button("EDIT", 0, 58, function()
+			if selectedId and self.State.ActivePatches[selectedId] then self:OpenPatchEditor(selectedId) end
+		end, Color3.fromRGB(255, 215, 150))
+		button("REAPPLY", 62, 66, function()
+			if selectedId then
+				local ok, err = self:ReapplyPatch(selectedId)
+				if not ok then self:_showNotification("Reapply failed: " .. tostring(err), "error") end
+				refreshDetails(); refreshRows()
+			end
+		end, Color3.fromRGB(170, 220, 255))
+		button("FREEZE", 132, 58, function()
+			if selectedId then
+				local ok, err = self:ToggleFreeze(selectedId)
+				if not ok then self:_showNotification("Freeze failed: " .. tostring(err), "error") end
+				refreshDetails(); refreshRows()
+			end
+		end, Color3.fromRGB(255, 225, 225))
+		button("ROLLBACK", 194, 72, function()
+			if selectedId then
+				local oldId = selectedId
+				local ok, err = self:RemovePatch(oldId)
+				if ok then selectedId = nil else self:_showNotification("Rollback failed: " .. tostring(err), "error") end
+				refreshRows(); refreshDetails()
+			end
+		end, Color3.fromRGB(255, 190, 190))
+		button("COPY ID", 270, 62, function()
+			if selectedId then
+				local ok = pcall(function()
+					if setclipboard then setclipboard(tostring(selectedId)) elseif toclipboard then toclipboard(tostring(selectedId)) else error("clipboard unavailable") end
+				end)
+				self:_showNotification(ok and "Patch ID copied" or "Clipboard unavailable", ok and "success" or "warning")
+			end
+		end, Color3.fromRGB(210, 210, 230))
+
+		local function valueString(value)
+			local ok, result = pcall(function() return self:_objectValueString(value) end)
+			if ok then return tostring(result) end
+			local ok2, result2 = pcall(tostring, value)
+			return ok2 and tostring(result2) or "<unreadable>"
+		end
+		refreshDetails = function()
+			local patch = selectedId and self.State.ActivePatches[selectedId]
+			if not patch then
+				detailTitle.Text = "Select a patch"
+				detailsText.Text = "No patch selected. Choose an entry from the left to inspect it."
+				return
+			end
+			local status = self:GetPatchStatus(selectedId) or {}
+			local targetType = status.TargetType or (patch.IsInstancePatch and "Instance" or (patch.IsLSPatch and "Closure" or "Table"))
+			local targetName = patch.IsInstancePatch and (patch.Instance and patch.Instance:GetFullName() or "<destroyed instance>")
+				or (patch.IsLSPatch and (tostring(patch.LSClosure) .. " upvalue " .. tostring(patch.LSUVIndex or patch.Key))
+				or (tostring(patch.RootScriptPath or "table") .. " → " .. tostring(patch.Key)))
+			detailTitle.Text = tostring(patch.Key) .. "  /  " .. targetType
+			local lines = {
+				"ID: " .. tostring(patch.ID),
+				"TARGET: " .. tostring(targetName),
+				"KIND: " .. tostring(patch.Kind or targetType) .. "    TYPE: " .. type(patch.NewValue),
+				"STATE: " .. (patch.Frozen and "FROZEN" or "ACTIVE") .. "    MATCH: " .. (status.MatchesPatch and "YES" or (status.Readable and "NO / OVERWRITTEN" or "UNKNOWN")),
+				"",
+				"ORIGINAL VALUE:", valueString(patch.Original),
+				"",
+				"CURRENT VALUE:", valueString(status.CurrentValue),
+				"",
+				"REPLACEMENT VALUE:", valueString(patch.NewValue),
+				"",
+				"LAST WRITE: " .. tostring(patch.LastWrite or "never"),
+				"LAST ERROR: " .. tostring(patch.LastError or "none"),
+			}
+			detailsText.Text = table.concat(lines, "\n")
+		end
+		refreshRows = function()
+			for _, child in ipairs(list:GetChildren()) do
+				if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then child:Destroy() end
+			end
+			local query = string.lower(search.Text or "")
+			local patches = {}
+			for id, patch in pairs(self.State.ActivePatches) do
+				local status = self:GetPatchStatus(id) or {}
+				local target = patch.IsInstancePatch and (patch.Instance and patch.Instance.Name or "instance") or (patch.IsLSPatch and "closure" or "table")
+				local haystack = string.lower(table.concat({ tostring(id), tostring(patch.Key), tostring(target), tostring(type(patch.NewValue)), tostring(status.MatchesPatch), tostring(patch.LastError or "") }, " "))
+				if query == "" or haystack:find(query, 1, true) then patches[#patches + 1] = { Id = id, Patch = patch, Status = status } end
+			end
+			table.sort(patches, function(a, b) return tostring(a.Id) < tostring(b.Id) end)
+			local frozen, drifted = 0, 0
+			for _, entry in ipairs(patches) do
+				if entry.Patch.Frozen then frozen += 1 end
+				if entry.Status.Readable and not entry.Status.MatchesPatch then drifted += 1 end
+				local id, patch, status = entry.Id, entry.Patch, entry.Status
+				local row = Instance.new("TextButton", list)
+				row.Name = "PatchEntry_" .. tostring(id)
+				row.Size = UDim2.new(1, -4, 0, 42)
+				row.BackgroundColor3 = id == selectedId and self.Config.ACCENT or self.Config.BG_PANEL
+				row.BorderSizePixel = 0
+				row.AutoButtonColor = false
+				row.Text = ""
+				row.LayoutOrder = #patches
+				row.ZIndex = 702
+				local name = Instance.new("TextLabel", row)
+				name.Size = UDim2.new(1, -10, 0, 19); name.Position = UDim2.fromOffset(6, 3)
+				name.BackgroundTransparency = 1; name.Text = tostring(patch.Key) .. "  ·  " .. (patch.IsInstancePatch and (patch.Instance and patch.Instance.Name or "instance") or (patch.IsLSPatch and "closure" or "table"))
+				name.TextColor3 = self.Config.TEXT_BLACK; name.Font = Enum.Font.GothamBold; name.TextSize = 10
+				name.TextXAlignment = Enum.TextXAlignment.Left; name.TextTruncate = Enum.TextTruncate.AtEnd; name.ZIndex = 703
+				local sub = Instance.new("TextLabel", row)
+				sub.Size = UDim2.new(1, -10, 0, 15); sub.Position = UDim2.fromOffset(6, 22)
+				sub.BackgroundTransparency = 1
+				sub.Text = tostring(id) .. "  ·  " .. (patch.Frozen and "FROZEN" or "ACTIVE") .. "  ·  " .. (status.MatchesPatch and "MATCH" or (status.Readable and "DRIFT" or "UNKNOWN"))
+				sub.TextColor3 = status.LastError and Color3.fromRGB(255, 100, 100) or self.Config.TEXT_GRAY
+				sub.Font = Enum.Font.Code; sub.TextSize = 8; sub.TextXAlignment = Enum.TextXAlignment.Left; sub.TextTruncate = Enum.TextTruncate.AtEnd; sub.ZIndex = 703
+				row.MouseButton1Click:Connect(function() selectedId = id; refreshRows(); refreshDetails() end)
+			end
+			summary.Text = (#patches) .. " shown  /  " .. tostring((function() local n=0; for _ in pairs(self.State.ActivePatches) do n+=1 end; return n end)()) .. " total  ·  " .. frozen .. " frozen  ·  " .. drifted .. " drifted"
+		end
+		ui.PatchWorkbenchRefresh = function()
+			if modal.Parent then refreshRows(); refreshDetails() end
+		end
+		search:GetPropertyChangedSignal("Text"):Connect(refreshRows)
+		refreshRows(); refreshDetails()
+		return true
+	end
+
+	function TI:OpenPatchEditor(patchId)
+		local patch = self.State.ActivePatches[patchId]
+		local ui = self.State.UI
+		if not patch or not ui or not ui.ScreenGui then return false end
+		if ui.PatchEditor then pcall(function() ui.PatchEditor:Destroy() end) end
+		local modal = Instance.new("Frame")
+		modal.Name = "PatchEditor"
+		modal.Size = UDim2.fromOffset(360, 164)
+		modal.Position = UDim2.new(0.5, -180, 0.5, -82)
+		modal.BackgroundColor3 = self.Config.BG_DARK
+		modal.BorderSizePixel = 0
+		modal.ZIndex = 900
+		modal.Parent = ui.ScreenGui
+		ui.PatchEditor = modal
+		self:_createBorder(modal, false)
+		local title = Instance.new("TextLabel", modal)
+		title.Size = UDim2.new(1, -16, 0, 26); title.Position = UDim2.fromOffset(8, 6)
+		title.BackgroundTransparency = 1; title.Text = "EDIT PATCH  /  " .. tostring(patch.Key)
+		title.TextColor3 = self.Config.TEXT_BLACK; title.Font = Enum.Font.GothamBold; title.TextSize = 11
+		title.TextXAlignment = Enum.TextXAlignment.Left; title.ZIndex = 901
+		local hint = Instance.new("TextLabel", modal)
+		hint.Size = UDim2.new(1, -16, 0, 18); hint.Position = UDim2.fromOffset(8, 31)
+		hint.BackgroundTransparency = 1; hint.Text = "Current: " .. tostring(patch.NewValue):sub(1, 80) .. "  [" .. type(patch.NewValue) .. "]"
+		hint.TextColor3 = self.Config.TEXT_GRAY; hint.Font = Enum.Font.Code; hint.TextSize = 9
+		hint.TextXAlignment = Enum.TextXAlignment.Left; hint.TextTruncate = Enum.TextTruncate.AtEnd; hint.ZIndex = 901
+		local input = Instance.new("TextBox", modal)
+		input.Size = UDim2.new(1, -16, 0, 34); input.Position = UDim2.fromOffset(8, 55)
+		input.BackgroundColor3 = self.Config.BG_WHITE; input.BorderSizePixel = 0
+		input.TextColor3 = self.Config.TEXT_BLACK; input.Font = Enum.Font.Code; input.TextSize = 11
+		input.TextXAlignment = Enum.TextXAlignment.Left; input.ClearTextOnFocus = false
+		input.Text = type(patch.NewValue) == "string" and patch.NewValue or self:_objectValueString(patch.NewValue)
+		input.PlaceholderText = "value (number, true/false, nil, string, or supported Roblox type)"
+		input.ZIndex = 901; self:_createBorder(input, true)
+		local function close() if modal and modal.Parent then modal:Destroy() end; if ui.PatchEditor == modal then ui.PatchEditor = nil end end
+		local apply = self:_createButton(modal, "APPLY", UDim2.fromOffset(72, 24), UDim2.new(1, -158, 1, -34), function()
+			local raw = input.Text
+			local value, parseErr
+			if raw:match("^%s*nil%s*$") then
+				value = nil
+			elseif patch.IsInstancePatch then
+				local current
+				local okCurrent = pcall(function()
+					if patch.Kind == "instance_attribute" then current = patch.Instance:GetAttribute(patch.Attribute or patch.Key) else current = patch.Instance[patch.Property or patch.Key] end
+				end)
+				local expected = okCurrent and typeof(current) or "any"
+				if expected == "nil" or expected == "Instance" or expected == "table" or expected == "function" then expected = "any" end
+				if expected == "any" then value = self:ParseValue(raw, "any") else value, parseErr = self:_parseObjectValue(raw, expected) end
+			else
+				local expected = type(patch.NewValue)
+				if expected == "function" and type(loadstring) == "function" then
+					local source = raw
+					if not source:match("^%s*return%s+") then source = "return " .. source end
+					local compiler = loadstring
+					local chunk, compileErr = compiler(source)
+					if not chunk then parseErr = compileErr else
+						local okValue, compiled = pcall(chunk)
+						if okValue and type(compiled) == "function" then value = compiled else parseErr = "source must evaluate to a function" end
+					end
+				else
+					if expected == "table" or expected == "function" or expected == "userdata" or expected == "thread" then expected = "any" end
+					value = self:ParseValue(raw, expected)
+				end
+			end
+			if (value == nil and raw:match("^%s*nil%s*$") == nil) or parseErr then
+				self:_showNotification("Could not parse value" .. (parseErr and (": " .. tostring(parseErr)) or ""), "error")
+				return
+			end
+			local ok, err = self:EditPatch(patchId, value)
+			if ok then close() else self:_showNotification("Patch edit failed: " .. tostring(err), "error") end
+		end)
+		apply.ZIndex = 901
+		local cancel = self:_createButton(modal, "CANCEL", UDim2.fromOffset(72, 24), UDim2.new(1, -80, 1, -34), close)
+		cancel.ZIndex = 901
+		input:CaptureFocus()
+		return true
+	end
+
 	function TI:RefreshPatchList()
 		if not self.State.UI then
 			return
@@ -2237,6 +2658,9 @@
 			self:CreatePatchRow(id, patch)
 		end
 		self.State.UI.PatchCount.Text = "Patches: " .. count
+		if self.State.UI.PatchWorkbenchRefresh then
+			pcall(self.State.UI.PatchWorkbenchRefresh)
+		end
 	end
 	function TI:CreatePatchRow(patchId, patch)
 		local row = Instance.new("Frame", self.State.UI.PatchScroll)
@@ -2298,7 +2722,7 @@
 		keyLbl.TextXAlignment = Enum.TextXAlignment.Left
 		keyLbl.TextTruncate = Enum.TextTruncate.AtEnd
 		local valLbl = Instance.new("TextLabel", row)
-		valLbl.Size = UDim2.new(0.30, -4, 1, 0)
+		valLbl.Size = UDim2.new(0.20, -4, 1, 0)
 		valLbl.Position = UDim2.new(0.55, 2, 0, 0)
 		valLbl.BackgroundTransparency = 1
 		valLbl.Text = tostring(patch.NewValue):sub(1, 20)
@@ -2357,10 +2781,15 @@
 			return table.concat(lines, "\n")
 		end
 
+		local editBtn = self:_createButton(row, "Edit", UDim2.fromOffset(26, 16), UDim2.new(0.76, 0, 0.5, -8), function()
+			self:OpenPatchEditor(patchId)
+		end)
+		editBtn.TextSize = 8
+		editBtn.BackgroundColor3 = Color3.fromRGB(255, 225, 170)
 		local copyBtn = self:_createButton(
 			row, "Copy",
-			UDim2.fromOffset(34, 16),
-			UDim2.new(0.80, 0, 0.5, -8),
+			UDim2.fromOffset(28, 16),
+			UDim2.new(0.85, 0, 0.5, -8),
 			function()
 				local snippet = buildSnippet()
 				local ok = pcall(function()
@@ -2379,7 +2808,7 @@
 		copyBtn.TextSize = 9
 		copyBtn.BackgroundColor3 = Color3.fromRGB(200, 230, 255)
 
-		local del = self:_createButton(row, "X", UDim2.fromOffset(16, 16), UDim2.new(0.93, 0, 0.5, -8), function()
+		local del = self:_createButton(row, "X", UDim2.fromOffset(14, 16), UDim2.new(0.96, 0, 0.5, -8), function()
 			self:RemovePatch(patchId)
 		end)
 		del.TextSize = 10
@@ -3123,53 +3552,131 @@
 	function TI:RefreshObjectPanel()
 		local ui = self.State.UI
 		if not ui or not ui.TargetScroll then return end
-		for _, ch in ipairs(ui.TargetScroll:GetChildren()) do
+		local scroll = ui.TargetScroll
+		for _, ch in ipairs(scroll:GetChildren()) do
 			if not ch:IsA("UIListLayout") then ch:Destroy() end
 		end
-		for _, entry in ipairs(self:_getLocalTargets()) do
-			local obj, kind = entry.Object, entry.Kind
-			local row = Instance.new("TextButton", ui.TargetScroll)
-			row.Size = UDim2.new(1, -2, 0, 34)
-			row.BackgroundColor3 = self.Config.BG_WHITE
-			row.Text = ""
-			row.BorderSizePixel = 0
-			Instance.new("UICorner", row).CornerRadius = UDim.new(0, 3)
-			local badge = Instance.new("TextLabel", row)
-			badge.Size = UDim2.fromOffset(58, 16)
-			badge.Position = UDim2.fromOffset(4, 9)
-			badge.BackgroundColor3 = kind == "Animation" and Color3.fromRGB(168, 85, 247)
-				or kind == "Tool" and Color3.fromRGB(251, 146, 60)
-				or kind == "Humanoid" and Color3.fromRGB(56, 189, 248)
-				or Color3.fromRGB(99, 102, 241)
-			badge.Text = kind
-			badge.TextColor3 = Color3.new(1, 1, 1)
-			badge.Font = Enum.Font.GothamBold
-			badge.TextSize = 8
-			badge.BorderSizePixel = 0
-			local name = Instance.new("TextLabel", row)
-			name.Size = UDim2.new(1, -70, 0, 16)
-			name.Position = UDim2.fromOffset(68, 2)
-			name.BackgroundTransparency = 1
-			name.Text = obj.Name
-			name.TextColor3 = self.Config.TEXT_BLACK
-			name.Font = Enum.Font.GothamMedium
-			name.TextSize = 10
-			name.TextXAlignment = Enum.TextXAlignment.Left
-			name.TextTruncate = Enum.TextTruncate.AtEnd
-			local path = Instance.new("TextLabel", row)
-			path.Size = UDim2.new(1, -70, 0, 13)
-			path.Position = UDim2.fromOffset(68, 18)
-			path.BackgroundTransparency = 1
-			local ok, full = pcall(function() return obj:GetFullName() end)
-			path.Text = ok and full or "?"
-			path.TextColor3 = self.Config.TEXT_GRAY
-			path.Font = Enum.Font.Code
-			path.TextSize = 8
-			path.TextXAlignment = Enum.TextXAlignment.Left
-			path.TextTruncate = Enum.TextTruncate.AtEnd
-			row.MouseButton1Click:Connect(function()
-				self:ShowObjectEditor(obj)
-			end)
+		table.clear(rows)
+		table.clear(rowFrames)
+		closeCtx()
+
+		local query = string.lower(filterText or "")
+		local visibleCount = 0
+		local scanCapped = false
+		local MAX_ROWS = 1800
+		local function addNode(obj, depth, forceVisible)
+			if visibleCount >= MAX_ROWS then return end
+			local okName, name = pcall(function() return obj.Name end)
+			name = okName and tostring(name) or "<?>"
+			local matches = query == "" or string.find(string.lower(name), query, 1, true) ~= nil
+			local isExpanded = expanded[obj] == true
+			local kids = {}
+			if isExpanded or query ~= "" then
+				local ok, children = pcall(obj.GetChildren, obj)
+				if ok then kids = children end
+			end
+			local subtreeHasMatch = matches
+			if query ~= "" and not matches and #kids > 0 then
+				for _, child in ipairs(kids) do
+					local childName = ""
+					pcall(function() childName = string.lower(child.Name) end)
+					if string.find(childName, query, 1, true) then subtreeHasMatch = true; break end
+				end
+			end
+			if matches or forceVisible or subtreeHasMatch then
+				visibleCount += 1
+				local row = Instance.new("Frame")
+				row.Name = "TreeRow"
+				row.Size = UDim2.new(1, -2, 0, 23)
+				row.BackgroundColor3 = obj == selected and self.Config.BG_LIGHT or (visibleCount % 2 == 0 and self.Config.BG_WHITE or self.Config.BG_DARK)
+				row.BorderSizePixel = 0
+				row.LayoutOrder = visibleCount
+				row.Parent = scroll
+				rowFrames[obj] = row
+				table.insert(rows, obj)
+
+				local indent = math.min(depth, 12) * 10
+				local toggle = Instance.new("TextButton")
+				toggle.Size = UDim2.fromOffset(18, 21)
+				toggle.Position = UDim2.fromOffset(indent, 1)
+				toggle.BackgroundTransparency = 1
+				toggle.BorderSizePixel = 0
+				toggle.Font = Enum.Font.Code
+				toggle.TextSize = 10
+				toggle.TextColor3 = self.Config.HIGHLIGHT
+				toggle.Text = not hasChildren(obj) and "·" or ((isExpanded or query ~= "") and "▾" or "▸")
+				toggle.Parent = row
+				toggle.MouseButton1Click:Connect(function()
+					if hasChildren(obj) then expanded[obj] = not expanded[obj] end
+					selected = obj
+					self:ShowObjectEditor(obj)
+					self:RefreshObjectPanel()
+				end)
+
+				local label = Instance.new("TextButton")
+				label.Size = UDim2.new(1, -(indent + 23), 1, 0)
+				label.Position = UDim2.fromOffset(indent + 20, 0)
+				label.BackgroundTransparency = 1
+				label.BorderSizePixel = 0
+				label.TextXAlignment = Enum.TextXAlignment.Left
+				label.TextTruncate = Enum.TextTruncate.AtEnd
+				label.Font = Enum.Font.GothamMedium
+				label.TextSize = 9
+				label.TextColor3 = obj == selected and self.Config.HIGHLIGHT or self.Config.TEXT_BLACK
+				local className = "Instance"
+				pcall(function() className = obj.ClassName end)
+				local marker = SCRIPT_CLASSES[className] and "[S] " or REMOTE_CLASSES[className] and "[R] " or ""
+				label.Text = marker .. name .. "  ·  " .. className
+				label.Parent = row
+				label.MouseButton1Click:Connect(function()
+					selected = obj
+					self:ShowObjectEditor(obj)
+					self:RefreshObjectPanel()
+				end)
+			end
+
+			if #kids > 0 and (isExpanded or query ~= "") then
+				for _, child in ipairs(kids) do
+					if visibleCount >= MAX_ROWS then break end
+					local childName = ""
+					pcall(function() childName = string.lower(child.Name) end)
+					if query == "" or string.find(childName, query, 1, true) or expanded[obj] then
+						addNode(child, depth + 1, false)
+					end
+				end
+			end
+		end
+
+		-- Search is bounded so a large live game cannot freeze the UI.
+		if query ~= "" then
+			local found, visited = 0, 0
+			local MAX_SCAN = 20000
+			local function scan(obj, depth)
+				if found >= MAX_ROWS or visited >= MAX_SCAN then return end
+				visited += 1
+				local name = ""; pcall(function() name = obj.Name end)
+				if string.find(string.lower(tostring(name)), query, 1, true) then
+					local parent = obj.Parent
+					while parent and parent ~= game do expanded[parent] = true; parent = parent.Parent end
+					found += 1
+				end
+				if depth >= 40 then return end
+				local ok, children = pcall(obj.GetChildren, obj)
+				if ok then for _, child in ipairs(children) do if found >= MAX_ROWS or visited >= MAX_SCAN then break end; scan(child, depth + 1) end end
+			end
+			scan(treeRoot, 0)
+			if visited >= MAX_SCAN then scanCapped = true end
+		end
+		addNode(treeRoot, 0, true)
+		if visibleCount >= MAX_ROWS then
+			local notice = Instance.new("TextLabel", scroll)
+			notice.Size = UDim2.new(1, -4, 0, 22); notice.BackgroundTransparency = 1
+			notice.Text = "Result limit reached; narrow the filter."; notice.TextColor3 = self.Config.WARNING_ORANGE
+			notice.Font = Enum.Font.Gotham; notice.TextSize = 9; notice.LayoutOrder = MAX_ROWS + 1
+		end
+		if ui.TargetTreeStatus then
+			ui.TargetTreeStatus.Text = scanCapped and string.format("Search capped at 20,000 instances | %d visible", visibleCount)
+				or string.format("%d visible  |  selected: %s", visibleCount, selected and selected.Name or "none")
 		end
 	end
 
@@ -3182,7 +3689,9 @@
 			if not ch:IsA("UIListLayout") then ch:Destroy() end
 		end
 		local ok, full = pcall(function() return obj:GetFullName() end)
-		ui.TargetName.Text = (ok and full or obj.Name) .. "  [" .. obj.ClassName .. "]"
+		local expression = buildPath(obj)
+		ui.TargetName.Text = expression .. "  [" .. obj.ClassName .. "]"
+		ui.TargetName.TextTruncate = Enum.TextTruncate.AtEnd
 		for _, prop in ipairs(self:_objectPropertyList(obj)) do
 			local okRead, current = pcall(function() return obj[prop] end)
 			if not okRead then continue end
@@ -6441,6 +6950,135 @@
 			end
 		)
 		svDecompBtn.TextSize = 10
+
+		-- RichText syntax highlighting for the read-only Script Viewer.
+		-- Keep the TextBox's .Text as raw source so Copy/status/layout logic remains intact.
+		local SVSyntax = {
+			Text = "#cccccc", Operator = "#cccccc", Number = "#ffc600",
+			String = "#adf195", Comment = "#666666", Keyword = "#f86d7c",
+			BuiltIn = "#84d6f7", LocalMethod = "#fdfbac", LocalProperty = "#61a1f1",
+			Nil = "#ffc600", Bool = "#ffc600", Function = "#f86d7c",
+			Local = "#f86d7c", Self = "#f86d7c", FunctionName = "#fdfbac",
+			Bracket = "#cccccc",
+		}
+		local SVKeywords = {
+			["and"]=true, ["break"]=true, ["do"]=true, ["else"]=true, ["elseif"]=true,
+			["end"]=true, ["false"]=true, ["for"]=true, ["function"]=true, ["if"]=true,
+			["in"]=true, ["local"]=true, ["nil"]=true, ["not"]=true, ["or"]=true,
+			["repeat"]=true, ["return"]=true, ["then"]=true, ["true"]=true,
+			["until"]=true, ["while"]=true,
+		}
+		local SVBuiltins = {
+			game=true, Players=true, TweenService=true, ScreenGui=true, Instance=true,
+			UDim2=true, Vector2=true, Vector3=true, Color3=true, Enum=true, loadstring=true,
+			warn=true, pcall=true, print=true, UDim=true, delay=true, require=true, spawn=true,
+			tick=true, getfenv=true, workspace=true, setfenv=true, getgenv=true, script=true,
+			string=true, pairs=true, type=true, math=true, tonumber=true, tostring=true,
+			CFrame=true, BrickColor=true, table=true, Random=true, Ray=true, xpcall=true,
+			coroutine=true, _G=true, _VERSION=true, debug=true, Axes=true, assert=true,
+			error=true, ipairs=true, rawequal=true, rawget=true, rawset=true, select=true,
+			bit32=true, buffer=true, task=true, os=true,
+		}
+		local SVMethods = {
+			WaitForChild=true, FindFirstChild=true, GetService=true, Destroy=true, Clone=true,
+			IsA=true, ClearAllChildren=true, GetChildren=true, GetDescendants=true,
+			Connect=true, Disconnect=true, Fire=true, Invoke=true, rgb=true,
+			FireServer=true, request=true, call=true,
+		}
+		local function svEscape(s)
+			return (s:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
+				:gsub(" ", "&#32;"):gsub("\t", "&#32;&#32;&#32;&#32;"))
+		end
+		local function svTokenize(line)
+			local tokens, i = {}, 1
+			local function add(value, kind) tokens[#tokens + 1] = {value, kind} end
+			while i <= #line do
+				local c = line:sub(i, i)
+				local two = line:sub(i, i + 1)
+				if two == "--" then
+					add(line:sub(i), "Comment")
+					break
+				elseif c == '"' or c == "'" then
+					local q, j = c, i + 1
+					while j <= #line do
+						if line:sub(j, j) == q then
+							local slashes, k = 0, j - 1
+							while k >= i and line:sub(k, k) == "\\" do slashes = slashes + 1; k = k - 1 end
+							if slashes % 2 == 0 then break end
+						end
+						j = j + 1
+					end
+					if j > #line then j = #line end
+					add(line:sub(i, j), "String"); i = j + 1
+				elseif c == "[" then
+					local opener = line:sub(i):match("^%[(=*)%[")
+					if opener then
+						local close = "]" .. opener .. "]"
+						local endAt = line:find(close, i + #opener + 2, true)
+						local j = endAt and (endAt + #close - 1) or #line
+						add(line:sub(i, j), "String"); i = j + 1
+					else
+						add(c, "Bracket"); i = i + 1
+					end
+				elseif c:match("%d") then
+					local j = i
+					while j <= #line and line:sub(j, j):match("[%w%.]") do j = j + 1 end
+					add(line:sub(i, j - 1), "Number"); i = j
+				elseif c:match("[%a_]") then
+					local j = i
+					while j <= #line and line:sub(j, j):match("[%w_]") do j = j + 1 end
+					add(line:sub(i, j - 1), "Word"); i = j
+				elseif c:match("[%[%]%(%){}]") then
+					add(c, "Bracket"); i = i + 1
+				elseif c:match("%s") then
+					local j = i
+					while j <= #line and line:sub(j, j):match("%s") do j = j + 1 end
+					add(line:sub(i, j - 1), "Text"); i = j
+				else
+					add(c, "Operator"); i = i + 1
+				end
+			end
+			return tokens
+		end
+		local function svTokenKind(tokens, idx)
+			local value, kind = tokens[idx][1], tokens[idx][2]
+			if kind ~= "Word" then return kind end
+			if SVKeywords[value] then
+				if value == "nil" then return "Nil" end
+				if value == "true" or value == "false" then return "Bool" end
+				if value == "function" then return "Function" end
+				if value == "local" then return "Local" end
+				return "Keyword"
+			end
+			if value == "self" then return "Self" end
+			if SVBuiltins[value] then return "BuiltIn" end
+			if idx > 1 and tokens[idx - 1][1] == ":" then return "LocalMethod" end
+			if idx > 1 and tokens[idx - 1][1] == "." then return "LocalProperty" end
+			if SVMethods[value] then return "LocalMethod" end
+			if idx > 1 and tokens[idx - 1][1] == "function" then return "FunctionName" end
+			if idx > 1 and tokens[idx - 1][1] == "local" then return "Local" end
+			return "Text"
+		end
+		local function svHighlightLine(line)
+			local out, tokens = {}, svTokenize(line)
+			for i, token in ipairs(tokens) do
+				local kind = svTokenKind(tokens, i)
+				local color = SVSyntax[kind] or SVSyntax.Text
+				out[#out + 1] = '<font color="' .. color .. '">' .. svEscape(token[1]) .. '</font>'
+			end
+			return table.concat(out)
+		end
+		local function svHighlightSource(source)
+			-- Bound RichText expansion so very large decompiler output remains responsive.
+			if #source > 180000 then
+				return svEscape(source), false
+			end
+			local out = {}
+			for line in (source .. "\n"):gmatch("(.-)\n") do
+				out[#out + 1] = svHighlightLine(line)
+			end
+			return table.concat(out, "\n"), true
+		end
 		local svScroll = Instance.new("ScrollingFrame", scriptPanel)
 		svScroll.Size = UDim2.new(1, 0, 1, -30)
 		svScroll.Position = UDim2.fromOffset(0, 30)
@@ -6490,6 +7128,32 @@
 		svOutput.MultiLine = true
 		svOutput.TextEditable = false
 		svOutput.Active = false
+		svOutput.TextTransparency = 1
+		svOutput.TextStrokeTransparency = 1
+
+		local svHighlight = Instance.new("TextLabel", svScroll)
+		svHighlight.Name = "SVSyntaxHighlight"
+		svHighlight.Size = svOutput.Size
+		svHighlight.Position = svOutput.Position
+		svHighlight.BackgroundTransparency = 1
+		svHighlight.Text = svEscape(svOutput.Text)
+		svHighlight.TextColor3 = Color3.fromRGB(204, 204, 204)
+		svHighlight.Font = Enum.Font.Code
+		svHighlight.TextSize = svOutput.TextSize
+		svHighlight.TextXAlignment = Enum.TextXAlignment.Left
+		svHighlight.TextYAlignment = Enum.TextYAlignment.Top
+		svHighlight.TextWrapped = false
+		svHighlight.RichText = true
+		svHighlight.Active = false
+		svHighlight.Selectable = false
+		svHighlight.ZIndex = svOutput.ZIndex + 1
+
+		local function refreshSyntaxHighlight()
+			local raw = svOutput.Text or ""
+			local rendered = svHighlightSource(raw)
+			svHighlight.Text = rendered
+			svHighlight.TextWrapped = self.State.ViewerWrap == true
+		end
 
 		local function refreshScriptViewerLayout()
 			local text = svOutput.Text or ""
@@ -6498,8 +7162,10 @@
 			local height = math.max(lineCount * lineHeight + 12, svScroll.AbsoluteWindowSize.Y)
 			local wrap = self.State.ViewerWrap == true
 			svOutput.TextWrapped = wrap
+			svHighlight.TextWrapped = wrap
 			if wrap then
 				svOutput.Size = UDim2.new(1, -60, 0, height)
+				svHighlight.Size = svOutput.Size
 				svGutter.Size = UDim2.fromOffset(44, height)
 				svScroll.CanvasSize = UDim2.new(0, 0, 0, height + 8)
 			else
@@ -6509,6 +7175,7 @@
 				end
 				local maxWidth = math.max(900, math.min(16000, maxChars * 7.2 + 12))
 				svOutput.Size = UDim2.fromOffset(maxWidth, height)
+				svHighlight.Size = svOutput.Size
 				svGutter.Size = UDim2.fromOffset(44, height)
 				svScroll.CanvasSize = UDim2.fromOffset(maxWidth + 60, height + 8)
 			end
@@ -6519,8 +7186,10 @@
 
 		svScroll:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(refreshScriptViewerLayout)
 		svOutput:GetPropertyChangedSignal("Text"):Connect(function()
+			refreshSyntaxHighlight()
 			task.defer(refreshScriptViewerLayout)
 		end)
+		refreshSyntaxHighlight()
 		self.State._RefreshScriptViewerLayout = refreshScriptViewerLayout
 		local gcPanel = Instance.new("Frame", inspPanel)
 		gcPanel.Size = UDim2.new(1, -8, 1, -100)
@@ -6907,8 +7576,23 @@
 		local targetToolbar = Instance.new("Frame", explorerPanel); targetToolbar.Size = UDim2.new(1, 0, 0, 28); targetToolbar.BackgroundColor3 = self.Config.BG_DARK; targetToolbar.BorderSizePixel = 0
 		local targetTitle = Instance.new("TextLabel", targetToolbar); targetTitle.Size = UDim2.new(1, -80, 1, 0); targetTitle.Position = UDim2.fromOffset(5, 0); targetTitle.BackgroundTransparency = 1; targetTitle.Text = "Live Instance Explorer"; targetTitle.TextColor3 = self.Config.TEXT_BLACK; targetTitle.Font = Enum.Font.GothamBold; targetTitle.TextSize = 10; targetTitle.TextXAlignment = Enum.TextXAlignment.Left
 		local targetRefresh = self:_createButton(targetToolbar, "↺ Refresh", UDim2.fromOffset(60, 20), UDim2.new(1, -64, 0, 4), function() self:RefreshObjectPanel() end); targetRefresh.TextSize = 8
-		local targetScroll = Instance.new("ScrollingFrame", explorerPanel); targetScroll.Size = UDim2.new(.42, -2, 1, -32); targetScroll.Position = UDim2.fromOffset(2, 30); targetScroll.BackgroundColor3 = self.Config.BG_DARK; targetScroll.BorderSizePixel = 0; targetScroll.ScrollBarThickness = 5; targetScroll.ScrollBarImageColor3 = self.Config.ACCENT; targetScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y; targetScroll.CanvasSize = UDim2.new(0, 0, 0, 0); Instance.new("UIListLayout", targetScroll).Padding = UDim.new(0, 1)
-		local targetEditor = Instance.new("Frame", explorerPanel); targetEditor.Size = UDim2.new(.58, -4, 1, -32); targetEditor.Position = UDim2.new(.42, 2, 0, 30); targetEditor.BackgroundColor3 = self.Config.BG_DARK; targetEditor.BorderSizePixel = 0
+		local targetNav = Instance.new("Frame", explorerPanel); targetNav.Size = UDim2.new(1, -4, 0, 52); targetNav.Position = UDim2.fromOffset(2, 30); targetNav.BackgroundColor3 = self.Config.BG_DARK; targetNav.BorderSizePixel = 0
+		local serviceStrip = Instance.new("Frame", targetNav); serviceStrip.Size = UDim2.new(1, -4, 0, 24); serviceStrip.Position = UDim2.fromOffset(2, 1); serviceStrip.BackgroundTransparency = 1; serviceStrip.BorderSizePixel = 0
+		local serviceLayout = Instance.new("UIListLayout", serviceStrip); serviceLayout.FillDirection = Enum.FillDirection.Horizontal; serviceLayout.SortOrder = Enum.SortOrder.LayoutOrder; serviceLayout.Padding = UDim.new(0, 2)
+		local serviceButtons = {}
+		for i, serviceName in ipairs(QUICK_NAV_SERVICES) do
+			local b = Instance.new("TextButton", serviceStrip); b.Name = "QuickNav_" .. serviceName; b.Size = UDim2.new(0, 61, 0, 22); b.LayoutOrder = i; b.BackgroundColor3 = self.Config.BG_PANEL; b.BorderSizePixel = 0; b.AutoButtonColor = true; b.Text = serviceName; b.TextColor3 = self.Config.TEXT_BLACK; b.Font = Enum.Font.GothamMedium; b.TextSize = 7; b.TextTruncate = Enum.TextTruncate.AtEnd
+			b.MouseButton1Click:Connect(function()
+				local ok, service = pcall(function() return game:GetService(serviceName) end)
+				if ok and service then treeRoot = service; expanded[service] = true; selected = service; filterText = ""; local liveUI = self.State.UI; if liveUI and liveUI.TargetTreeFilter then liveUI.TargetTreeFilter.Text = "" end; self:ShowObjectEditor(service); self:RefreshObjectPanel() end
+			end)
+			serviceButtons[serviceName] = b
+		end
+		local treeFilter = Instance.new("TextBox", targetNav); treeFilter.Name = "TreeFilter"; treeFilter.Size = UDim2.new(1, -8, 0, 22); treeFilter.Position = UDim2.fromOffset(4, 27); treeFilter.BackgroundColor3 = self.Config.BG_PANEL; treeFilter.BorderSizePixel = 0; treeFilter.ClearTextOnFocus = false; treeFilter.PlaceholderText = "Filter instances by name..."; treeFilter.Text = ""; treeFilter.TextColor3 = self.Config.TEXT_BLACK; treeFilter.PlaceholderColor3 = self.Config.TEXT_GRAY; treeFilter.Font = Enum.Font.Code; treeFilter.TextSize = 9; treeFilter.TextXAlignment = Enum.TextXAlignment.Left
+		treeFilter.FocusLost:Connect(function() filterText = treeFilter.Text or ""; treeRoot = game; expanded[game] = true; self:RefreshObjectPanel() end)
+		local targetScroll = Instance.new("ScrollingFrame", explorerPanel); targetScroll.Size = UDim2.new(.42, -2, 1, -86); targetScroll.Position = UDim2.fromOffset(2, 84); targetScroll.BackgroundColor3 = self.Config.BG_DARK; targetScroll.BorderSizePixel = 0; targetScroll.ScrollBarThickness = 5; targetScroll.ScrollBarImageColor3 = self.Config.ACCENT; targetScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y; targetScroll.CanvasSize = UDim2.new(0, 0, 0, 0); Instance.new("UIListLayout", targetScroll).Padding = UDim.new(0, 1)
+		local targetEditor = Instance.new("Frame", explorerPanel); targetEditor.Size = UDim2.new(.58, -4, 1, -86); targetEditor.Position = UDim2.new(.42, 2, 0, 84); targetEditor.BackgroundColor3 = self.Config.BG_DARK; targetEditor.BorderSizePixel = 0
+		local targetTreeStatus = Instance.new("TextLabel", explorerPanel); targetTreeStatus.Size = UDim2.new(1, -8, 0, 12); targetTreeStatus.Position = UDim2.new(0, 4, 1, -13); targetTreeStatus.BackgroundTransparency = 1; targetTreeStatus.Text = "Instance tree ready"; targetTreeStatus.TextColor3 = self.Config.TEXT_GRAY; targetTreeStatus.Font = Enum.Font.Code; targetTreeStatus.TextSize = 8; targetTreeStatus.TextXAlignment = Enum.TextXAlignment.Left
 		local targetName = Instance.new("TextLabel", targetEditor); targetName.Size = UDim2.new(1, -8, 0, 28); targetName.Position = UDim2.fromOffset(4, 2); targetName.BackgroundTransparency = 1; targetName.Text = "Select a target"; targetName.TextColor3 = self.Config.HIGHLIGHT; targetName.Font = Enum.Font.GothamBold; targetName.TextSize = 9; targetName.TextXAlignment = Enum.TextXAlignment.Left; targetName.TextWrapped = true
 		local targetPropertyScroll = Instance.new("ScrollingFrame", targetEditor); targetPropertyScroll.Size = UDim2.new(1, -4, 1, -34); targetPropertyScroll.Position = UDim2.fromOffset(2, 32); targetPropertyScroll.BackgroundColor3 = self.Config.BG_WHITE; targetPropertyScroll.BorderSizePixel = 0; targetPropertyScroll.ScrollBarThickness = 5; targetPropertyScroll.ScrollBarImageColor3 = self.Config.ACCENT; targetPropertyScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y; targetPropertyScroll.CanvasSize = UDim2.new(0, 0, 0, 0); Instance.new("UIListLayout", targetPropertyScroll).Padding = UDim.new(0, 1)
 		local inspectorPanel = Instance.new("ScrollingFrame", targetPanel); inspectorPanel.Size = UDim2.new(1, 0, 1, -24); inspectorPanel.Position = UDim2.fromOffset(0, 24); inspectorPanel.BackgroundColor3 = self.Config.BG_WHITE; inspectorPanel.BorderSizePixel = 0; inspectorPanel.ScrollBarThickness = 5; inspectorPanel.AutomaticCanvasSize = Enum.AutomaticSize.Y; inspectorPanel.CanvasSize = UDim2.new(0, 0, 0, 0); wsPanels.Inspector = inspectorPanel; Instance.new("UIListLayout", inspectorPanel).Padding = UDim.new(0, 2)
@@ -6997,6 +7681,12 @@
 		local ptp = Instance.new("UIPadding", patchTitle)
 		ptp.PaddingLeft = UDim.new(0, 4)
 		self:_createBorder(patchTitle, true)
+		local patchWorkbenchBtn = self:_createButton(patchTitle, "WORKBENCH", UDim2.fromOffset(66, 14), UDim2.new(1, -68, 0, 2), function()
+			self:OpenPatchWorkbench()
+		end)
+		patchWorkbenchBtn.ZIndex = 20
+		patchWorkbenchBtn.TextSize = 8
+		patchWorkbenchBtn.BackgroundColor3 = self.Config.ACCENT
 		local patchControls = Instance.new("Frame", patchPanel)
 		patchControls.Size = UDim2.new(1, -8, 0, 26)
 		patchControls.Position = UDim2.fromOffset(4, 22)
@@ -7258,6 +7948,7 @@
 			PatchSelCount = patchSelCount,
 			Minimized = false,
 			ScriptViewerOutput = svOutput,
+			ScriptViewerHighlight = svHighlight,
 			ScriptViewerStatus = svStatusLbl,
 			ScriptViewerName = svScriptNameLbl,
 			ScriptViewerScroll = svScroll,
@@ -7273,6 +7964,8 @@
 			TargetScroll = targetScroll,
 			TargetPropertyScroll = targetPropertyScroll,
 			TargetName = targetName,
+			TargetTreeFilter = treeFilter,
+			TargetTreeStatus = targetTreeStatus,
 			TargetTab = targetTabBtn,
 			DataPanel = dataPanel,
 			DataTab = dataTabBtn,
@@ -7351,7 +8044,7 @@
 		if type(tbl) ~= "table" then
 			self:_showNotification("Not a table: " .. type(tbl), "error")
 			return
-		end
+		end 
 		self.State._RootTable = tbl
 		self.State.CurrentTable = tbl
 		self.State.PathStack = {}
