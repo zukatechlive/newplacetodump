@@ -1,40 +1,16 @@
 -- by zuka
---
-local Workspace = game:GetService("Workspace")
-local ContentProvider = game:GetService("ContentProvider")
-local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-local HttpService = game:GetService("HttpService")
-local StarterGui = game:GetService("StarterGui")
-local CoreGui = game:GetService("CoreGui")
-local Lighting = game:GetService("Lighting")
-local Debris = game:GetService("Debris")
-local TeleportService = game:GetService("TeleportService")
-local TextChatService = game:GetService("TextChatService")
-local MarketplaceService = game:GetService("MarketplaceService")
-local PathfindingService = game:GetService("PathfindingService")
-local CollectionService = game:GetService("CollectionService")
-local LocalPlayer = Players.LocalPlayer
-local PlayerMouse = LocalPlayer:GetMouse()
-local CurrentCamera = Workspace.CurrentCamera
---
+
 
 local genv = getgenv()
 
 local SPOOF_NAME, SPOOF_VER = "real nigga", "niggasploit" -- funny name
+
 genv.identifyexecutor = function()
 	return SPOOF_NAME, SPOOF_VER
 end
-
-
 genv.getexecutorname = function()
 	return SPOOF_NAME, SPOOF_VER
 end
-
-
-
 genv.getexecutorversion = function()
 	return SPOOF_VER
 end
@@ -202,6 +178,25 @@ end
 
 print(string.format("Loaded in %.4f seconds.", os.clock() - clock))
 
+local Workspace = game:GetService("Workspace")
+local ContentProvider = game:GetService("ContentProvider")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+local StarterGui = game:GetService("StarterGui")
+local CoreGui = game:GetService("CoreGui")
+local Lighting = game:GetService("Lighting")
+local Debris = game:GetService("Debris")
+local TeleportService = game:GetService("TeleportService")
+local TextChatService = game:GetService("TextChatService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local PathfindingService = game:GetService("PathfindingService")
+local CollectionService = game:GetService("CollectionService")
+local LocalPlayer = Players.LocalPlayer
+local PlayerMouse = LocalPlayer:GetMouse()
+local CurrentCamera = Workspace.CurrentCamera
 do
 	local THEME = {
 		Title = "YOOOO",
@@ -46233,12 +46228,20 @@ local httpRequest = (syn and syn.request) or request or http_request or (http an
 
 -- ZukaTech custom CoreGui/topbar (bundled, no second script required)
 task.spawn(function()
+--[[// Custom Topbar + Player List + Chat + Escape Menu (overhauled) ]]
 if not game:IsLoaded() then
 	game.Loaded:Wait()
 end
 
 --[[ SERVICES ]]
-
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TextChatService = game:GetService("TextChatService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local StarterGui = game:GetService("StarterGui")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local Existing = PlayerGui:FindFirstChild("CustomTopbarSystem")
 if Existing then
 	Existing:Destroy()
@@ -46649,7 +46652,7 @@ local MenuButton = makeIconButton(LeftCluster, "MenuButton", "☰", 1)
 local ChatButton = makeIconButton(LeftCluster, "ChatButton", "💬", 2)
 
 --[[ CONSOLE BUTTON ]]
-local ConsoleButton = makeIconButton(RightCluster, "ConsoleButton", "C:/", 1)
+local ConsoleButton = makeIconButton(RightCluster, "ConsoleButton", "⌘", 1)
 
 --[[ PLAYER LIST BUTTON ]]
 local PlayerListButton = makeIconButton(RightCluster, "PlayerListButton", "👥", 2)
